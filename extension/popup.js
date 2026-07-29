@@ -334,6 +334,7 @@ function addAttachment(file) {
   const att = new Attachment(file);
   attachments.push(att);
   att.render();
+  return att;
 }
 
 function removeAttachment(id) {
