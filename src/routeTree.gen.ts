@@ -9,38 +9,137 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/public/validate-license'
+import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
+import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
+import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicValidateLicenseRoute =
+  ApiPublicValidateLicenseRouteImport.update({
+    id: '/api/public/validate-license',
+    path: '/api/public/validate-license',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicDeactivateDeviceRoute =
+  ApiPublicDeactivateDeviceRouteImport.update({
+    id: '/api/public/deactivate-device',
+    path: '/api/public/deactivate-device',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicActivateLicenseRoute =
+  ApiPublicActivateLicenseRouteImport.update({
+    id: '/api/public/activate-license',
+    path: '/api/public/activate-license',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
+  id: '/api/public/webhooks/sales',
+  path: '/api/public/webhooks/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/auth': typeof AuthRoute
+  '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
+  '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
+  '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/auth': typeof AuthRoute
+  '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
+  '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
+  '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/auth': typeof AuthRoute
+  '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
+  '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
+  '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/api/public/activate-license'
+    | '/api/public/deactivate-device'
+    | '/api/public/validate-license'
+    | '/api/public/webhooks/sales'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/api/public/activate-license'
+    | '/api/public/deactivate-device'
+    | '/api/public/validate-license'
+    | '/api/public/webhooks/sales'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/api/public/activate-license'
+    | '/api/public/deactivate-device'
+    | '/api/public/validate-license'
+    | '/api/public/webhooks/sales'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  AuthRoute: typeof AuthRoute
+  ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
+  ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
+  ApiPublicValidateLicenseRoute: typeof ApiPublicValidateLicenseRoute
+  ApiPublicWebhooksSalesRoute: typeof ApiPublicWebhooksSalesRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +147,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/validate-license': {
+      id: '/api/public/validate-license'
+      path: '/api/public/validate-license'
+      fullPath: '/api/public/validate-license'
+      preLoaderRoute: typeof ApiPublicValidateLicenseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/deactivate-device': {
+      id: '/api/public/deactivate-device'
+      path: '/api/public/deactivate-device'
+      fullPath: '/api/public/deactivate-device'
+      preLoaderRoute: typeof ApiPublicDeactivateDeviceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/activate-license': {
+      id: '/api/public/activate-license'
+      path: '/api/public/activate-license'
+      fullPath: '/api/public/activate-license'
+      preLoaderRoute: typeof ApiPublicActivateLicenseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/sales': {
+      id: '/api/public/webhooks/sales'
+      path: '/api/public/webhooks/sales'
+      fullPath: '/api/public/webhooks/sales'
+      preLoaderRoute: typeof ApiPublicWebhooksSalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  AuthRoute: AuthRoute,
+  ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
+  ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
+  ApiPublicValidateLicenseRoute: ApiPublicValidateLicenseRoute,
+  ApiPublicWebhooksSalesRoute: ApiPublicWebhooksSalesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
