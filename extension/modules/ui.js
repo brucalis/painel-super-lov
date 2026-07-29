@@ -548,7 +548,7 @@
       const names = window.LCA.attachments.map((a) => a.file.name);
       // Já existe comando em execução? O novo vai para a fila em vez de disputar.
       const qs = window.QueueManager.state;
-      if (window.LCA.isBusy || (qs.running && qs.current)) {
+      if (!window.QueueManager._executing && (window.LCA.isBusy || (qs.running && qs.current))) {
         const pos = await window.QueueManager.add({
           text: text.trim(),
           files: window.LCA.attachments.map((a) => a.file),

@@ -116,7 +116,12 @@
 
       const started = Date.now();
       const before = LCA.els.input.value;
-      await LCA.sendMessage(); // fluxo original, intacto
+      QueueManager._executing = true; // evita reenfileirar o próprio item
+      try {
+        await LCA.sendMessage(); // fluxo original, intacto
+      } finally {
+        QueueManager._executing = false;
+      }
       const failed = LCA.els.input.value === before && LCA.attachments.length > 0;
       if (failed) throw new Error(window.I18n.t('err_generic'));
 
