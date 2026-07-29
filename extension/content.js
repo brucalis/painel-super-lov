@@ -130,7 +130,11 @@
       },
       (res) => {
         if (chrome.runtime.lastError || !res || !res.success) {
-          flash('Não foi possível encaminhar para a SUPER LOVABLE. O texto foi mantido no campo.', true);
+          // Sem licença ativa o pedido é recusado; o texto continua no campo.
+          const reason = res && res.blocked
+            ? `${res.error} Abra a extensão para ativar seu acesso.`
+            : 'Não foi possível encaminhar para a SUPER LOVABLE. O texto foi mantido no campo.';
+          flash(reason, true);
           return;
         }
         clearValue(el); // limpa apenas após a confirmação
@@ -196,7 +200,8 @@
         flash('Abra o ícone da SUPER LOVABLE na barra do Chrome: prompt, fila, histórico e ferramentas ficam lá.');
         return;
       }
-      chrome.runtime.sendMessage({ action: 'superLovableTool', data: { tool: act, projectId: projectId() } }, () => {
+      chrome.runtime.sendMessage({ action: 'superLovableTool', data: { tool: act, projectId: projectId() } }, (res) => {
+        if (res && res.blocked) return flash(`${res.error} Abra a extensão para ativar seu acesso.`, true);
         flash('Pedido registrado. Abra a extensão para concluir esta ferramenta.');
       });
     });
