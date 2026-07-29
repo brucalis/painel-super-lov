@@ -467,3 +467,27 @@ async function sendMessage() {
     setBusy(false);
   }
 }
+
+// ---------- API pública para os módulos adicionais ----------
+// Exposição do estado já existente. Nada aqui altera autenticação, montagem
+// do body, geração de IDs, upload ou o endpoint de chat.
+window.LCA = {
+  get projectId() { return currentProjectId; },
+  get authToken() { return authToken; },
+  get cookieString() { return cookieString; },
+  get browserSessionId() { return browserSessionId; },
+  get isBusy() { return isBusy; },
+  attachments,
+  els,
+  Attachment,
+  apiHeaders,
+  addAttachment,
+  removeAttachment,
+  appendMessage,
+  setStatus,
+  setBusy,
+  sendMessage,
+  generateRandomId,
+  generateMessageId,
+  extractProjectId,
+};
