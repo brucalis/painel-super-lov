@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/public/validate-license'
 import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
 import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -46,6 +52,7 @@ const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
@@ -53,6 +60,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
@@ -61,6 +69,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
@@ -70,6 +79,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/validate-license'
@@ -77,6 +87,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/validate-license'
@@ -84,6 +95,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/validate-license'
@@ -92,6 +104,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
   ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
   ApiPublicValidateLicenseRoute: typeof ApiPublicValidateLicenseRoute
@@ -100,6 +113,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -140,6 +160,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
   ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
   ApiPublicValidateLicenseRoute: ApiPublicValidateLicenseRoute,
