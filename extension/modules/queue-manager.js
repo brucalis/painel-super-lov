@@ -16,8 +16,10 @@
   function persistable() {
     return items.map((i) => ({
       id: i.id, text: i.text, model: i.model, mode: i.mode, date: i.date,
-      attempts: i.attempts, status: i.status === 'enviando' ? 'pendente' : i.status,
+      attempts: i.attempts,
+      status: ['enviando', 'preparando', 'executando'].includes(i.status) ? 'pendente' : i.status,
       error: i.error, attachmentNames: i.attachmentNames || [],
+      origin: i.origin || 'popup', projectId: i.projectId || null,
     }));
   }
 
@@ -34,12 +36,13 @@
       await window.StorageManager.local.set(KEY, persistable());
       emit();
     },
-    async add({ text, files = [], model = 'auto', mode = 'prompt' }) {
+    async add({ text, files = [], model = 'auto', mode = 'prompt', origin = 'popup' }) {
       if (!text && files.length === 0) throw new Error('Nada para enfileirar.');
       const id = `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       items.push({
         id, text, model, mode, date: Date.now(), attempts: 0,
-        status: 'pendente', error: null,
+        status: 'aguardando', error: null, origin,
+        projectId: window.LCA?.projectId || null,
         attachmentNames: files.map((f) => f.name),
       });
       if (files.length) blobs.set(id, files);
@@ -106,6 +109,8 @@
         LCA.attachments.splice(0).forEach((a) => a.el?.remove());
         files.forEach((f) => window.AttachmentManager.add(f));
       }
+      item.status = 'preparando';
+      await QueueManager.save();
       item.status = 'enviando';
       await QueueManager.save();
 
@@ -115,7 +120,7 @@
       const failed = LCA.els.input.value === before && LCA.attachments.length > 0;
       if (failed) throw new Error(window.I18n.t('err_generic'));
 
-      item.status = 'aguardando conclusão';
+      item.status = 'executando';
       await QueueManager.save();
       await QueueManager.waitCompletion();
       item.status = 'concluído';
@@ -125,17 +130,80 @@
       await QueueManager.save();
     },
 
-    /** Sem sinal automático de término, usamos o modo seguro configurado. */
+    /** Consulta o content script na aba da Lovable. */
+    async probeState() {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !/lovable\.dev/.test(tab.url || '')) return null;
+        return await new Promise((resolve) => {
+          chrome.tabs.sendMessage(tab.id, { action: 'superLovableState' }, (res) => {
+            if (chrome.runtime.lastError) resolve(null);
+            else resolve(res || null);
+          });
+        });
+      } catch (e) {
+        return null;
+      }
+    },
+
+    /**
+     * Conclusão do item: detecção na página (padrão), tempo fixo ou confirmação.
+     * Só considera concluído com o estado estável por >= 2s.
+     */
     async waitCompletion() {
-      const mode = window.SettingsManager.get('queueCompletionMode');
+      const mode = window.SettingsManager.get('queueCompletionMode') || 'auto';
       const secs = Math.min(60, Math.max(3, Number(window.SettingsManager.get('queueInterval')) || 5));
+
       if (mode === 'manual') {
         window.NotificationManager.play('actionNeeded');
-        const ok = window.confirm('Confirme quando a Lovable terminar este item para continuar a fila.');
+        const ok = await QueueManager.askManual();
         if (!ok) throw new Error('Fila interrompida pelo usuário.');
-        return;
+        return { via: 'manual' };
       }
+
+      if (mode === 'auto') {
+        const deadline = Date.now() + 15 * 60 * 1000;
+        let sawRunning = false;
+        let probes = 0;
+        while (Date.now() < deadline && !paused) {
+          const st = await QueueManager.probeState();
+          if (!st) {
+            probes += 1;
+            if (probes > 3) {
+              // sem sinal do content script: cai no modo seguro
+              window.LCA.setStatus('Não foi possível confirmar automaticamente a conclusão. Usando o intervalo configurado.', 'warn', 6000);
+              await new Promise((r) => setTimeout(r, secs * 1000));
+              return { via: 'fallback' };
+            }
+          } else {
+            if (st.isRunning) sawRunning = true;
+            if (sawRunning && !st.isRunning && st.idleMs >= 2000) return { via: 'detect', signals: st.signals };
+          }
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        if (paused) throw new Error('Fila pausada.');
+        throw new Error('Tempo limite aguardando a conclusão na Lovable.');
+      }
+
       await new Promise((r) => setTimeout(r, secs * 1000));
+      return { via: 'timer' };
+    },
+
+    /** Confirmação manual via barra de ações da aba Fila (sem bloquear a UI). */
+    askManual() {
+      return new Promise((resolve) => {
+        QueueManager._manualResolve = resolve;
+        window.LCA.setStatus('Confirme a conclusão na aba Fila para continuar.', 'warn', 12000);
+        emit();
+      });
+    },
+    confirmManual() {
+      if (QueueManager._manualResolve) {
+        QueueManager._manualResolve(true);
+        QueueManager._manualResolve = null;
+        return true;
+      }
+      return false;
     },
 
     async run() {
@@ -144,7 +212,7 @@
       emit();
       try {
         while (!paused) {
-          const next = items.find((i) => i.status === 'pendente');
+          const next = items.find((i) => i.status === 'pendente' || i.status === 'aguardando');
           if (!next) break;
           current = next.id;
           try {
@@ -171,9 +239,9 @@
           const gap = Math.min(60, Math.max(3, Number(window.SettingsManager.get('queueInterval')) || 5));
           await new Promise((r) => setTimeout(r, gap * 1000));
         }
-        if (!paused && !items.some((i) => i.status === 'pendente')) {
+        if (!paused && !items.some((i) => ['pendente', 'aguardando'].includes(i.status))) {
           window.NotificationManager.play('queueDone');
-          window.NotificationManager.notify('Lovable Chat Assistant', 'Fila concluída.');
+          window.NotificationManager.notify('SUPER LOVABLE', 'Fila concluída.');
         }
       } finally {
         running = false;
@@ -181,6 +249,22 @@
         emit();
       }
     },
+  };
+
+  /**
+   * Regra pedida: se nada estiver em execução, envia agora pelo fluxo original;
+   * se já houver um comando em execução, o novo entra na fila automaticamente.
+   */
+  QueueManager.submitOrQueue = async function submitOrQueue({ text, files = [], model = 'auto', origin = 'popup' }) {
+    const busy = window.LCA.isBusy || running || !!current;
+    if (!busy) {
+      await window.LCA.sendMessage();
+      return { sent: true };
+    }
+    const id = await QueueManager.add({ text, files, model, origin });
+    const position = items.findIndex((i) => i.id === id) + 1;
+    if (!running && !paused) QueueManager.run();
+    return { sent: false, queued: true, position };
   };
 
   window.QueueManager = QueueManager;
