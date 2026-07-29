@@ -147,6 +147,54 @@ export type Database = {
           },
         ]
       }
+      license_product_mappings: {
+        Row: {
+          created_at: string
+          device_limit: number
+          duration_days: number | null
+          ensinaflix_offer_id: string | null
+          ensinaflix_offer_public_id: string | null
+          ensinaflix_product_id: string | null
+          id: string
+          is_active: boolean
+          is_lifetime: boolean
+          plan_code: string
+          plan_name: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_limit?: number
+          duration_days?: number | null
+          ensinaflix_offer_id?: string | null
+          ensinaflix_offer_public_id?: string | null
+          ensinaflix_product_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_lifetime?: boolean
+          plan_code: string
+          plan_name: string
+          provider?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_limit?: number
+          duration_days?: number | null
+          ensinaflix_offer_id?: string | null
+          ensinaflix_offer_public_id?: string | null
+          ensinaflix_product_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_lifetime?: boolean
+          plan_code?: string
+          plan_name?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       licenses: {
         Row: {
           created_at: string
@@ -387,6 +435,80 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          created_at: string
+          customer_email: string | null
+          duration_ms: number | null
+          environment: string
+          event_key: string
+          event_label: string | null
+          event_type: string | null
+          http_status: number | null
+          id: string
+          is_test: boolean
+          license_id: string | null
+          order_id: string | null
+          payload: Json | null
+          processed_at: string | null
+          processing_error: string | null
+          processing_status: string
+          provider: string
+          received_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_email?: string | null
+          duration_ms?: number | null
+          environment?: string
+          event_key: string
+          event_label?: string | null
+          event_type?: string | null
+          http_status?: number | null
+          id?: string
+          is_test?: boolean
+          license_id?: string | null
+          order_id?: string | null
+          payload?: Json | null
+          processed_at?: string | null
+          processing_error?: string | null
+          processing_status?: string
+          provider?: string
+          received_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_email?: string | null
+          duration_ms?: number | null
+          environment?: string
+          event_key?: string
+          event_label?: string | null
+          event_type?: string | null
+          http_status?: number | null
+          id?: string
+          is_test?: boolean
+          license_id?: string | null
+          order_id?: string | null
+          payload?: Json | null
+          processed_at?: string | null
+          processing_error?: string | null
+          processing_status?: string
+          provider?: string
+          received_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_events_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "licenses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
