@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LicensesTab } from "@/components/admin/licenses-tab";
 import { CustomersTab } from "@/components/admin/customers-tab";
 import { WebhooksTab } from "@/components/admin/webhooks-tab";
+import { EnsinaflixTab } from "@/components/admin/ensinaflix-tab";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -101,6 +102,7 @@ function AdminPage() {
           <TabsTrigger value="licenses">Licenças</TabsTrigger>
           <TabsTrigger value="customers">Clientes</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+          <TabsTrigger value="ensinaflix">Ensinaflix</TabsTrigger>
         </TabsList>
         <TabsContent value="licenses">
           <LicensesTab />
@@ -110,6 +112,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="webhooks">
           <WebhooksTab />
+        </TabsContent>
+        <TabsContent value="ensinaflix">
+          <EnsinaflixTab />
         </TabsContent>
       </Tabs>
     </main>

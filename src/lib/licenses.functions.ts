@@ -68,3 +68,31 @@ export const generateWebhookSecret = createServerFn({ method: "POST" })
     const { randomBytes } = await import("crypto");
     return { value: randomBytes(24).toString("hex") };
   });
+
+export const rotateEnsinaflixSecret = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .handler(async () => {
+    const { randomBytes } = await import("crypto");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const value = randomBytes(24).toString("hex");
+    await supabaseAdmin
+      .from("app_settings")
+      .upsert({ key: "ensinaflix_webhook_secret", value, updated_at: new Date().toISOString() });
+    return { value };
+  });
+
+export const getEnsinaflixSecretStatus = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .handler(async () => {
+    const { getSetting } = await import("./license.server");
+    const stored = await getSetting("ensinaflix_webhook_secret");
+    const env =
+      process.env.ENSAINAFLIX_WEBHOOK_SECRET || process.env.ENSINAFLIX_WEBHOOK_SECRET || "";
+    const value = env || stored || "";
+    return {
+      configured: !!value,
+      source: env ? "env" : stored ? "painel" : null,
+      hint: value ? `${value.slice(0, 4)}••••${value.slice(-4)}` : null,
+      full: env ? null : stored,
+    };
+  });

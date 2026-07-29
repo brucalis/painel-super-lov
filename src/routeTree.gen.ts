@@ -16,6 +16,7 @@ import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/publi
 import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
 import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
+import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -55,6 +56,12 @@ const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
   path: '/api/public/webhooks/sales',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWebhooksEnsinaflixRoute =
+  ApiPublicWebhooksEnsinaflixRouteImport.update({
+    id: '/api/public/webhooks/ensinaflix',
+    path: '/api/public/webhooks/ensinaflix',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
   '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
 }
 export interface FileRoutesByTo {
@@ -72,6 +80,7 @@ export interface FileRoutesByTo {
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
   '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
 }
 export interface FileRoutesById {
@@ -82,6 +91,7 @@ export interface FileRoutesById {
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
   '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
 }
 export interface FileRouteTypes {
@@ -93,6 +103,7 @@ export interface FileRouteTypes {
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/validate-license'
+    | '/api/public/webhooks/ensinaflix'
     | '/api/public/webhooks/sales'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -102,6 +113,7 @@ export interface FileRouteTypes {
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/validate-license'
+    | '/api/public/webhooks/ensinaflix'
     | '/api/public/webhooks/sales'
   id:
     | '__root__'
@@ -111,6 +123,7 @@ export interface FileRouteTypes {
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/validate-license'
+    | '/api/public/webhooks/ensinaflix'
     | '/api/public/webhooks/sales'
   fileRoutesById: FileRoutesById
 }
@@ -121,6 +134,7 @@ export interface RootRouteChildren {
   ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
   ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
   ApiPublicValidateLicenseRoute: typeof ApiPublicValidateLicenseRoute
+  ApiPublicWebhooksEnsinaflixRoute: typeof ApiPublicWebhooksEnsinaflixRoute
   ApiPublicWebhooksSalesRoute: typeof ApiPublicWebhooksSalesRoute
 }
 
@@ -175,6 +189,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksSalesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webhooks/ensinaflix': {
+      id: '/api/public/webhooks/ensinaflix'
+      path: '/api/public/webhooks/ensinaflix'
+      fullPath: '/api/public/webhooks/ensinaflix'
+      preLoaderRoute: typeof ApiPublicWebhooksEnsinaflixRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -185,6 +206,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
   ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
   ApiPublicValidateLicenseRoute: ApiPublicValidateLicenseRoute,
+  ApiPublicWebhooksEnsinaflixRoute: ApiPublicWebhooksEnsinaflixRoute,
   ApiPublicWebhooksSalesRoute: ApiPublicWebhooksSalesRoute,
 }
 export const routeTree = rootRouteImport
