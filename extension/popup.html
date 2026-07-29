@@ -6,6 +6,33 @@
     <title>SUPER LOVABLE</title>
   </head>
   <body>
+    <!-- ============ CAMADA DE ATIVAÇÃO (antes da interface) ============ -->
+    <div class="gate" id="licenseGate" role="dialog" aria-label="Ativação de acesso">
+      <div class="gate-box">
+        <div class="gate-logo"><span class="logo" aria-hidden="true">SL</span><span class="gate-brand">SUPER LOVABLE</span></div>
+        <h1 class="gate-title">Ative seu acesso</h1>
+        <p class="gate-text">
+          Informe a chave recebida na sua compra para liberar os recursos da SUPER LOVABLE
+          neste dispositivo. Seus dados, histórico e configurações continuam salvos.
+        </p>
+        <label class="gate-field">
+          <span>Chave de acesso</span>
+          <input id="licenseKeyInput" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
+                 maxlength="24" placeholder="LVA-XXXX-XXXX-XXXX-XXXX" aria-label="Chave de acesso" />
+        </label>
+        <button class="gate-btn" id="activateBtn">Ativar acesso</button>
+        <div class="gate-links">
+          <button class="linkish" id="whereKey">Onde encontro minha chave?</button>
+          <button class="linkish" id="gateHelp">Preciso de ajuda</button>
+        </div>
+        <div class="gate-hint" id="whereKeyBox" hidden>
+          A chave chega por e-mail logo após a compra, no formato LVA-XXXX-XXXX-XXXX-XXXX.
+          Verifique também a caixa de promoções e o spam. Você pode colar com ou sem hífens.
+        </div>
+        <div class="gate-status" id="gateStatus" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+
     <!-- ================= CABEÇALHO ================= -->
     <header class="header">
       <div class="brand">
@@ -144,6 +171,27 @@
 
       <!-- ================= AJUSTES ================= -->
       <section class="panel" id="panel-settings" role="tabpanel" aria-label="Ajustes">
+        <div class="section" id="licenseCard">
+          <div class="section-title">Licença</div>
+          <div class="lic-warning" id="licWarning" hidden></div>
+          <div class="lic-grid">
+            <div class="lic-row"><span class="lic-label">Plano</span><span class="lic-value" id="licPlan">—</span></div>
+            <div class="lic-row"><span class="lic-label">Status</span><span class="lic-value" id="licStatus">—</span></div>
+            <div class="lic-row"><span class="lic-label">Validade</span><span class="lic-value" id="licExpiry">—</span></div>
+            <div class="lic-row"><span class="lic-label">Dispositivo</span><span class="lic-value" id="licDevices">—</span></div>
+            <div class="lic-row"><span class="lic-label">Última validação</span><span class="lic-value" id="licLast">—</span></div>
+          </div>
+          <div class="toolbar">
+            <button class="ghost" id="licValidate">Validar agora</button>
+            <button class="ghost" id="licChange">Trocar chave</button>
+            <button class="ghost danger" id="licDeactivate">Desativar neste dispositivo</button>
+            <button class="ghost" id="licSupport">Suporte</button>
+          </div>
+          <label class="fld">Servidor de licenças
+            <input type="text" id="licServer" placeholder="https://licencas.superlovable.app" />
+          </label>
+          <div class="lic-msg" id="licMsg" role="status" aria-live="polite"></div>
+        </div>
         <div class="section">
           <div class="section-title">Dispositivo</div>
           <div class="toolbar">
@@ -252,6 +300,8 @@
       </div>
     </div>
 
+    <script src="modules/license-client.js"></script>
+    <script src="modules/license-ui.js"></script>
     <script src="modules/storage-manager.js"></script>
     <script src="modules/device-id.js"></script>
     <script src="modules/i18n.js"></script>
