@@ -3,97 +3,111 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="stylesheet" href="popup.css" />
-    <title>Lovable Chat Assistant</title>
+    <title>SUPER LOVABLE</title>
   </head>
   <body>
-    <!-- A. Cabeçalho (fixo) -->
+    <!-- ================= CABEÇALHO ================= -->
     <header class="header">
       <div class="brand">
-        <span class="dot"></span>
-        <span>Lovable Chat Assistant</span>
-        <span class="shield-badge" id="shieldBadge" hidden title="Modo Escudo ativo">🛡️</span>
+        <span class="logo" aria-hidden="true">SL</span>
+        <span class="name">SUPER LOVABLE</span>
+        <span class="dot" id="connDot" title="Estado da conexão"></span>
       </div>
-      <!-- B. Projeto sincronizado -->
-      <div class="project" id="projectLabel">Detectando projeto…</div>
+
+      <div class="project-row">
+        <span class="project" id="projectLabel">Detectando projeto…</span>
+        <span class="pid" id="projectShort" title="Identificador do projeto atualmente aberto na Lovable.">—</span>
+        <button class="chip-btn" id="copyProject" title="Copiar ID completo do projeto" aria-label="Copiar ID completo do projeto">⧉</button>
+      </div>
+
+      <div class="indicators" aria-live="polite">
+        <span class="ind" id="indProject">Projeto</span>
+        <span class="ind on" id="indActive">Extensão ativa</span>
+        <span class="ind" id="indQueue">Fila parada</span>
+        <span class="ind" id="indSound">Som</span>
+        <span class="ind" id="indShield">Escudo</span>
+      </div>
+
       <nav class="tabs" role="tablist">
         <button class="tab active" data-tab="prompt" role="tab" aria-selected="true" data-i18n="tab_prompt">Prompt</button>
         <button class="tab" data-tab="queue" role="tab" aria-selected="false" data-i18n="tab_queue">Fila</button>
         <button class="tab" data-tab="history" role="tab" aria-selected="false" data-i18n="tab_history">Histórico</button>
         <button class="tab" data-tab="tools" role="tab" aria-selected="false" data-i18n="tab_tools">Ferramentas</button>
-        <button class="tab" data-tab="settings" role="tab" aria-selected="false" data-i18n="tab_settings">Config</button>
+        <button class="tab" data-tab="settings" role="tab" aria-selected="false" data-i18n="tab_settings">Ajustes</button>
       </nav>
     </header>
 
     <div class="body">
       <!-- ================= PROMPT ================= -->
-      <section class="panel active" id="panel-prompt" role="tabpanel">
-        <!-- C. Seletor de modelo -->
-        <div class="row">
-          <span class="row-label" data-i18n="model">Modelo</span>
+      <section class="panel active" id="panel-prompt" role="tabpanel" aria-label="Prompt">
+        <div class="prompt-scroll">
+          <div class="row">
+            <span class="row-label" data-i18n="model">Modelo</span>
+          </div>
           <div class="model-picker" id="modelPicker"></div>
-        </div>
 
-        <!-- I(prompt). Conversa -->
-        <div class="messages" id="messages">
-          <div class="empty" id="emptyState">
-            Abra um projeto em lovable.dev e comece a conversar.
+          <div class="messages" id="messages">
+            <div class="empty" id="emptyState">
+              Abra um projeto em lovable.dev e comece a conversar.
+            </div>
+          </div>
+
+          <section class="files" id="filePreviews" aria-live="polite"></section>
+
+          <div class="recorder" id="recorderPanel">
+            <span class="rec-dot"></span>
+            <span id="recTime">00:00</span>
+            <span class="rec-state" id="recState"></span>
+            <button class="chip-btn" id="recPause" aria-label="Pausar ou continuar gravação">❚❚</button>
+            <button class="chip-btn" id="recStop" aria-label="Finalizar gravação">■</button>
+            <button class="chip-btn" id="recCancel" aria-label="Cancelar gravação">✕</button>
+            <button class="chip-btn" id="recHelp" hidden aria-label="Ver como liberar o microfone">Ver como liberar</button>
+          </div>
+
+          <div class="section">
+            <div class="section-title" data-i18n="quick_actions">Atalhos rápidos</div>
+            <div class="qa-list" id="quickActions"></div>
           </div>
         </div>
 
-        <!-- G. Atalhos rápidos -->
-        <div class="section">
-          <div class="section-title" data-i18n="quick_actions">Atalhos rápidos</div>
-          <div class="qa-list" id="quickActions"></div>
-        </div>
+        <!-- Área de escrita fixa -->
+        <div class="composer-dock">
+          <div class="composer">
+            <label class="clip" title="Anexar arquivos (Ctrl+U)" aria-label="Anexar arquivos">
+              📎
+              <input type="file" id="fileInput" multiple hidden
+                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,text/plain,text/markdown,application/json,text/csv,application/zip,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/webm,audio/ogg,audio/aac" />
+            </label>
+            <button class="clip" id="recordBtn" aria-label="Gravar áudio (Ctrl+M)" title="Gravar áudio (Ctrl+M)">🎙️</button>
+            <textarea id="messageInput" rows="1" placeholder="Descreva o que deseja criar ou alterar…" aria-label="Mensagem para a Lovable"></textarea>
+            <button id="sendBtn" class="send" title="Enviar agora (Ctrl+Enter)" aria-label="Enviar agora">➤</button>
+          </div>
 
-        <!-- E. Anexos -->
-        <section class="files" id="filePreviews" aria-live="polite"></section>
-
-        <!-- Gravação de voz -->
-        <div class="recorder" id="recorderPanel">
-          <span class="rec-dot"></span>
-          <span id="recTime">00:00</span>
-          <span class="rec-state" id="recState"></span>
-          <button class="chip-btn" id="recPause" aria-label="Pausar ou continuar gravação">❚❚</button>
-          <button class="chip-btn" id="recStop" aria-label="Finalizar gravação">■</button>
-          <button class="chip-btn" id="recCancel" aria-label="Cancelar gravação">✕</button>
-        </div>
-
-        <!-- D. Área de prompt -->
-        <div class="composer">
-          <label class="clip" title="Anexar arquivos (Ctrl+U)">
-            📎
-            <input type="file" id="fileInput" multiple hidden
-              accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,text/plain,text/markdown,application/json,text/csv,application/zip,audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg,audio/aac" />
-          </label>
-          <button class="clip" id="recordBtn" aria-label="Gravar áudio (Ctrl+M)" title="Gravar áudio (Ctrl+M)">🎙️</button>
-          <textarea id="messageInput" rows="1" placeholder="Escreva sua mensagem…" aria-label="Mensagem"></textarea>
-          <button id="sendBtn" class="send" title="Enviar agora (Ctrl+Enter)" aria-label="Enviar agora">➤</button>
-        </div>
-
-        <div class="composer-actions">
-          <select id="improveMode" aria-label="Modo de melhoria">
-            <option value="clareza">Clareza</option>
-            <option value="detalhes">Mais detalhes</option>
-            <option value="curto">Mais curto</option>
-            <option value="tecnico">Técnico</option>
-            <option value="design">Design/UI</option>
-            <option value="bugs">Correção de bugs</option>
-            <option value="seo">SEO</option>
-            <option value="responsivo">Responsividade</option>
-            <option value="acessibilidade">Acessibilidade</option>
-            <option value="seguranca">Segurança</option>
-          </select>
-          <button class="ghost" id="improveBtn" aria-label="Melhorar prompt">✨ <span data-i18n="improve">Melhorar prompt</span></button>
-          <button class="ghost" id="queueBtn" aria-label="Adicionar à fila (Ctrl+Shift+Enter)">＋ <span data-i18n="add_queue">Adicionar à fila</span></button>
+          <div class="composer-actions">
+            <select id="improveMode" aria-label="Modo de melhoria do prompt">
+              <option value="clareza">Mais claro</option>
+              <option value="detalhes">Mais detalhado</option>
+              <option value="curto">Mais curto</option>
+              <option value="tecnico">Técnico</option>
+              <option value="design">UI e design</option>
+              <option value="bugs">Correção</option>
+              <option value="seo">SEO</option>
+              <option value="responsivo">Responsividade</option>
+            </select>
+            <button class="ghost" id="improveBtn" aria-label="Melhorar prompt">✨ <span data-i18n="improve">Melhorar prompt</span></button>
+            <button class="ghost" id="queueBtn" aria-label="Adicionar à fila (Ctrl+Shift+Enter)">＋ <span data-i18n="add_queue">Adicionar à fila</span></button>
+            <span class="sending-dot" id="sendingDot" title="Processando"></span>
+            <span class="char-count" id="charCount">0</span>
+          </div>
         </div>
       </section>
 
       <!-- ================= FILA ================= -->
-      <section class="panel" id="panel-queue" role="tabpanel">
+      <section class="panel" id="panel-queue" role="tabpanel" aria-label="Fila">
         <div class="toolbar">
           <button class="ghost" id="queueRun">▶ Executar</button>
           <button class="ghost" id="queuePause">❚❚ Pausar</button>
+          <button class="ghost" id="queueConfirm">✓ Confirmar conclusão</button>
           <button class="ghost" id="queueClearDone">Limpar concluídos</button>
           <button class="ghost danger" id="queueClearAll">Limpar tudo</button>
         </div>
@@ -101,7 +115,7 @@
       </section>
 
       <!-- ================= HISTÓRICO ================= -->
-      <section class="panel" id="panel-history" role="tabpanel">
+      <section class="panel" id="panel-history" role="tabpanel" aria-label="Histórico">
         <div class="toolbar">
           <input id="historySearch" type="search" placeholder="Buscar…" aria-label="Buscar no histórico" />
           <label class="chk"><input type="checkbox" id="historyProjectFilter" /> Somente este projeto</label>
@@ -111,14 +125,14 @@
       </section>
 
       <!-- ================= FERRAMENTAS ================= -->
-      <section class="panel" id="panel-tools" role="tabpanel">
+      <section class="panel" id="panel-tools" role="tabpanel" aria-label="Ferramentas">
         <div class="tool-grid">
-          <button class="tool" id="toolDownload">⬇️ Baixar todos os arquivos</button>
-          <button class="tool" id="toolCreateProject">✨ Criar projeto na Lovable</button>
-          <button class="tool" id="toolCloud">☁️ Ativar Lovable Cloud</button>
-          <button class="tool" id="toolWatermark">🏷️ Remover marca d’água</button>
-          <button class="tool" id="toolShield">🛡️ Ativar Escudo</button>
-          <button class="tool" id="toolShieldLog">📋 Registro técnico</button>
+          <button class="tool" id="toolDownload" title="Baixa os arquivos do projeto conectado em um ZIP">⬇️ Baixar projeto</button>
+          <button class="tool" id="toolCreateProject" title="Abre o fluxo oficial de criação de projeto">✨ Criar novo projeto</button>
+          <button class="tool" id="toolCloud" title="Prepara a ativação do Lovable Cloud">☁️ Ativar Lovable Cloud</button>
+          <button class="tool" id="toolWatermark" title="Procura marca removível no projeto">🏷️ Remover marca</button>
+          <button class="tool" id="toolShield" title="Protege contra envios duplicados e perdas">🛡️ Ativar Escudo</button>
+          <button class="tool" id="toolShieldLog" title="Registro técnico local (sem dados sensíveis)">📋 Registro técnico</button>
         </div>
         <pre class="tool-output" id="toolOutput" aria-live="polite"></pre>
         <div class="section">
@@ -128,8 +142,16 @@
         </div>
       </section>
 
-      <!-- ================= CONFIGURAÇÕES ================= -->
-      <section class="panel" id="panel-settings" role="tabpanel">
+      <!-- ================= AJUSTES ================= -->
+      <section class="panel" id="panel-settings" role="tabpanel" aria-label="Ajustes">
+        <div class="section">
+          <div class="section-title">Dispositivo</div>
+          <div class="toolbar">
+            <span class="pid" id="deviceId">SLD-••••</span>
+            <button class="ghost" id="copyDevice">Copiar ID do dispositivo</button>
+          </div>
+        </div>
+        <label class="chk"><input type="checkbox" id="setNative" /> Usar a SUPER LOVABLE no campo nativo</label>
         <label class="chk"><input type="checkbox" id="setSounds" /> Sons</label>
         <label class="chk"><input type="checkbox" id="setNotifications" /> Notificações do Chrome</label>
         <label class="chk"><input type="checkbox" id="setShield" /> Modo Escudo</label>
@@ -140,6 +162,7 @@
         </label>
         <label class="fld">Conclusão do item da fila
           <select id="setCompletion">
+            <option value="auto">Detectar na página da Lovable</option>
             <option value="timer">Aguardar tempo configurado</option>
             <option value="manual">Pedir confirmação manual</option>
           </select>
@@ -149,15 +172,10 @@
         </label>
         <label class="fld">Modo padrão de melhoria
           <select id="setMode">
-            <option value="clareza">Clareza</option>
-            <option value="detalhes">Mais detalhes</option>
+            <option value="clareza">Mais claro</option>
+            <option value="detalhes">Mais detalhado</option>
             <option value="curto">Mais curto</option>
             <option value="tecnico">Técnico</option>
-          </select>
-        </label>
-        <label class="fld">Modelo padrão
-          <select id="setModel">
-            <option value="auto">Automático</option>
           </select>
         </label>
         <label class="fld">Idioma
@@ -167,8 +185,8 @@
             <option value="es">Español</option>
           </select>
         </label>
-        <label class="fld">Endpoint de melhoria de prompt (opcional)
-          <input type="url" id="setEnhancer" placeholder="https://…" />
+        <label class="fld">Backend de IA (opcional, sem chaves na extensão)
+          <input type="url" id="setAiEndpoint" placeholder="https://seu-backend/ai" />
         </label>
         <label class="fld">Endpoint de transcrição (opcional)
           <input type="url" id="setTranscription" placeholder="https://…" />
@@ -185,7 +203,6 @@
       </section>
     </div>
 
-    <!-- J. Barra de status -->
     <div class="statusbar idle" id="statusBar" role="status" aria-live="polite"></div>
     <div class="status" id="status"></div>
 
@@ -207,7 +224,7 @@
 
     <div class="modal" id="createModal" aria-hidden="true" role="dialog" aria-label="Criar projeto">
       <div class="modal-box">
-        <h3>Criar projeto na Lovable</h3>
+        <h3>Criar novo projeto</h3>
         <label class="fld">Nome<input id="createName" type="text" /></label>
         <label class="fld">Descrição<input id="createDesc" type="text" /></label>
         <label class="fld">Prompt inicial<textarea id="createPrompt" rows="4"></textarea></label>
@@ -215,14 +232,31 @@
         <pre class="tool-output" id="createOutput"></pre>
         <div class="toolbar">
           <button class="ghost" id="createConfirm">Criar</button>
+          <button class="ghost" id="createCopyPrompt">Copiar prompt</button>
           <button class="ghost danger" id="createCancel">Fechar</button>
         </div>
       </div>
     </div>
 
+    <div class="modal" id="micModal" aria-hidden="true" role="dialog" aria-label="Liberar microfone">
+      <div class="modal-box">
+        <h3>Como liberar o microfone</h3>
+        <pre>1. Clique no ícone de cadeado/permissões ao lado do endereço no Chrome.
+2. Localize "Microfone" e escolha "Permitir".
+3. Feche e abra novamente a SUPER LOVABLE.
+4. Se o site pedir de novo, aceite a solicitação do navegador.</pre>
+        <div class="toolbar">
+          <button class="ghost" id="micOpenSettings">Abrir permissões do Chrome</button>
+          <button class="ghost danger" id="micClose">Fechar</button>
+        </div>
+      </div>
+    </div>
+
     <script src="modules/storage-manager.js"></script>
+    <script src="modules/device-id.js"></script>
     <script src="modules/i18n.js"></script>
     <script src="modules/settings-manager.js"></script>
+    <script src="modules/ai-provider-client.js"></script>
     <script src="modules/notification-manager.js"></script>
     <script src="modules/shield-manager.js"></script>
     <script src="modules/attachment-manager.js"></script>
