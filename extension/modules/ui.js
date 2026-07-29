@@ -444,7 +444,7 @@
       const on = window.ShieldManager.active;
       shieldBtn.textContent = on ? '🛡️ Escudo ativo' : '🛡️ Ativar Escudo';
       shieldBtn.classList.toggle('on', on);
-      $('shieldBadge').hidden = !on;
+      paintHeader();
     };
     shieldBtn.addEventListener('click', async () => { await window.ShieldManager.toggle(); paintShield(); });
     paintShield();
