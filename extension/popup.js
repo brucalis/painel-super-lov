@@ -58,11 +58,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   els.status = document.getElementById('status');
   els.project = document.getElementById('projectLabel');
 
-  els.send.addEventListener('click', sendMessage);
+  // Mantém o mesmo envio; usa o adaptador (Escudo/histórico/sons) quando existir.
+  const dispatchSend = () => (window.LCA?.sendMessage || sendMessage)();
+  els.send.addEventListener('click', dispatchSend);
   els.input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      dispatchSend();
     }
   });
   els.input.addEventListener('input', () => {
@@ -70,11 +72,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.input.style.height = Math.min(els.input.scrollHeight, 96) + 'px';
   });
   els.fileInput.addEventListener('change', (e) => {
-    Array.from(e.target.files || []).forEach(addAttachment);
+    // Validação nova (tipos/limites) quando disponível; caso contrário, fluxo original.
+    const add = window.AttachmentManager
+      ? (f) => window.AttachmentManager.add(f)
+      : addAttachment;
+    Array.from(e.target.files || []).forEach(add);
     e.target.value = '';
   });
 
   await init();
+
+  // Módulos adicionais (não interferem no fluxo de envio original)
+  try {
+    await window.LCA_UI?.boot();
+  } catch (err) {
+    console.error('Falha ao iniciar módulos adicionais:', err);
+    setStatus(`Módulos adicionais indisponíveis: ${err.message}`, 'error', 6000);
+  }
 });
 
 function setStatus(text, kind = 'info', ms = 4000) {
@@ -322,6 +336,7 @@ function addAttachment(file) {
   const att = new Attachment(file);
   attachments.push(att);
   att.render();
+  return att;
 }
 
 function removeAttachment(id) {
@@ -452,3 +467,27 @@ async function sendMessage() {
     setBusy(false);
   }
 }
+
+// ---------- API pública para os módulos adicionais ----------
+// Exposição do estado já existente. Nada aqui altera autenticação, montagem
+// do body, geração de IDs, upload ou o endpoint de chat.
+window.LCA = {
+  get projectId() { return currentProjectId; },
+  get authToken() { return authToken; },
+  get cookieString() { return cookieString; },
+  get browserSessionId() { return browserSessionId; },
+  get isBusy() { return isBusy; },
+  attachments,
+  els,
+  Attachment,
+  apiHeaders,
+  addAttachment,
+  removeAttachment,
+  appendMessage,
+  setStatus,
+  setBusy,
+  sendMessage,
+  generateRandomId,
+  generateMessageId,
+  extractProjectId,
+};

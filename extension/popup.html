@@ -6,33 +6,236 @@
     <title>Lovable Chat Assistant</title>
   </head>
   <body>
+    <!-- A. Cabeçalho (fixo) -->
     <header class="header">
       <div class="brand">
         <span class="dot"></span>
         <span>Lovable Chat Assistant</span>
+        <span class="shield-badge" id="shieldBadge" hidden title="Modo Escudo ativo">🛡️</span>
       </div>
+      <!-- B. Projeto sincronizado -->
       <div class="project" id="projectLabel">Detectando projeto…</div>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="prompt" role="tab" aria-selected="true" data-i18n="tab_prompt">Prompt</button>
+        <button class="tab" data-tab="queue" role="tab" aria-selected="false" data-i18n="tab_queue">Fila</button>
+        <button class="tab" data-tab="history" role="tab" aria-selected="false" data-i18n="tab_history">Histórico</button>
+        <button class="tab" data-tab="tools" role="tab" aria-selected="false" data-i18n="tab_tools">Ferramentas</button>
+        <button class="tab" data-tab="settings" role="tab" aria-selected="false" data-i18n="tab_settings">Config</button>
+      </nav>
     </header>
 
-    <main class="messages" id="messages">
-      <div class="empty" id="emptyState">
-        Abra um projeto em lovable.dev e comece a conversar.
-      </div>
-    </main>
+    <div class="body">
+      <!-- ================= PROMPT ================= -->
+      <section class="panel active" id="panel-prompt" role="tabpanel">
+        <!-- C. Seletor de modelo -->
+        <div class="row">
+          <span class="row-label" data-i18n="model">Modelo</span>
+          <div class="model-picker" id="modelPicker"></div>
+        </div>
 
-    <section class="files" id="filePreviews"></section>
+        <!-- I(prompt). Conversa -->
+        <div class="messages" id="messages">
+          <div class="empty" id="emptyState">
+            Abra um projeto em lovable.dev e comece a conversar.
+          </div>
+        </div>
 
-    <footer class="composer">
-      <label class="clip" title="Anexar arquivos">
-        📎
-        <input type="file" id="fileInput" multiple hidden />
-      </label>
-      <textarea id="messageInput" rows="1" placeholder="Escreva sua mensagem…"></textarea>
-      <button id="sendBtn" class="send" title="Enviar">➤</button>
-    </footer>
+        <!-- G. Atalhos rápidos -->
+        <div class="section">
+          <div class="section-title" data-i18n="quick_actions">Atalhos rápidos</div>
+          <div class="qa-list" id="quickActions"></div>
+        </div>
 
+        <!-- E. Anexos -->
+        <section class="files" id="filePreviews" aria-live="polite"></section>
+
+        <!-- Gravação de voz -->
+        <div class="recorder" id="recorderPanel">
+          <span class="rec-dot"></span>
+          <span id="recTime">00:00</span>
+          <span class="rec-state" id="recState"></span>
+          <button class="chip-btn" id="recPause" aria-label="Pausar ou continuar gravação">❚❚</button>
+          <button class="chip-btn" id="recStop" aria-label="Finalizar gravação">■</button>
+          <button class="chip-btn" id="recCancel" aria-label="Cancelar gravação">✕</button>
+        </div>
+
+        <!-- D. Área de prompt -->
+        <div class="composer">
+          <label class="clip" title="Anexar arquivos (Ctrl+U)">
+            📎
+            <input type="file" id="fileInput" multiple hidden
+              accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,text/plain,text/markdown,application/json,text/csv,application/zip,audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg,audio/aac" />
+          </label>
+          <button class="clip" id="recordBtn" aria-label="Gravar áudio (Ctrl+M)" title="Gravar áudio (Ctrl+M)">🎙️</button>
+          <textarea id="messageInput" rows="1" placeholder="Escreva sua mensagem…" aria-label="Mensagem"></textarea>
+          <button id="sendBtn" class="send" title="Enviar agora (Ctrl+Enter)" aria-label="Enviar agora">➤</button>
+        </div>
+
+        <div class="composer-actions">
+          <select id="improveMode" aria-label="Modo de melhoria">
+            <option value="clareza">Clareza</option>
+            <option value="detalhes">Mais detalhes</option>
+            <option value="curto">Mais curto</option>
+            <option value="tecnico">Técnico</option>
+            <option value="design">Design/UI</option>
+            <option value="bugs">Correção de bugs</option>
+            <option value="seo">SEO</option>
+            <option value="responsivo">Responsividade</option>
+            <option value="acessibilidade">Acessibilidade</option>
+            <option value="seguranca">Segurança</option>
+          </select>
+          <button class="ghost" id="improveBtn" aria-label="Melhorar prompt">✨ <span data-i18n="improve">Melhorar prompt</span></button>
+          <button class="ghost" id="queueBtn" aria-label="Adicionar à fila (Ctrl+Shift+Enter)">＋ <span data-i18n="add_queue">Adicionar à fila</span></button>
+        </div>
+      </section>
+
+      <!-- ================= FILA ================= -->
+      <section class="panel" id="panel-queue" role="tabpanel">
+        <div class="toolbar">
+          <button class="ghost" id="queueRun">▶ Executar</button>
+          <button class="ghost" id="queuePause">❚❚ Pausar</button>
+          <button class="ghost" id="queueClearDone">Limpar concluídos</button>
+          <button class="ghost danger" id="queueClearAll">Limpar tudo</button>
+        </div>
+        <div id="queueList"></div>
+      </section>
+
+      <!-- ================= HISTÓRICO ================= -->
+      <section class="panel" id="panel-history" role="tabpanel">
+        <div class="toolbar">
+          <input id="historySearch" type="search" placeholder="Buscar…" aria-label="Buscar no histórico" />
+          <label class="chk"><input type="checkbox" id="historyProjectFilter" /> Somente este projeto</label>
+          <button class="ghost danger" id="historyClear">Limpar</button>
+        </div>
+        <div id="historyList"></div>
+      </section>
+
+      <!-- ================= FERRAMENTAS ================= -->
+      <section class="panel" id="panel-tools" role="tabpanel">
+        <div class="tool-grid">
+          <button class="tool" id="toolDownload">⬇️ Baixar todos os arquivos</button>
+          <button class="tool" id="toolCreateProject">✨ Criar projeto na Lovable</button>
+          <button class="tool" id="toolCloud">☁️ Ativar Lovable Cloud</button>
+          <button class="tool" id="toolWatermark">🏷️ Remover marca d’água</button>
+          <button class="tool" id="toolShield">🛡️ Ativar Escudo</button>
+          <button class="tool" id="toolShieldLog">📋 Registro técnico</button>
+        </div>
+        <pre class="tool-output" id="toolOutput" aria-live="polite"></pre>
+        <div class="section">
+          <div class="section-title">Editar atalhos</div>
+          <div id="shortcutEditor"></div>
+          <button class="ghost" id="addShortcut">＋ Novo atalho</button>
+        </div>
+      </section>
+
+      <!-- ================= CONFIGURAÇÕES ================= -->
+      <section class="panel" id="panel-settings" role="tabpanel">
+        <label class="chk"><input type="checkbox" id="setSounds" /> Sons</label>
+        <label class="chk"><input type="checkbox" id="setNotifications" /> Notificações do Chrome</label>
+        <label class="chk"><input type="checkbox" id="setShield" /> Modo Escudo</label>
+        <label class="chk"><input type="checkbox" id="setConfirmSend" /> Confirmar antes do envio</label>
+        <label class="chk"><input type="checkbox" id="setConfirmDelete" /> Confirmar exclusões</label>
+        <label class="fld">Intervalo da fila (3–60s)
+          <input type="number" id="setInterval" min="3" max="60" />
+        </label>
+        <label class="fld">Conclusão do item da fila
+          <select id="setCompletion">
+            <option value="timer">Aguardar tempo configurado</option>
+            <option value="manual">Pedir confirmação manual</option>
+          </select>
+        </label>
+        <label class="fld">Limite do histórico
+          <input type="number" id="setHistoryLimit" min="10" max="500" />
+        </label>
+        <label class="fld">Modo padrão de melhoria
+          <select id="setMode">
+            <option value="clareza">Clareza</option>
+            <option value="detalhes">Mais detalhes</option>
+            <option value="curto">Mais curto</option>
+            <option value="tecnico">Técnico</option>
+          </select>
+        </label>
+        <label class="fld">Modelo padrão
+          <select id="setModel">
+            <option value="auto">Automático</option>
+          </select>
+        </label>
+        <label class="fld">Idioma
+          <select id="setLanguage">
+            <option value="pt">Português</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+          </select>
+        </label>
+        <label class="fld">Endpoint de melhoria de prompt (opcional)
+          <input type="url" id="setEnhancer" placeholder="https://…" />
+        </label>
+        <label class="fld">Endpoint de transcrição (opcional)
+          <input type="url" id="setTranscription" placeholder="https://…" />
+        </label>
+        <div class="toolbar">
+          <button class="ghost" id="setExport">Exportar</button>
+          <label class="ghost file-label">Importar<input type="file" id="setImport" accept="application/json" hidden /></label>
+          <button class="ghost" id="setRestoreShortcuts">Restaurar atalhos</button>
+        </div>
+        <div class="toolbar">
+          <button class="ghost danger" id="setClearHistory">Limpar histórico</button>
+          <button class="ghost danger" id="setClearQueue">Limpar fila</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- J. Barra de status -->
+    <div class="statusbar idle" id="statusBar" role="status" aria-live="polite"></div>
     <div class="status" id="status"></div>
 
+    <!-- Modais -->
+    <div class="modal" id="improveModal" aria-hidden="true" role="dialog" aria-label="Comparação de prompt">
+      <div class="modal-box">
+        <h3>Prompt original</h3>
+        <pre id="improveOriginal"></pre>
+        <h3>Prompt melhorado <small id="improveSource"></small></h3>
+        <textarea id="improveResult" rows="8" aria-label="Prompt melhorado"></textarea>
+        <div class="toolbar">
+          <button class="ghost" id="improveUse">Usar melhorado</button>
+          <button class="ghost" id="improveKeep">Manter original</button>
+          <button class="ghost" id="improveCopy">Copiar</button>
+          <button class="ghost danger" id="improveCancel">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="createModal" aria-hidden="true" role="dialog" aria-label="Criar projeto">
+      <div class="modal-box">
+        <h3>Criar projeto na Lovable</h3>
+        <label class="fld">Nome<input id="createName" type="text" /></label>
+        <label class="fld">Descrição<input id="createDesc" type="text" /></label>
+        <label class="fld">Prompt inicial<textarea id="createPrompt" rows="4"></textarea></label>
+        <label class="chk"><input type="checkbox" id="createBlank" /> Projeto em branco</label>
+        <pre class="tool-output" id="createOutput"></pre>
+        <div class="toolbar">
+          <button class="ghost" id="createConfirm">Criar</button>
+          <button class="ghost danger" id="createCancel">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="modules/storage-manager.js"></script>
+    <script src="modules/i18n.js"></script>
+    <script src="modules/settings-manager.js"></script>
+    <script src="modules/notification-manager.js"></script>
+    <script src="modules/shield-manager.js"></script>
+    <script src="modules/attachment-manager.js"></script>
+    <script src="modules/audio-recorder.js"></script>
+    <script src="modules/quick-actions.js"></script>
+    <script src="modules/prompt-enhancer.js"></script>
+    <script src="modules/history-manager.js"></script>
+    <script src="modules/queue-manager.js"></script>
+    <script src="lib/zip.js"></script>
+    <script src="modules/project-files.js"></script>
+    <script src="modules/cloud-manager.js"></script>
+    <script src="modules/watermark-manager.js"></script>
+    <script src="modules/ui.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
