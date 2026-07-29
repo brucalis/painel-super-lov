@@ -70,11 +70,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     els.input.style.height = Math.min(els.input.scrollHeight, 96) + 'px';
   });
   els.fileInput.addEventListener('change', (e) => {
-    Array.from(e.target.files || []).forEach(addAttachment);
+    // Validação nova (tipos/limites) quando disponível; caso contrário, fluxo original.
+    const add = window.AttachmentManager
+      ? (f) => window.AttachmentManager.add(f)
+      : addAttachment;
+    Array.from(e.target.files || []).forEach(add);
     e.target.value = '';
   });
 
   await init();
+
+  // Módulos adicionais (não interferem no fluxo de envio original)
+  try {
+    await window.LCA_UI?.boot();
+  } catch (err) {
+    console.error('Falha ao iniciar módulos adicionais:', err);
+    setStatus(`Módulos adicionais indisponíveis: ${err.message}`, 'error', 6000);
+  }
 });
 
 function setStatus(text, kind = 'info', ms = 4000) {
