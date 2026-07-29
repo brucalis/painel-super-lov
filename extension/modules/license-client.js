@@ -10,7 +10,7 @@
  * Ajustes › Licença, e refletido em host_permissions no manifest).
  */
 (function (root) {
-  const DEFAULT_LICENSE_SERVER_URL = 'https://licencas.superlovable.app';
+  const DEFAULT_LICENSE_SERVER_URL = 'https://painel-super-lov.lovable.app/api/public';
 
   const KEYS = {
     device: 'extension_device_id',

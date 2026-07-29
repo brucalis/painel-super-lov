@@ -21,7 +21,7 @@
     "https://storage.googleapis.com/*",
     "https://*.storage.googleapis.com/*",
     "https://*.googleapis.com/*",
-    "https://licencas.superlovable.app/*"
+    "https://painel-super-lov.lovable.app/*"
   ],
   "background": {
     "service_worker": "background.js"
