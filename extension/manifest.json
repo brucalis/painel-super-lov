@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Lovable Chat Assistant",
-  "version": "1.0.0",
-  "description": "Cliente de chat integrado para a plataforma Lovable.dev, com envio de arquivos direto pelo popup.",
-  "permissions": ["activeTab", "cookies", "storage", "tabs"],
+  "version": "1.1.0",
+  "description": "Cliente de chat integrado para a plataforma Lovable.dev, com envio de arquivos, áudio, fila de prompts e ferramentas.",
+  "permissions": ["activeTab", "cookies", "storage", "tabs", "scripting"],
+  "optional_permissions": ["notifications"],
   "host_permissions": [
     "https://*.lovable.dev/*",
     "https://api.lovable.dev/*",
