@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Lovable Chat Assistant",
+  "version": "1.0.0",
+  "description": "Cliente de chat integrado para a plataforma Lovable.dev, com envio de arquivos direto pelo popup.",
+  "permissions": ["activeTab", "cookies", "storage", "tabs"],
+  "host_permissions": [
+    "https://*.lovable.dev/*",
+    "https://api.lovable.dev/*",
+    "https://lovable.dev/*",
+    "https://storage.googleapis.com/*",
+    "https://*.storage.googleapis.com/*",
+    "https://*.googleapis.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Lovable Chat Assistant",
+    "default_icon": { "48": "icon.png", "128": "icon.png" }
+  },
+  "icons": { "48": "icon.png", "128": "icon.png" },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
