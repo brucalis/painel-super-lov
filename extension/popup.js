@@ -254,7 +254,7 @@ class Attachment {
         await new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('PUT', uploadData.url);
-          xhr.setRequestHeader('Content-Type', this.file.type);
+          xhr.setRequestHeader('Content-Type', contentType);
           xhr.setRequestHeader(
             'x-goog-content-length-range',
             uploadData.headers['x-goog-content-length-range']
@@ -287,12 +287,14 @@ class Attachment {
                 data: {
                   url: uploadData.url,
                   headers: {
-                    'Content-Type': this.file.type,
+                    'Content-Type': contentType,
                     'x-goog-content-length-range':
                       uploadData.headers['x-goog-content-length-range'],
                     'x-goog-meta-user_id': uploadData.headers['x-goog-meta-user_id'],
                   },
+                  // transporte byte a byte (sem JSON de texto / base64)
                   body: Array.from(new Uint8Array(fileBuffer)),
+                  byteLength: fileBuffer.byteLength,
                   fileId: this.id,
                 },
               },
@@ -315,6 +317,9 @@ class Attachment {
     }
 
     if (!uploadSuccess) throw new Error('Upload não confirmado pelo storage.');
+    if (this.uploadedByteLength !== this.originalByteLength) {
+      throw new Error('Tamanho enviado diferente do arquivo original.');
+    }
     this.progress = 90;
     this.render();
 
