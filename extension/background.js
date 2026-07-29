@@ -95,37 +95,6 @@ async function handleProtected(request) {
   return { success: false, error: 'Ação desconhecida.' };
 }
 
-// Handlers originais preservados abaixo.
-function legacyRouter(request, _sender, sendResponse) {
-  if (request.action === 'uploadToStorage') {
-    handleUpload(request.data).then(sendResponse).catch((err) =>
-      sendResponse({ success: false, error: err.message })
-    );
-    return true; // resposta assíncrona
-  }
-
-  if (request.action === 'apiFetch') {
-    handleApiFetch(request.data).then(sendResponse).catch((err) =>
-      sendResponse({ success: false, error: err.message })
-    );
-    return true;
-  }
-
-  if (request.action === 'superLovableForward') {
-    handleForward(request.data).then(sendResponse).catch((err) =>
-      sendResponse({ success: false, error: err.message })
-    );
-    return true;
-  }
-
-  if (request.action === 'superLovableTool') {
-    chrome.storage.local.set({ super_lovable_pending_tool: request.data });
-    sendResponse({ success: true });
-    return true;
-  }
-  return false;
-}
-void legacyRouter;
 
 async function handleUpload({ url, headers, body, byteLength }) {
   const bytes = new Uint8Array(body);
