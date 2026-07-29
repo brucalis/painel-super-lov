@@ -58,11 +58,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   els.status = document.getElementById('status');
   els.project = document.getElementById('projectLabel');
 
-  els.send.addEventListener('click', sendMessage);
+  // Mantém o mesmo envio; usa o adaptador (Escudo/histórico/sons) quando existir.
+  const dispatchSend = () => (window.LCA?.sendMessage || sendMessage)();
+  els.send.addEventListener('click', dispatchSend);
   els.input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      dispatchSend();
     }
   });
   els.input.addEventListener('input', () => {
