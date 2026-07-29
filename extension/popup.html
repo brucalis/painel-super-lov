@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>Lovable Chat Assistant</title>
+  </head>
+  <body>
+    <header class="header">
+      <div class="brand">
+        <span class="dot"></span>
+        <span>Lovable Chat Assistant</span>
+      </div>
+      <div class="project" id="projectLabel">Detectando projeto…</div>
+    </header>
+
+    <main class="messages" id="messages">
+      <div class="empty" id="emptyState">
+        Abra um projeto em lovable.dev e comece a conversar.
+      </div>
+    </main>
+
+    <section class="files" id="filePreviews"></section>
+
+    <footer class="composer">
+      <label class="clip" title="Anexar arquivos">
+        📎
+        <input type="file" id="fileInput" multiple hidden />
+      </label>
+      <textarea id="messageInput" rows="1" placeholder="Escreva sua mensagem…"></textarea>
+      <button id="sendBtn" class="send" title="Enviar">➤</button>
+    </footer>
+
+    <div class="status" id="status"></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
