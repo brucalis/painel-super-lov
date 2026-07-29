@@ -195,7 +195,11 @@ class Attachment {
   async upload() {
     this.status = 'uploading';
     this.progress = 10;
+    // Content-Type real do arquivo; o mesmo valor usado para assinar a URL.
+    const contentType = this.file.type || 'application/octet-stream';
+    this.originalByteLength = this.file.size;
     this.render();
+
 
     // Etapa 1: Gerar URL de upload
     const uploadUrlResponse = await fetch(
