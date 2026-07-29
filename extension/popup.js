@@ -195,7 +195,11 @@ class Attachment {
   async upload() {
     this.status = 'uploading';
     this.progress = 10;
+    // Content-Type real do arquivo; o mesmo valor usado para assinar a URL.
+    const contentType = this.file.type || 'application/octet-stream';
+    this.originalByteLength = this.file.size;
     this.render();
+
 
     // Etapa 1: Gerar URL de upload
     const uploadUrlResponse = await fetch(
@@ -219,7 +223,14 @@ class Attachment {
     this.progress = 35;
     this.render();
 
+    // Bytes originais, sem conversão para string/base64 em nenhum ponto.
     const fileBuffer = await this.file.arrayBuffer();
+    this.uploadedByteLength = fileBuffer.byteLength;
+    if (this.uploadedByteLength !== this.originalByteLength) {
+      throw new Error(
+        `Leitura incompleta do arquivo (${this.uploadedByteLength} de ${this.originalByteLength} bytes).`
+      );
+    }
     let uploadSuccess = false;
 
     // Etapa 2: PUT para o GCS
@@ -228,12 +239,13 @@ class Attachment {
         method: 'PUT',
         mode: 'cors',
         headers: {
-          'Content-Type': this.file.type,
+          'Content-Type': contentType,
           'x-goog-content-length-range': uploadData.headers['x-goog-content-length-range'],
           'x-goog-meta-user_id': uploadData.headers['x-goog-meta-user_id'],
         },
         body: fileBuffer,
       });
+
       uploadSuccess = uploadResponse.ok;
       if (!uploadSuccess) throw new Error(`status ${uploadResponse.status}`);
     } catch (fetchError) {
@@ -242,7 +254,7 @@ class Attachment {
         await new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('PUT', uploadData.url);
-          xhr.setRequestHeader('Content-Type', this.file.type);
+          xhr.setRequestHeader('Content-Type', contentType);
           xhr.setRequestHeader(
             'x-goog-content-length-range',
             uploadData.headers['x-goog-content-length-range']
@@ -275,12 +287,14 @@ class Attachment {
                 data: {
                   url: uploadData.url,
                   headers: {
-                    'Content-Type': this.file.type,
+                    'Content-Type': contentType,
                     'x-goog-content-length-range':
                       uploadData.headers['x-goog-content-length-range'],
                     'x-goog-meta-user_id': uploadData.headers['x-goog-meta-user_id'],
                   },
+                  // transporte byte a byte (sem JSON de texto / base64)
                   body: Array.from(new Uint8Array(fileBuffer)),
+                  byteLength: fileBuffer.byteLength,
                   fileId: this.id,
                 },
               },
@@ -303,6 +317,9 @@ class Attachment {
     }
 
     if (!uploadSuccess) throw new Error('Upload não confirmado pelo storage.');
+    if (this.uploadedByteLength !== this.originalByteLength) {
+      throw new Error('Tamanho enviado diferente do arquivo original.');
+    }
     this.progress = 90;
     this.render();
 

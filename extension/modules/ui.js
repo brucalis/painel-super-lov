@@ -61,31 +61,29 @@
   // ---------------- Modelo ----------------
   async function initModel() {
     const wrap = $('modelPicker');
-    const models = [
-      { id: 'auto', label: 'Automático', available: true },
-      { id: 'gemini', label: 'Gemini', available: false },
-      { id: 'claude', label: 'Claude', available: false },
-    ];
+    await window.AiProviderClient.load();
+    const providers = window.AiProviderClient.providers;
     const map = (await window.StorageManager.local.get('lca_model_by_project', {})) || {};
     const projectId = window.LCA.projectId || 'global';
     let selected = map[projectId] || window.SettingsManager.get('defaultModel') || 'auto';
-    if (!models.find((m) => m.id === selected && m.available)) selected = 'auto';
+    if (!providers.find((m) => m.id === selected && m.enabled)) selected = 'auto';
 
     wrap.innerHTML = '';
-    models.forEach((m) => {
+    providers.forEach((m) => {
       const b = document.createElement('button');
-      b.className = `model-chip${m.id === selected ? ' active' : ''}${m.available ? '' : ' off'}`;
-      b.textContent = m.label;
-      b.setAttribute('aria-label', `${window.I18n.t('model')}: ${m.label}`);
-      b.title = m.available
-        ? m.label
-        : 'Indisponível: depende de suporte da API atual. O envio continua em modo Automático.';
+      b.className = `model-chip${m.id === selected ? ' active' : ''}${m.enabled ? '' : ' off'}`;
+      b.innerHTML = `<span class="mc-name">${m.icon} ${m.name}</span>
+        <span class="mc-desc"></span>
+        ${m.state === 'nao-configurado' ? '<span class="mc-tag">não configurado</span>' : ''}`;
+      b.querySelector('.mc-desc').textContent = m.description;
+      b.setAttribute('aria-label', `${m.name}: ${m.description}`);
+      b.title = m.enabled ? m.description : 'Este provedor ainda não possui uma API configurada.';
       b.addEventListener('click', async () => {
-        if (!m.available) {
-          window.LCA.setStatus('Este modelo depende de suporte da API atual. Mantendo Automático.', 'info', 5000);
+        if (!m.enabled) {
+          window.LCA.setStatus('Este provedor ainda não possui uma API configurada.', 'info', 5000);
+          StatusBar.set('Provedor sem API configurada. Envio segue em Automático.', 'warn');
           return;
         }
-        selected = m.id;
         map[projectId] = m.id;
         await window.StorageManager.local.set('lca_model_by_project', map);
         initModel();
@@ -325,8 +323,10 @@
       pauseBtn.textContent = state === 'paused' ? '▶' : '❚❚';
       btn.classList.toggle('recording', state === 'recording');
       if (error) {
-        window.LCA.setStatus(error, 'error', 6000);
-        StatusBar.set(error, 'error', { sticky: true });
+        window.LCA.setStatus(error, 'error', 8000);
+        StatusBar.set(error, 'error', { sticky: true, detail: error });
+        $('recHelp').hidden = false;
+        $('recorderPanel').classList.add('open');
       }
     });
 
@@ -352,6 +352,11 @@
       } catch (e) { window.LCA.setStatus(e.message, 'error'); }
     });
     cancelBtn.addEventListener('click', () => window.AudioRecorder.cancel());
+    $('recHelp').addEventListener('click', () => $('micModal').classList.add('open'));
+    $('micClose').addEventListener('click', () => closeModal('micModal'));
+    $('micOpenSettings').addEventListener('click', () => {
+      chrome.tabs.create({ url: 'chrome://settings/content/microphone' });
+    });
   }
 
   // ---------------- Ferramentas ----------------
@@ -439,7 +444,7 @@
       const on = window.ShieldManager.active;
       shieldBtn.textContent = on ? '🛡️ Escudo ativo' : '🛡️ Ativar Escudo';
       shieldBtn.classList.toggle('on', on);
-      $('shieldBadge').hidden = !on;
+      paintHeader();
     };
     shieldBtn.addEventListener('click', async () => { await window.ShieldManager.toggle(); paintShield(); });
     paintShield();
@@ -463,6 +468,8 @@
       el.addEventListener('change', async () => {
         const value = type === 'checkbox' ? el.checked : type === 'number' ? Number(el.value) : el.value;
         await window.SettingsManager.set({ [key]: value });
+        if (key === 'aiEndpoint') { await window.AiProviderClient.setEndpoint(value); await initModel(); }
+        if (key === 'sounds' || key === 'shield') paintHeader();
         if (key === 'language') { window.I18n.apply(); }
         if (key === 'shield') { window.ShieldManager.load(); }
       });
@@ -478,7 +485,8 @@
     bind('setMode', 'defaultMode', 'select');
     bind('setModel', 'defaultModel', 'select');
     bind('setLanguage', 'language', 'select');
-    bind('setEnhancer', 'enhancerEndpoint', 'text');
+    bind('setNative', 'nativeCapture');
+    bind('setAiEndpoint', 'aiEndpoint', 'text');
     bind('setTranscription', 'transcriptionEndpoint', 'text');
 
     $('setClearHistory').addEventListener('click', async () => {
@@ -500,7 +508,7 @@
       const blob = new Blob([window.SettingsManager.export()], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'lovable-chat-assistant-settings.json';
+      a.download = 'super-lovable-settings.json';
       a.click();
     });
     $('setImport').addEventListener('change', async (e) => {
@@ -538,6 +546,22 @@
       }
       const text = window.LCA.els.input.value;
       const names = window.LCA.attachments.map((a) => a.file.name);
+      // Já existe comando em execução? O novo vai para a fila em vez de disputar.
+      const qs = window.QueueManager.state;
+      if (!window.QueueManager._executing && (window.LCA.isBusy || (qs.running && qs.current))) {
+        const pos = await window.QueueManager.add({
+          text: text.trim(),
+          files: window.LCA.attachments.map((a) => a.file),
+          model: window.LCA_selectedModel || 'auto',
+          origin: 'popup',
+        });
+        void pos;
+        window.LCA.els.input.value = '';
+        window.LCA.attachments.splice(0).forEach((a) => a.el?.remove());
+        StatusBar.set('Já há um comando em execução — adicionado à fila.', 'warn');
+        window.LCA_UI.renderQueue();
+        return;
+      }
       const started = Date.now();
       window.ShieldManager.begin();
       window.ShieldManager.audit('envio', `projeto ${projectId} · ${names.length} anexo(s)`);
@@ -551,7 +575,7 @@
         if (!failed) {
           selectedShortcut = null;
           renderShortcuts();
-          await window.NotificationManager.notify('Lovable Chat Assistant', 'Comando enviado com sucesso.');
+          await window.NotificationManager.notify('SUPER LOVABLE', 'Comando enviado com sucesso.');
         }
         await window.HistoryManager.add({
           text, project: projectId, status: failed ? 'falhou' : 'concluído',
@@ -581,6 +605,53 @@
     });
   }
 
+  // ---------------- Cabeçalho / indicadores ----------------
+  function paintHeader() {
+    const id = window.LCA.projectId;
+    const short = id ? `${id.slice(0, 8)}…${id.slice(-4)}` : '—';
+    $('projectShort').textContent = short;
+    $('projectLabel').textContent = id ? 'Projeto conectado' : 'Nenhum projeto detectado';
+    $('connDot').classList.toggle('on', !!id && !!window.LCA.authToken);
+    $('indProject').classList.toggle('on', !!id);
+    $('indSound').classList.toggle('on', !!window.SettingsManager.get('sounds'));
+    $('indShield').classList.toggle('on', window.ShieldManager.active);
+    const q = window.QueueManager.state;
+    const running = q.running && !q.paused;
+    $('indQueue').textContent = running ? 'Fila em execução' : q.paused ? 'Fila pausada' : 'Fila parada';
+    $('indQueue').classList.toggle('busy', running);
+  }
+
+  function initHeader() {
+    $('copyProject').addEventListener('click', async () => {
+      const id = window.LCA.projectId;
+      if (!id) return window.LCA.setStatus('Nenhum projeto detectado.', 'error');
+      await navigator.clipboard.writeText(id).catch(() => {});
+      window.LCA.setStatus('ID do projeto copiado.', 'success', 2500);
+    });
+    paintHeader();
+  }
+
+  async function initDevice() {
+    const id = await window.DeviceId.ensure();
+    $('deviceId').textContent = window.DeviceId.mask(id);
+    $('deviceId').title = 'Identificador exclusivo desta instalação da SUPER LOVABLE.';
+    $('copyDevice').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(id).catch(() => {});
+      window.LCA.setStatus('ID do dispositivo copiado.', 'success', 2500);
+    });
+  }
+
+  function initComposerMeta() {
+    const input = window.LCA.els.input;
+    const count = $('charCount');
+    const paint = () => {
+      count.textContent = String(input.value.length);
+      count.classList.toggle('warn', input.value.length > 4000);
+    };
+    input.addEventListener('input', paint);
+    paint();
+  }
+
   // ---------------- Boot ----------------
   async function boot() {
     StatusBar.el = $('statusBar');
@@ -595,7 +666,11 @@
     window.AttachmentManager.enhance();
     window.AttachmentManager.bindDropAndPaste($('panel-prompt'));
     initTabs();
+    initHeader();
+    await initDevice();
     await initModel();
+    initComposerMeta();
+    await drainPending();
     renderShortcuts();
     renderShortcutEditor();
     renderQueue();
@@ -661,10 +736,44 @@
       renderShortcutEditor();
     });
 
+    $('queueConfirm').addEventListener('click', () => {
+      if (window.QueueManager.confirmManual()) {
+        StatusBar.set('Conclusão confirmada. Seguindo para o próximo item.', 'success');
+      } else {
+        StatusBar.set('Nenhum item aguardando confirmação.', 'warn');
+      }
+    });
+    $('createCopyPrompt').addEventListener('click', () => {
+      navigator.clipboard.writeText($('createPrompt').value || '').catch(() => {});
+      $('createOutput').textContent = 'Prompt copiado.';
+    });
+    window.QueueManager.onChange(paintHeader);
+
     window.addEventListener('offline', () => StatusBar.set('Sem conexão de rede.', 'error', { sticky: true }));
     StatusBar.set(baseStatus(), 'idle');
     await window.StorageManager.session.set('lca_current_project', window.LCA.projectId);
   }
 
-  window.LCA_UI = { boot, renderQueue, renderHistory, StatusBar };
+  /** Traz para o histórico os pedidos capturados no campo nativo enquanto o popup estava fechado. */
+  async function drainPending() {
+    const pending = (await window.StorageManager.local.get('super_lovable_pending_history', [])) || [];
+    for (const p of pending) {
+      await window.HistoryManager.add({
+        text: p.text, project: p.project, status: p.status || 'na fila',
+        origin: p.origin || 'chat nativo redirecionado', attachments: p.attachments || [],
+      });
+    }
+    if (pending.length) {
+      await window.StorageManager.local.set('super_lovable_pending_history', []);
+      StatusBar.set(`${pending.length} pedido(s) do chat nativo estão na fila.`, 'warn');
+    }
+    const tool = await window.StorageManager.local.get('super_lovable_pending_tool', null);
+    if (tool) {
+      await window.StorageManager.local.remove('super_lovable_pending_tool');
+      const map = { improve: 'improveBtn', watermark: 'toolWatermark', download: 'toolDownload', skills: null };
+      if (map[tool.tool]) document.getElementById(map[tool.tool])?.click();
+    }
+  }
+
+  window.LCA_UI = { boot, renderQueue, renderHistory, StatusBar, paintHeader };
 })();

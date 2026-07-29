@@ -6,7 +6,9 @@
     notifications: false,
     shield: false,
     queueInterval: 5,
-    queueCompletionMode: 'timer', // timer | manual
+    queueCompletionMode: 'auto', // auto (detecta na página) | timer | manual
+    nativeCapture: true, // usar a SUPER LOVABLE no campo nativo da Lovable
+    aiEndpoint: '', // backend próprio para provedores de IA (sem chaves na extensão)
     historyLimit: 500,
     defaultMode: 'clareza',
     defaultModel: 'auto',
@@ -21,6 +23,16 @@
   };
 
   let cache = { ...DEFAULTS };
+
+  // Espelho lido pelo content script na página da Lovable.
+  async function mirror() {
+    await window.StorageManager.local.set('super_lovable_settings', {
+      nativeCapture: cache.nativeCapture,
+      sounds: cache.sounds,
+      shield: cache.shield,
+    });
+  }
+
   const listeners = [];
 
   const SettingsManager = {
@@ -31,11 +43,13 @@
       const stored = await window.StorageManager.local.get(KEY, {});
       cache = { ...DEFAULTS, ...(stored || {}) };
       window.I18n.set(cache.language);
+      await mirror();
       return cache;
     },
     async set(patch) {
       cache = { ...cache, ...patch };
       await window.StorageManager.local.set(KEY, cache);
+      await mirror();
       if (patch.language) window.I18n.set(patch.language);
       listeners.forEach((fn) => {
         try { fn(cache); } catch (e) { console.warn(e); }

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Lovable Chat Assistant",
-  "version": "1.1.0",
-  "description": "Cliente de chat integrado para a plataforma Lovable.dev, com envio de arquivos, áudio, fila de prompts e ferramentas.",
+  "name": "SUPER LOVABLE",
+  "version": "1.2.0",
+  "description": "SUPER LOVABLE: painel premium para a plataforma Lovable, com anexos, gravação de voz, fila real de comandos, histórico e ferramentas.",
   "permissions": ["activeTab", "cookies", "storage", "tabs", "scripting"],
   "optional_permissions": ["notifications"],
   "host_permissions": [
@@ -14,9 +14,23 @@
     "https://*.googleapis.com/*"
   ],
   "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://lovable.dev/*", "https://*.lovable.dev/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icon.png"],
+      "matches": ["https://lovable.dev/*", "https://*.lovable.dev/*"]
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Lovable Chat Assistant",
+    "default_title": "SUPER LOVABLE",
     "default_icon": { "48": "icon.png", "128": "icon.png" }
   },
   "icons": { "48": "icon.png", "128": "icon.png" },
