@@ -9,11 +9,11 @@ export const Route = createFileRoute("/")({
         content:
           "Baixe a SUPER LOVABLE: fila de comandos, gravação de voz, histórico, atalhos e painel dentro do Lovable.dev, com anexos íntegros.",
       },
-      { property: "og:title", content: "SUPER LOVABLE — Extensão Chrome premium" },
+      { property: "og:title", content: "SUPER LOVABLE — Extensão Chrome premium para Lovable.dev" },
       {
         property: "og:description",
         content:
-          "Fila automática, transcrição de voz, histórico completo, atalhos rápidos e barra integrada ao chat do Lovable.dev.",
+          "Baixe a SUPER LOVABLE: fila de comandos, gravação de voz, histórico, atalhos e painel dentro do Lovable.dev, com anexos íntegros.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
