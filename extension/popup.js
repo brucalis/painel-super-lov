@@ -223,7 +223,14 @@ class Attachment {
     this.progress = 35;
     this.render();
 
+    // Bytes originais, sem conversão para string/base64 em nenhum ponto.
     const fileBuffer = await this.file.arrayBuffer();
+    this.uploadedByteLength = fileBuffer.byteLength;
+    if (this.uploadedByteLength !== this.originalByteLength) {
+      throw new Error(
+        `Leitura incompleta do arquivo (${this.uploadedByteLength} de ${this.originalByteLength} bytes).`
+      );
+    }
     let uploadSuccess = false;
 
     // Etapa 2: PUT para o GCS
@@ -232,12 +239,13 @@ class Attachment {
         method: 'PUT',
         mode: 'cors',
         headers: {
-          'Content-Type': this.file.type,
+          'Content-Type': contentType,
           'x-goog-content-length-range': uploadData.headers['x-goog-content-length-range'],
           'x-goog-meta-user_id': uploadData.headers['x-goog-meta-user_id'],
         },
         body: fileBuffer,
       });
+
       uploadSuccess = uploadResponse.ok;
       if (!uploadSuccess) throw new Error(`status ${uploadResponse.status}`);
     } catch (fetchError) {
