@@ -26,7 +26,13 @@
   }
 
   function pickMime() {
-    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg', 'audio/mp4'];
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+      'audio/mp4',
+    ];
     return candidates.find((c) => window.MediaRecorder?.isTypeSupported?.(c)) || '';
   }
 
@@ -61,10 +67,11 @@
       } catch (e) {
         cleanup();
         state = 'error';
-        const msg = e && /denied|not allowed/i.test(e.message || e.name)
-          ? window.I18n.t('mic_denied')
+        const denied = e && /denied|not allowed|dismissed/i.test(`${e.name} ${e.message}`);
+        const msg = denied
+          ? 'O Chrome não autorizou o uso do microfone. Clique no ícone de permissões do navegador e permita o acesso para a SUPER LOVABLE.'
           : `Microfone indisponível: ${e.message}`;
-        emit({ error: msg });
+        emit({ error: msg, denied });
         throw new Error(msg);
       }
     },
@@ -87,7 +94,11 @@
             const type = recorder?.mimeType || 'audio/webm';
             const blob = new Blob(chunks, { type });
             const ext = type.includes('ogg') ? 'ogg' : type.includes('mp4') ? 'm4a' : 'webm';
-            const file = new File([blob], `gravacao-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${ext}`, { type });
+            const stamp = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const name = `gravacao-super-lovable-${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}-${pad(stamp.getHours())}-${pad(stamp.getMinutes())}.${ext}`;
+            const file = new File([blob], name, { type, lastModified: Date.now() });
+            file.superLovableDurationMs = elapsed;
             cleanup();
             state = 'ready';
             emit();
