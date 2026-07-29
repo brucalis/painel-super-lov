@@ -3,17 +3,17 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Lovable Chat Assistant — Extensão Chrome MV3" },
+      { title: "SUPER LOVABLE — Extensão Chrome premium para Lovable.dev" },
       {
         name: "description",
         content:
-          "Baixe a extensão Chrome Lovable Chat Assistant: converse com a IA do seu projeto Lovable e envie arquivos direto pelo popup.",
+          "Baixe a SUPER LOVABLE: fila de comandos, gravação de voz, histórico, atalhos e painel dentro do Lovable.dev, com anexos íntegros.",
       },
-      { property: "og:title", content: "Lovable Chat Assistant — Extensão Chrome MV3" },
+      { property: "og:title", content: "SUPER LOVABLE — Extensão Chrome premium" },
       {
         property: "og:description",
         content:
-          "Cliente de chat integrado para Lovable.dev com upload de arquivos em 3 etapas e autenticação por cookies.",
+          "Fila automática, transcrição de voz, histórico completo, atalhos rápidos e barra integrada ao chat do Lovable.dev.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -27,12 +27,23 @@ const steps = [
   "Abra chrome://extensions no Chrome (ou outro navegador Chromium).",
   "Ative o Modo do desenvolvedor no canto superior direito.",
   "Clique em Carregar sem compactação e selecione a pasta descompactada.",
-  "Abra um projeto em lovable.dev e clique no ícone da extensão.",
+  "Abra um projeto em lovable.dev e clique no ícone da SUPER LOVABLE.",
+];
+
+const features = [
+  "Fila de comandos com envio sequencial e detecção de conclusão",
+  "Gravação de voz com pausa, retomada e envio como anexo",
+  "Histórico completo com busca, favoritos e reenvio",
+  "9 atalhos rápidos para correções, SEO, segurança e responsividade",
+  "Seleção de modelo: Automático, GPT, Gemini e Claude",
+  "Barra e mini painel injetados no próprio chat do Lovable",
+  "Anexos preservados byte a byte, sem imagens corrompidas",
+  "Modo Escudo contra envios acidentais e projeto trocado",
 ];
 
 function Index() {
   const download = () => {
-    fetch("/lovable-chat-assistant.zip")
+    fetch("/super-lovable.zip")
       .then((res) => {
         if (!res.ok) throw new Error(`Download falhou: ${res.status}`);
         return res.blob();
@@ -40,7 +51,7 @@ function Index() {
       .then((blob) => {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "lovable-chat-assistant.zip";
+        a.download = "super-lovable.zip";
         a.click();
         URL.revokeObjectURL(a.href);
       })
@@ -48,32 +59,31 @@ function Index() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-[#0B1020] text-slate-100">
       <section className="mx-auto max-w-3xl px-6 py-20">
-        <p className="text-sm uppercase tracking-widest text-muted-foreground">
+        <p className="text-sm uppercase tracking-widest text-violet-300/70">
           Chrome Extension · Manifest V3
         </p>
-        <h1 className="mt-3 bg-gradient-to-r from-fuchsia-500 via-pink-500 to-orange-400 bg-clip-text text-5xl font-bold text-transparent">
-          Lovable Chat Assistant
+        <h1 className="mt-3 bg-gradient-to-r from-sky-400 via-violet-500 to-fuchsia-500 bg-clip-text text-5xl font-bold text-transparent">
+          SUPER LOVABLE
         </h1>
-        <p className="mt-4 text-lg text-muted-foreground">
-          Cliente de chat integrado para a plataforma Lovable.dev. Converse com a IA do
-          projeto atual direto pelo popup, com anexos enviados via fluxo de upload em
-          três etapas à prova de CORS.
+        <p className="mt-4 text-lg text-slate-300">
+          Painel premium para a plataforma Lovable.dev: envie comandos, grave sua voz,
+          organize uma fila automática e acompanhe todo o histórico — sem sair do projeto.
         </p>
 
         <button
           onClick={download}
-          className="mt-8 rounded-xl bg-gradient-to-r from-fuchsia-600 via-pink-600 to-orange-500 px-6 py-3 font-medium text-white shadow-lg transition hover:opacity-90"
+          className="mt-8 rounded-xl bg-gradient-to-r from-sky-500 via-violet-600 to-fuchsia-600 px-6 py-3 font-medium text-white shadow-[0_10px_40px_-10px_rgba(139,92,246,0.8)] transition hover:opacity-90"
         >
           Baixar extensão (.zip)
         </button>
 
         <h2 className="mt-14 text-xl font-semibold">Como instalar</h2>
-        <ol className="mt-4 space-y-2 text-muted-foreground">
+        <ol className="mt-4 space-y-2 text-slate-300">
           {steps.map((s, i) => (
             <li key={s} className="flex gap-3">
-              <span className="font-mono text-sm text-pink-500">{i + 1}.</span>
+              <span className="font-mono text-sm text-fuchsia-400">{i + 1}.</span>
               <span>{s}</span>
             </li>
           ))}
@@ -81,17 +91,10 @@ function Index() {
 
         <h2 className="mt-12 text-xl font-semibold">O que está incluído</h2>
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {[
-            "Autenticação automática via cookies de lovable.dev",
-            "Detecção do project ID pela aba ativa",
-            "Upload em 3 etapas: signed URL → GCS → download URL",
-            "Fallback fetch → XHR → service worker contra CORS",
-            "Preview de anexos com progresso e remoção",
-            "Barra de status com erros e sucessos temporários",
-          ].map((f) => (
+          {features.map((f) => (
             <li
               key={f}
-              className="rounded-lg border border-border bg-card p-4 text-sm text-card-foreground"
+              className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-200 backdrop-blur"
             >
               {f}
             </li>
