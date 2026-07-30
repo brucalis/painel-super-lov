@@ -529,21 +529,49 @@
 
   // ---------------- Ferramentas ----------------
   function initTools() {
+    let downloadBusy = false;
     $('toolDownload').addEventListener('click', async () => {
       const out = $('toolOutput');
-      out.textContent = 'Consultando arquivos do projeto…';
+      const btn = $('toolDownload');
+      if (downloadBusy) return;
+      downloadBusy = true;
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = '⬇️ Preparando download...';
+      out.textContent = 'Preparando download...';
       try {
         const r = await window.ProjectFiles.downloadAll((p) => {
-          if (p.phase === 'found') out.textContent = `${p.total} arquivos encontrados.`;
-          if (p.phase === 'download') out.textContent = `Baixando ${p.done}/${p.total} (falhas: ${p.failures})`;
+          if (p.phase === 'validate' || p.phase === 'list') {
+            btn.textContent = '⬇️ Baixando arquivos do projeto...';
+            out.textContent = p.message || 'Baixando arquivos do projeto...';
+          }
+          if (p.phase === 'found') {
+            out.textContent = `${p.total} arquivos encontrados.${p.total > 300 ? ' Projetos grandes podem levar alguns instantes.' : ''}`;
+          }
+          if (p.phase === 'download') {
+            btn.textContent = `⬇️ Baixando ${p.done} de ${p.total} arquivos...`;
+            out.textContent = `${p.done} de ${p.total} arquivos baixados${p.failures ? ` · falhas: ${p.failures}` : ''}`;
+          }
+          if (p.phase === 'zip') {
+            btn.textContent = '⬇️ Criando arquivo ZIP...';
+            out.textContent = 'Criando arquivo ZIP...';
+          }
         });
-        out.textContent = `ZIP gerado: ${r.downloaded}/${r.total} arquivos. Falhas: ${r.failures.length}.`;
+        btn.textContent = '⬇️ Download concluído';
+        out.textContent = `${r.fileName} · ${r.downloaded} de ${r.total} arquivos${r.failures.length ? ` · ${r.failures.length} não incluídos (veja DOWNLOAD-REPORT.txt)` : ''}`;
         window.NotificationManager.play('uploadDone');
+        setTimeout(() => { btn.textContent = label; }, 4000);
       } catch (e) {
+        btn.textContent = '⬇️ Não foi possível baixar o projeto';
         out.textContent = e.message;
         StatusBar.set(e.message, 'error', { sticky: true, detail: e.message, onRetry: () => $('toolDownload').click() });
+        setTimeout(() => { btn.textContent = label; }, 4000);
+      } finally {
+        downloadBusy = false;
+        btn.disabled = false;
       }
     });
+
 
     $('toolCreateProject').addEventListener('click', () => $('createModal').classList.add('open'));
     $('createCancel').addEventListener('click', () => closeModal('createModal'));
