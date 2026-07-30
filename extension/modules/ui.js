@@ -179,23 +179,93 @@
   }
 
   // ---------------- Fila ----------------
-  function renderQueue() {
+  /** Fala com o motor único da fila no service worker. */
+  function queueCall(action, data) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action, data: data || {} }, (r) => {
+        void chrome.runtime.lastError;
+        resolve(r || { success: false });
+      });
+    });
+  }
+
+  const QUEUE_LABEL = {
+    queued: 'na fila', preparing: 'preparando', sending: 'enviando', running: 'executando',
+    completed: 'concluído', failed: 'falhou', cancelled: 'cancelado', paused: 'pausado',
+  };
+
+  async function renderQueue() {
     const wrap = $('queueList');
-    const items = window.QueueManager.items;
+    const snap = await queueCall('SUPER_LOVABLE_QUEUE_SNAPSHOT');
+    const items = (snap && snap.items) || [];
+    const summary = (snap && snap.summary) || { total: 0, max: 10, paused: false };
     wrap.innerHTML = '';
+
+    const bar = document.createElement('div');
+    bar.className = 'q-toolbar';
+    bar.innerHTML = `<span class="muted">${summary.total}/${summary.max} comandos${summary.paused ? ' · pausada' : ''}</span>`;
+    const mkTop = (t, title, fn) => {
+      const b = document.createElement('button');
+      b.className = 'chip-btn';
+      b.textContent = t;
+      b.title = title;
+      b.setAttribute('aria-label', title);
+      b.addEventListener('click', fn);
+      bar.appendChild(b);
+    };
+    mkTop(summary.paused ? 'Retomar' : 'Pausar', 'Pausar ou retomar a fila', async () => {
+      await queueCall(summary.paused ? 'SUPER_LOVABLE_QUEUE_RESUME' : 'SUPER_LOVABLE_QUEUE_PAUSE');
+      renderQueue();
+    });
+    if (summary.needsConfirmation) {
+      mkTop('Confirmar conclusão', 'Confirmar que a Lovable terminou', async () => {
+        await queueCall('SUPER_LOVABLE_QUEUE_CONFIRM');
+        renderQueue();
+      });
+      mkTop('Continuar aguardando', 'Seguir esperando a Lovable', async () => {
+        await queueCall('SUPER_LOVABLE_QUEUE_KEEP_WAITING');
+        renderQueue();
+      });
+    }
+    mkTop('Limpar concluídos', 'Remover itens concluídos', async () => {
+      await queueCall('SUPER_LOVABLE_QUEUE_CLEAR_DONE');
+      renderQueue();
+    });
+    mkTop('Limpar tudo', 'Esvaziar a fila', async () => {
+      if (!window.ShieldManager.confirmDestructive('Remover todos os itens da fila?')) return;
+      await queueCall('SUPER_LOVABLE_QUEUE_CLEAR_ALL');
+      renderQueue();
+    });
+    wrap.appendChild(bar);
+
+    if (summary.needsConfirmation) {
+      const note = document.createElement('p');
+      note.className = 'q-error';
+      note.textContent = summary.needsConfirmation;
+      wrap.appendChild(note);
+    }
+    if (summary.projectConflict) {
+      const note = document.createElement('p');
+      note.className = 'q-error';
+      note.textContent = summary.projectConflict;
+      wrap.appendChild(note);
+    }
+
     if (!items.length) {
-      wrap.innerHTML = '<p class="muted">A fila está vazia.</p>';
+      wrap.insertAdjacentHTML('beforeend', '<p class="muted">A fila está vazia. Envie um prompt e ele aparece aqui.</p>');
       return;
     }
+
     items.forEach((it, index) => {
       const row = document.createElement('div');
-      row.className = `q-item status-${it.status.replace(/\s/g, '-')}`;
+      row.className = `q-item status-${it.status}`;
       row.draggable = true;
+      const names = (it.attachments || []).map((a) => a && a.name).filter(Boolean);
       row.innerHTML = `
-        <div class="q-head"><b>#${index + 1}</b> <span class="q-status">${it.status}</span></div>
+        <div class="q-head"><b>#${it.position || index + 1}</b> <span class="q-status">${QUEUE_LABEL[it.status] || it.status}</span></div>
         <div class="q-text"></div>
-        ${it.attachmentNames?.length ? `<div class="q-files">📎 ${it.attachmentNames.join(', ')}</div>` : ''}
-        ${it.error ? `<div class="q-error">${it.error}</div>` : ''}
+        ${names.length ? `<div class="q-files">📎 ${names.join(', ')}</div>` : ''}
+        ${it.lastError ? `<div class="q-error">${it.lastError}</div>` : ''}
         <div class="q-actions"></div>`;
       row.querySelector('.q-text').textContent = it.text || '(sem texto)';
       const acts = row.querySelector('.q-actions');
@@ -208,23 +278,21 @@
         b.addEventListener('click', fn);
         acts.appendChild(b);
       };
-      mk('▲', 'Mover para o topo', async () => { await window.QueueManager.toTop(it.id); renderQueue(); });
+      mk('▲', 'Mover para o topo', async () => { await queueCall('SUPER_LOVABLE_QUEUE_MOVE', { id: it.id, index: 0 }); renderQueue(); });
       mk('✎', 'Editar', async () => {
         const text = window.prompt('Editar prompt:', it.text);
         if (text === null) return;
-        await window.QueueManager.update(it.id, { text, status: 'pendente', error: null });
+        await queueCall('SUPER_LOVABLE_QUEUE_EDIT', { id: it.id, text });
         renderQueue();
       });
-      mk('⧉', 'Duplicar', async () => { await window.QueueManager.duplicate(it.id); renderQueue(); });
-      mk('➤', 'Enviar agora', async () => {
-        await window.QueueManager.moveTo(it.id, 0);
-        await window.QueueManager.update(it.id, { status: 'pendente', error: null });
-        window.QueueManager.resume();
-        renderQueue();
-      });
+      mk('⧉', 'Duplicar', async () => { await queueCall('SUPER_LOVABLE_QUEUE_DUPLICATE', { id: it.id }); renderQueue(); });
+      if (it.status === 'failed') {
+        mk('↻', 'Tentar novamente', async () => { await queueCall('SUPER_LOVABLE_QUEUE_RETRY', { id: it.id }); renderQueue(); });
+        mk('⏭', 'Pular este item', async () => { await queueCall('SUPER_LOVABLE_QUEUE_SKIP', { id: it.id }); renderQueue(); });
+      }
       mk('🗑', 'Remover', async () => {
         if (!window.ShieldManager.confirmDestructive('Remover este item da fila?')) return;
-        await window.QueueManager.remove(it.id);
+        await queueCall('SUPER_LOVABLE_QUEUE_REMOVE', { id: it.id });
         renderQueue();
       });
       row.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', it.id));
@@ -232,11 +300,21 @@
       row.addEventListener('drop', async (e) => {
         e.preventDefault();
         const id = e.dataTransfer.getData('text/plain');
-        if (id && id !== it.id) { await window.QueueManager.moveTo(id, index); renderQueue(); }
+        if (id && id !== it.id) { await queueCall('SUPER_LOVABLE_QUEUE_MOVE', { id, index }); renderQueue(); }
       });
       wrap.appendChild(row);
     });
   }
+
+  // Atualização viva: o motor avisa sempre que a fila muda.
+  chrome.runtime.onMessage.addListener((req) => {
+    if (req && typeof req.type === 'string' && req.type.startsWith('SUPER_LOVABLE_')) {
+      const tab = document.querySelector('.tab.active[data-tab="queue"], [data-tab="queue"].active');
+      if (tab) renderQueue();
+    }
+    return false;
+  });
+
 
   // ---------------- Histórico ----------------
   function renderHistory() {
