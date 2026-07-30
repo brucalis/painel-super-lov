@@ -24,7 +24,7 @@ export const Route = createFileRoute("/")({
 
 // Atualize sempre que o super-lovable.zip for regerado (horário de Brasília).
 const EXTENSION_VERSION = "1.6.0";
-const EXTENSION_UPDATED_AT = "30/07/2026 às 17:10";
+const EXTENSION_UPDATED_AT = "30/07/2026 às 20:25";
 
 const steps = [
   "Descompacte o arquivo baixado.",
