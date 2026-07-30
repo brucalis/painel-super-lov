@@ -228,6 +228,7 @@
     return {
       license_token: data.license_token || data.token || previous.license_token || null,
       status: data.status || 'active',
+      access_role: (data.access_role === 'admin' || data.role === 'admin') ? 'admin' : 'user',
       plan: data.plan || previous.plan || null,
       plan_name: data.plan_name || data.plan || previous.plan_name || null,
       expires_at: data.is_lifetime ? null : (data.expires_at || null),
