@@ -180,6 +180,7 @@
             <div class="lic-row"><span class="lic-label">Status</span><span class="lic-value" id="licStatus">—</span></div>
             <div class="lic-row"><span class="lic-label">Validade</span><span class="lic-value" id="licExpiry">—</span></div>
             <div class="lic-row"><span class="lic-label">Dispositivo</span><span class="lic-value" id="licDevices">—</span></div>
+            <div class="lic-row"><span class="lic-label">Nível de acesso</span><span class="lic-value" id="licRole">Usuário</span></div>
             <div class="lic-row"><span class="lic-label">Última validação</span><span class="lic-value" id="licLast">—</span></div>
           </div>
           <div class="toolbar">
@@ -188,9 +189,10 @@
             <button class="ghost danger" id="licDeactivate">Desativar neste dispositivo</button>
             <button class="ghost" id="licSupport">Suporte</button>
           </div>
-          <label class="fld">Servidor de licenças
+          <label class="fld admin-only">Servidor de licenças
             <input type="text" id="licServer" placeholder="https://licencas.superlovable.app" />
           </label>
+
           <div class="lic-msg" id="licMsg" role="status" aria-live="polite"></div>
         </div>
         <div class="section">
