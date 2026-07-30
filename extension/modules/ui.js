@@ -190,6 +190,7 @@
   }
 
   const QUEUE_LABEL = {
+    pending: 'aguardando envio manual',
     queued: 'na fila', preparing: 'preparando', sending: 'enviando', running: 'executando',
     completed: 'concluído', failed: 'falhou', cancelled: 'cancelado', paused: 'pausado',
   };
@@ -278,6 +279,22 @@
         b.addEventListener('click', fn);
         acts.appendChild(b);
       };
+      if (it.status === 'pending') {
+        mk('➤ Enviar agora', 'Enviar este prompt imediatamente', async () => {
+          const r = await queueCall('SUPER_LOVABLE_QUEUE_SEND_NOW', { id: it.id });
+          if (r && r.error) window.LCA.setStatus(r.error, 'error', 6000);
+          renderQueue();
+        });
+        mk('⚡', 'Passar para envio automático', async () => {
+          await queueCall('SUPER_LOVABLE_QUEUE_SET_MODE', { id: it.id, mode: 'auto' });
+          renderQueue();
+        });
+      } else if (it.status === 'queued') {
+        mk('⏸ Deixar pendente', 'Segurar este prompt para editar e enviar manualmente', async () => {
+          await queueCall('SUPER_LOVABLE_QUEUE_SET_MODE', { id: it.id, mode: 'pending' });
+          renderQueue();
+        });
+      }
       mk('▲', 'Mover para o topo', async () => { await queueCall('SUPER_LOVABLE_QUEUE_MOVE', { id: it.id, index: 0 }); renderQueue(); });
       mk('✎', 'Editar', async () => {
         const text = window.prompt('Editar prompt:', it.text);
