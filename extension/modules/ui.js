@@ -592,20 +592,48 @@
     });
 
     $('toolWatermark').addEventListener('click', async () => {
+      const btn = $('toolWatermark');
       const out = $('toolOutput');
-      out.textContent = window.WatermarkManager.notice();
+      const idleLabel = '🏷️ Remover marca';
+      if (btn.dataset.busy === 'true') return;
+      btn.dataset.busy = 'true';
+      btn.disabled = true;
+      btn.textContent = '⏳ Removendo marca d’água…';
+      out.textContent = 'Removendo marca d’água…';
       try {
-        const found = await window.WatermarkManager.detect();
-        if (!found) { out.textContent = window.I18n.t('wm_none'); return; }
-        const ok = window.confirm(`Elemento encontrado:\n${found.selector}\n\n${found.text || ''}\n\nPreparar pedido de remoção?`);
-        if (!ok) { out.textContent = 'Ação cancelada.'; return; }
-        window.LCA.els.input.value = window.WatermarkManager.buildPrompt(found);
-        document.querySelector('.tab[data-tab="prompt"]').click();
-        out.textContent = 'Pedido preparado no prompt. Revise e envie.';
+        const res = await window.WatermarkRemover.run();
+        out.textContent = res.message;
+        if (res.state === 'done') {
+          btn.textContent = '✅ Marca removida';
+          out.textContent = res.confirmed
+            ? `${res.message}. Atualize o preview do projeto para conferir.`
+            : `${res.message}. Atualize o preview para confirmar.`;
+          btn.disabled = false;
+          btn.dataset.busy = 'false';
+          setTimeout(() => { btn.textContent = idleLabel; }, 8000);
+          return;
+        }
+        const labels = {
+          not_synced: '⚠️ Projeto não sincronizado',
+          license_invalid: '🔒 Licença inválida',
+          auth_error: '🔒 Erro de autenticação',
+          unavailable: '🚫 Operação indisponível',
+          error: '⚠️ Erro inesperado',
+          processing: '⏳ Removendo marca d’água…',
+        };
+        btn.textContent = labels[res.state] || labels.error;
+        setTimeout(() => { btn.textContent = idleLabel; }, 6000);
       } catch (e) {
-        out.textContent = e.message;
+        console.error('watermark', e);
+        out.textContent = e.message || window.WatermarkRemover.MESSAGES.UNEXPECTED;
+        btn.textContent = '⚠️ Erro inesperado';
+        setTimeout(() => { btn.textContent = idleLabel; }, 6000);
+      } finally {
+        btn.disabled = false;
+        btn.dataset.busy = 'false';
       }
     });
+
 
     const shieldBtn = $('toolShield');
     const paintShield = () => {
