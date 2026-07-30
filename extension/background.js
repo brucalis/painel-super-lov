@@ -58,35 +58,69 @@ async function licenseGate() {
 }
 
 // Ações que exigem licença ativa (o restante da extensão segue intacto).
-const PROTECTED = new Set(['uploadToStorage', 'superLovableForward', 'superLovableTool']);
+const PROTECTED = new Set([
+  'uploadToStorage',
+  'superLovableForward',
+  'superLovableTool',
+  'SUPER_LOVABLE_SUBMIT_PROMPT',
+  'SUPER_LOVABLE_ENQUEUE_PROMPT',
+]);
+
+// Ações da fila que apenas leem/controlam o estado (sem envio).
+const QUEUE_CONTROL = {
+  SUPER_LOVABLE_QUEUE_SNAPSHOT: () => QueueEngine.snapshot(),
+  SUPER_LOVABLE_QUEUE_TICK: () => QueueEngine.tick().then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_PAUSE: () => QueueEngine.pause().then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_RESUME: () => QueueEngine.resume().then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_CONFIRM: () => QueueEngine.confirmCompletion(),
+  SUPER_LOVABLE_QUEUE_KEEP_WAITING: () => QueueEngine.keepWaiting(),
+  SUPER_LOVABLE_QUEUE_RETRY: (d) => QueueEngine.retry(d.id).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_SKIP: (d) => QueueEngine.skip(d.id).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_EDIT: (d) => QueueEngine.edit(d.id, d.text).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_REMOVE: (d) => QueueEngine.remove(d.id).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_MOVE: (d) => QueueEngine.moveTo(d.id, d.index).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_DUPLICATE: (d) => QueueEngine.duplicate(d.id).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_CLEAR_DONE: () => QueueEngine.clearDone().then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_CLEAR_ALL: () => QueueEngine.clearAll().then(() => ({ success: true })),
+  SUPER_LOVABLE_EXECUTION_STATE: (d) => QueueEngine.getLovableExecutionState(d && d.projectId),
+};
 
 const QUEUE_KEY = 'lca_queue';
 const PENDING_KEY = 'super_lovable_pending_history';
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-  if (request.action === 'licenseChanged') {
+  const action = request.action || request.type;
+
+  if (action === 'licenseChanged') {
     bootLicense().then(() => sendResponse({ success: true }));
     return true;
   }
 
-  if (request.action === 'licenseStatus') {
+  if (action === 'licenseStatus') {
     LicenseClient.getStoredLicense().then((state) =>
       sendResponse({ success: true, active: LicenseClient.hasActiveLicense(state), status: state.status })
     );
     return true;
   }
 
-  if (PROTECTED.has(request.action)) {
+  if (QUEUE_CONTROL[action]) {
+    QUEUE_CONTROL[action](request.data || {})
+      .then((r) => sendResponse({ success: true, ...r }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (PROTECTED.has(action)) {
     licenseGate().then((gate) => {
       if (!gate.allowed) return sendResponse({ success: false, blocked: true, error: gate.reason });
-      handleProtected(request).then(sendResponse).catch((err) =>
+      handleProtected({ ...request, action }).then(sendResponse).catch((err) =>
         sendResponse({ success: false, error: err.message })
       );
     });
     return true;
   }
 
-  if (request.action === 'apiFetch') {
+  if (action === 'apiFetch') {
     handleApiFetch(request.data).then(sendResponse).catch((err) =>
       sendResponse({ success: false, error: err.message })
     );
@@ -94,6 +128,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
   return false;
 });
+
 
 /** Despacha as ações protegidas depois da verificação de licença. */
 async function handleProtected(request) {
