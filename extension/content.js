@@ -32,53 +32,56 @@
   }
 
   // ---------- detecção de execução ----------
+  // Sinais fortes indicam execução sozinhos. Sinais fracos (spinner, texto,
+  // streaming) só contam quando aparecem juntos, evitando o falso "ocupada"
+  // que impedia o envio imediato com a Lovable parada.
   function detectLovableExecutionState() {
-    const signals = [];
+    const strong = [];
+    const weak = [];
     const root = document.querySelector('main') || document.body;
 
-    // sinal 1: botão de parar geração
+    // sinal forte 1: botão de parar geração visível
     const stopBtn = Array.from(root.querySelectorAll('button')).find((b) => {
       const label = `${b.getAttribute('aria-label') || ''} ${b.textContent || ''}`.toLowerCase();
-      return /stop|parar|cancelar geração|interromper/.test(label);
+      if (!/\b(stop|parar|interromper|cancelar geração)\b/.test(label)) return false;
+      const r = b.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
     });
-    if (stopBtn) signals.push('stop-button');
+    if (stopBtn) strong.push('stop-button');
 
-    // sinal 2: textarea desativada
+    // sinal forte 2: campo nativo desativado
     const ta = findNativeInput();
-    if (ta && (ta.disabled || ta.getAttribute('aria-disabled') === 'true' || ta.readOnly)) signals.push('input-disabled');
+    if (ta && (ta.disabled || ta.getAttribute('aria-disabled') === 'true' || ta.readOnly)) strong.push('input-disabled');
 
-    // sinal 3: indicadores de carregamento visíveis
-    const spinners = root.querySelectorAll(
-      '[role="progressbar"], [data-loading="true"], [aria-busy="true"], .animate-spin, [data-state="loading"]'
-    );
-    if (spinners.length) signals.push('spinner');
+    // sinal fraco: indicadores de carregamento realmente visíveis
+    const spinner = Array.from(
+      root.querySelectorAll('[role="progressbar"], [data-loading="true"], [aria-busy="true"], .animate-spin, [data-state="loading"]')
+    ).some((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 4 && r.height > 4;
+    });
+    if (spinner) weak.push('spinner');
 
-    // sinal 4: textos típicos de processamento
-    const txt = (root.innerText || '').slice(0, 4000).toLowerCase();
-    if (/(thinking|working|generating|gerando|pensando|editing files|analisando|building|restarting|deploying)/.test(txt)) {
-      signals.push('progress-text');
+    // sinal fraco: textos de progresso no rodapé do chat (não na página toda)
+    const tail = (root.innerText || '').slice(-1200).toLowerCase();
+    if (/(thinking…|thinking\.\.\.|generating|gerando|pensando|editing files|working on it|building your|deploying)/.test(tail)) {
+      weak.push('progress-text');
     }
 
-    // sinal 5: streaming — última mensagem mudando de tamanho
+    // sinal fraco: streaming — última mensagem crescendo entre duas leituras
     const last = root.querySelector('[data-message-id]:last-of-type, [data-testid*="message"]:last-of-type');
     const len = last ? (last.textContent || '').length : 0;
-    if (detectLovableExecutionState._len !== undefined && len !== detectLovableExecutionState._len) {
-      signals.push('streaming');
+    if (detectLovableExecutionState._len !== undefined && len > detectLovableExecutionState._len) {
+      weak.push('streaming');
     }
     detectLovableExecutionState._len = len;
 
-    // sinal 6: botão de envio nativo ausente/desabilitado enquanto há campo
-    if (ta) {
-      const form = ta.closest('form') || ta.parentElement;
-      const sendBtn = form?.querySelector('button[type="submit"], button[aria-label*="end" i], button[aria-label*="nvi" i]');
-      if (sendBtn && sendBtn.disabled && (ta.value || ta.innerText || '').trim()) signals.push('send-disabled');
-    }
-
-    const isRunning = signals.length > 0;
+    const signals = [...strong, ...weak];
+    const isRunning = strong.length > 0 || weak.length >= 2;
     if (isRunning !== lastState.isRunning) lastRunningChange = Date.now();
     lastState = {
       isRunning,
-      confidence: Math.min(1, signals.length / 3),
+      confidence: strong.length ? 1 : Math.min(1, weak.length / 2),
       signals,
       lastChangeAt: lastRunningChange,
     };
