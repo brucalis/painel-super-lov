@@ -43,10 +43,14 @@
 
   // ---------------- cartão em Ajustes ----------------
   function renderCard(state) {
+    applyRole(state);
     const card = $('licenseCard');
     if (!card) return;
     const active = LC.hasActiveLicense(state);
     const days = LC.daysLeft(state);
+    const admin = LC.isAdmin(state);
+    const roleEl = $('licRole');
+    if (roleEl) roleEl.textContent = admin ? 'Administrador' : 'Usuário';
 
     $('licPlan').textContent = state.plan_name || state.plan || (active ? 'Plano ativo' : '—');
     $('licStatus').textContent = active
