@@ -197,6 +197,7 @@ export type Database = {
       }
       licenses: {
         Row: {
+          access_role: string
           created_at: string
           customer_id: string | null
           device_limit: number
@@ -217,6 +218,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_role?: string
           created_at?: string
           customer_id?: string | null
           device_limit?: number
@@ -237,6 +239,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_role?: string
           created_at?: string
           customer_id?: string | null
           device_limit?: number

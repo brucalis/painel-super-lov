@@ -1,0 +1,2 @@
+ALTER TABLE public.licenses ADD COLUMN IF NOT EXISTS access_role text NOT NULL DEFAULT 'user';
+UPDATE public.licenses SET access_role = 'admin' WHERE plan = 'admin' OR license_key = 'LVA-ADMN-2026-FULL-ACES';
