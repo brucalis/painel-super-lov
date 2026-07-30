@@ -179,6 +179,7 @@
     return {
       license_token: null,
       status: 'none',
+      access_role: 'user',
       plan: null,
       plan_name: null,
       expires_at: null,
@@ -190,6 +191,11 @@
       key_hint: null,
       message: REASONS.none,
     };
+  }
+
+  /** Nível de acesso da chave: 'admin' libera as configurações internas. */
+  function isAdmin(state) {
+    return !!state && state.access_role === 'admin';
   }
 
   async function getStoredLicense() {
@@ -389,6 +395,7 @@
     getStoredLicense,
     clearLicense,
     hasActiveLicense,
+    isAdmin,
     isWithinOfflineGrace,
     isExpired,
     blockReason,
