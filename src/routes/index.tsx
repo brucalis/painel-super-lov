@@ -82,6 +82,10 @@ function Index() {
         >
           Baixar extensão (.zip)
         </button>
+        <p className="mt-3 text-sm text-slate-400">
+          Versão {EXTENSION_VERSION} · atualizada em {EXTENSION_UPDATED_AT}
+        </p>
+
 
         <h2 className="mt-14 text-xl font-semibold">Como instalar</h2>
         <ol className="mt-4 space-y-2 text-slate-300">
