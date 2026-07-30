@@ -1,8 +1,14 @@
 // SUPER LOVABLE — background service worker (MV3)
-// Não monta requisições de chat: apenas repassa uploads, consultas e registros.
+// Além de repassar uploads e consultas, hospeda o motor único da fila:
+// é ele que envia ou enfileira, detecta a conclusão e avança sozinho,
+// inclusive com o popup fechado.
 importScripts('modules/license-client.js');
+importScripts('modules/lovable-sender.js');
+importScripts('modules/queue-engine.js');
 
 const LICENSE_ALARM = 'super_lovable_license_check';
+const QUEUE_ALARM = 'super_lovable_queue_tick';
+
 
 // Validação na instalação/atualização e a cada início do navegador.
 chrome.runtime.onInstalled.addListener(() => { bootLicense('instalação'); });
