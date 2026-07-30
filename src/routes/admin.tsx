@@ -30,6 +30,10 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
+// Atualize junto com o pacote da extensão (horário de Brasília).
+const EXTENSION_VERSION = "1.5.0";
+const EXTENSION_UPDATED_AT = "30/07/2026 às 17:10";
+
 function AdminPage() {
   const navigate = useNavigate();
   const [state, setState] = useState<"loading" | "denied" | "ok">("loading");
