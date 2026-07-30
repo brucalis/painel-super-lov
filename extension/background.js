@@ -134,12 +134,20 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 async function handleProtected(request) {
   if (request.action === 'uploadToStorage') return handleUpload(request.data);
   if (request.action === 'superLovableForward') return handleForward(request.data);
+  if (request.action === 'SUPER_LOVABLE_SUBMIT_PROMPT') {
+    return QueueEngine.submitOrQueuePrompt(request.data || {});
+  }
+  if (request.action === 'SUPER_LOVABLE_ENQUEUE_PROMPT') {
+    const data = { ...(request.data || {}), forceQueue: true };
+    return QueueEngine.submitOrQueuePrompt({ ...data, forceQueue: true });
+  }
   if (request.action === 'superLovableTool') {
     await chrome.storage.local.set({ super_lovable_pending_tool: request.data });
     return { success: true };
   }
   return { success: false, error: 'Ação desconhecida.' };
 }
+
 
 
 async function handleUpload({ url, headers, body, byteLength }) {
