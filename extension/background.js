@@ -176,44 +176,20 @@ async function handleApiFetch({ url, method, headers, body }) {
 
 /**
  * Texto capturado no campo nativo da Lovable.
- * O envio real continua exclusivamente no fluxo original do popup: aqui o
- * pedido só entra na fila e no registro pendente de histórico.
+ * Agora usa a mesma função central: envia na hora quando a Lovable está livre
+ * e enfileira automaticamente quando há execução em andamento.
  */
 async function handleForward({ text, projectId, origin }) {
-  const store = await chrome.storage.local.get([QUEUE_KEY, PENDING_KEY]);
-  const queue = Array.isArray(store[QUEUE_KEY]) ? store[QUEUE_KEY] : [];
-  const item = {
-    id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+  void QUEUE_KEY; void PENDING_KEY;
+  const res = await QueueEngine.submitOrQueuePrompt({
     text,
-    model: 'auto',
-    mode: 'prompt',
-    date: Date.now(),
-    attempts: 0,
-    status: 'pendente',
-    error: null,
-    origin: origin || 'chat nativo redirecionado',
-    projectId: projectId || null,
-    attachmentNames: [],
-  };
-  queue.push(item);
-
-  const pending = Array.isArray(store[PENDING_KEY]) ? store[PENDING_KEY] : [];
-  pending.push({
-    text,
-    project: projectId || null,
-    status: 'na fila',
-    origin: item.origin,
-    date: item.date,
+    projectId,
+    source: origin === 'native_toolbar' ? 'native_toolbar' : 'native_chat',
     attachments: [],
   });
-
-  await chrome.storage.local.set({ [QUEUE_KEY]: queue, [PENDING_KEY]: pending.slice(-100) });
-  try {
-    await chrome.action.setBadgeText({ text: String(queue.length) });
-    await chrome.action.setBadgeBackgroundColor({ color: '#8B5CF6' });
-  } catch (e) { /* badge é opcional */ }
-
-  return { success: true, queued: true, position: queue.length, queueSize: queue.length };
+  const snap = await QueueEngine.snapshot();
+  return { ...res, queueSize: snap.summary.total, position: res.position || snap.summary.total };
 }
+
 
 bootLicense();
