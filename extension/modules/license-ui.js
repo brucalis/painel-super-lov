@@ -191,6 +191,7 @@
   }
 
   async function boot() {
+    document.body.classList.add('role-user');
     showGate(); // a interface principal nunca aparece antes da ativação válida
     wire();
     await LC.getDeviceId(); // garante o identificador na primeira execução
