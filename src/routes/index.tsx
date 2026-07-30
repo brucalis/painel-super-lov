@@ -22,6 +22,10 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+// Atualize sempre que o super-lovable.zip for regerado (horário de Brasília).
+const EXTENSION_VERSION = "1.4.0";
+const EXTENSION_UPDATED_AT = "30/07/2026 às 16:50";
+
 const steps = [
   "Descompacte o arquivo baixado.",
   "Abra chrome://extensions no Chrome (ou outro navegador Chromium).",
@@ -78,6 +82,10 @@ function Index() {
         >
           Baixar extensão (.zip)
         </button>
+        <p className="mt-3 text-sm text-slate-400">
+          Versão {EXTENSION_VERSION} · atualizada em {EXTENSION_UPDATED_AT}
+        </p>
+
 
         <h2 className="mt-14 text-xl font-semibold">Como instalar</h2>
         <ol className="mt-4 space-y-2 text-slate-300">
