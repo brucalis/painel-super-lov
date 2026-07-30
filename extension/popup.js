@@ -414,69 +414,39 @@ async function sendMessage() {
     els.input.value = '';
     els.input.style.height = 'auto';
 
-    const ids = generateMessageId();
-    const messageBody = {
-      id: ids.userMessageId,
-      message: message,
-      files: files,
-      selected_elements: [],
-      chat_only: false,
-      optimisticImageUrls: files.map((f) => f.url),
-      intent: 'fix_error',
-      message_intent_metadata: {
-        fix_error_metadata: {
-          errors: [
-            {
-              error_type: 'build',
-              error_message: '',
-              build_event_id: 'main:agent#00000000000123#bld:ZDP4ZE3D',
-            },
-          ],
+    // Função central: o motor no service worker envia agora (quando a Lovable
+    // está livre) ou enfileira. O payload, os IDs e o endpoint continuam
+    // exatamente os mesmos — apenas passaram a viver no background para que a
+    // fila siga funcionando com o popup fechado.
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        {
+          action: 'SUPER_LOVABLE_SUBMIT_PROMPT',
+          data: {
+            projectId: currentProjectId,
+            text: message,
+            attachments: files,
+            source: 'popup',
+            model: window.AIProviderClient?.current?.() || 'auto',
+          },
         },
-      },
-      contains_error: true,
-      error_ids: ['main:agent#00000000000123#bld:ZDP4ZE3D'],
-      ai_message_id: ids.aiMessageId,
-      thread_id: 'main',
-      current_page: '/',
-      current_viewport_width: 1465,
-      current_viewport_height: 408,
-      current_viewport_dpr: 0.8999999761581421,
-      view: 'preview',
-      view_description: 'The user is currently viewing the preview.',
-      model: null,
-      network_requests: [],
-      runtime_errors: [],
-      integration_metadata: {
-        browser: {
-          preview_viewport_width: 1465,
-          preview_viewport_height: 408,
-          is_logged_out: true,
-        },
-      },
-    };
-
-    const response = await fetch(`https://api.lovable.dev/projects/${currentProjectId}/chat`, {
-      method: 'POST',
-      headers: apiHeaders(),
-      credentials: 'include',
-      body: JSON.stringify(messageBody),
+        (r) => {
+          void chrome.runtime.lastError;
+          resolve(r || { success: false, error: 'Sem resposta da SUPER LOVABLE.' });
+        }
+      );
     });
 
-    const raw = await response.text();
-    if (!response.ok) throw new Error(`Chat falhou: ${response.status} ${raw.slice(0, 160)}`);
-
-    let reply = raw;
-    try {
-      const json = JSON.parse(raw);
-      reply = json.message || json.content || json.response || raw;
-    } catch (_) {
-      /* resposta em stream/texto */
-    }
-    appendMessage('ai', typeof reply === 'string' ? reply : JSON.stringify(reply, null, 2));
+    if (!res.success) throw new Error(res.error || 'Não foi possível enviar.');
 
     attachments.splice(0).forEach((a) => a.el?.remove());
-    setStatus('Mensagem enviada.', 'success');
+    if (res.sent) {
+      appendMessage('ai', 'Comando enviado à Lovable. Acompanhe a resposta na aba do projeto.');
+      setStatus('Mensagem enviada.', 'success');
+    } else {
+      appendMessage('ai', `Adicionado à fila na posição ${res.position}. O envio é automático assim que a Lovable ficar livre.`);
+      setStatus(`Na fila — posição ${res.position}.`, 'info', 6000);
+    }
   } catch (err) {
     setStatus(err.message, 'error', 7000);
     appendMessage('ai', `⚠️ ${err.message}`);
@@ -484,6 +454,7 @@ async function sendMessage() {
     setBusy(false);
   }
 }
+
 
 // ---------- API pública para os módulos adicionais ----------
 // Exposição do estado já existente. Nada aqui altera autenticação, montagem

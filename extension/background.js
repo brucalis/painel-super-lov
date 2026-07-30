@@ -1,8 +1,14 @@
 // SUPER LOVABLE — background service worker (MV3)
-// Não monta requisições de chat: apenas repassa uploads, consultas e registros.
+// Além de repassar uploads e consultas, hospeda o motor único da fila:
+// é ele que envia ou enfileira, detecta a conclusão e avança sozinho,
+// inclusive com o popup fechado.
 importScripts('modules/license-client.js');
+importScripts('modules/lovable-sender.js');
+importScripts('modules/queue-engine.js');
 
 const LICENSE_ALARM = 'super_lovable_license_check';
+const QUEUE_ALARM = 'super_lovable_queue_tick';
+
 
 // Validação na instalação/atualização e a cada início do navegador.
 chrome.runtime.onInstalled.addListener(() => { bootLicense('instalação'); });
@@ -21,12 +27,17 @@ async function bootLicense() {
 }
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === QUEUE_ALARM) {
+    QueueEngine.tick().catch(() => {});
+    return;
+  }
   if (alarm.name !== LICENSE_ALARM) return;
   const state = await LicenseClient.getStoredLicense();
   if (!state.license_token) return;
   await LicenseClient.validateLicense();
   await broadcastLicense();
 });
+
 
 async function broadcastLicense() {
   const state = await LicenseClient.getStoredLicense();
@@ -47,35 +58,69 @@ async function licenseGate() {
 }
 
 // Ações que exigem licença ativa (o restante da extensão segue intacto).
-const PROTECTED = new Set(['uploadToStorage', 'superLovableForward', 'superLovableTool']);
+const PROTECTED = new Set([
+  'uploadToStorage',
+  'superLovableForward',
+  'superLovableTool',
+  'SUPER_LOVABLE_SUBMIT_PROMPT',
+  'SUPER_LOVABLE_ENQUEUE_PROMPT',
+]);
+
+// Ações da fila que apenas leem/controlam o estado (sem envio).
+const QUEUE_CONTROL = {
+  SUPER_LOVABLE_QUEUE_SNAPSHOT: () => QueueEngine.snapshot(),
+  SUPER_LOVABLE_QUEUE_TICK: () => QueueEngine.tick().then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_PAUSE: () => QueueEngine.pause().then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_RESUME: () => QueueEngine.resume().then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_CONFIRM: () => QueueEngine.confirmCompletion(),
+  SUPER_LOVABLE_QUEUE_KEEP_WAITING: () => QueueEngine.keepWaiting(),
+  SUPER_LOVABLE_QUEUE_RETRY: (d) => QueueEngine.retry(d.id).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_SKIP: (d) => QueueEngine.skip(d.id).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_EDIT: (d) => QueueEngine.edit(d.id, d.text).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_REMOVE: (d) => QueueEngine.remove(d.id).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_MOVE: (d) => QueueEngine.moveTo(d.id, d.index).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_DUPLICATE: (d) => QueueEngine.duplicate(d.id).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_CLEAR_DONE: () => QueueEngine.clearDone().then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_CLEAR_ALL: () => QueueEngine.clearAll().then(() => ({ success: true })),
+  SUPER_LOVABLE_EXECUTION_STATE: (d) => QueueEngine.getLovableExecutionState(d && d.projectId),
+};
 
 const QUEUE_KEY = 'lca_queue';
 const PENDING_KEY = 'super_lovable_pending_history';
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-  if (request.action === 'licenseChanged') {
+  const action = request.action || request.type;
+
+  if (action === 'licenseChanged') {
     bootLicense().then(() => sendResponse({ success: true }));
     return true;
   }
 
-  if (request.action === 'licenseStatus') {
+  if (action === 'licenseStatus') {
     LicenseClient.getStoredLicense().then((state) =>
       sendResponse({ success: true, active: LicenseClient.hasActiveLicense(state), status: state.status })
     );
     return true;
   }
 
-  if (PROTECTED.has(request.action)) {
+  if (QUEUE_CONTROL[action]) {
+    QUEUE_CONTROL[action](request.data || {})
+      .then((r) => sendResponse({ success: true, ...r }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (PROTECTED.has(action)) {
     licenseGate().then((gate) => {
       if (!gate.allowed) return sendResponse({ success: false, blocked: true, error: gate.reason });
-      handleProtected(request).then(sendResponse).catch((err) =>
+      handleProtected({ ...request, action }).then(sendResponse).catch((err) =>
         sendResponse({ success: false, error: err.message })
       );
     });
     return true;
   }
 
-  if (request.action === 'apiFetch') {
+  if (action === 'apiFetch') {
     handleApiFetch(request.data).then(sendResponse).catch((err) =>
       sendResponse({ success: false, error: err.message })
     );
@@ -84,16 +129,25 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   return false;
 });
 
+
 /** Despacha as ações protegidas depois da verificação de licença. */
 async function handleProtected(request) {
   if (request.action === 'uploadToStorage') return handleUpload(request.data);
   if (request.action === 'superLovableForward') return handleForward(request.data);
+  if (request.action === 'SUPER_LOVABLE_SUBMIT_PROMPT') {
+    return QueueEngine.submitOrQueuePrompt(request.data || {});
+  }
+  if (request.action === 'SUPER_LOVABLE_ENQUEUE_PROMPT') {
+    const data = { ...(request.data || {}), forceQueue: true };
+    return QueueEngine.submitOrQueuePrompt({ ...data, forceQueue: true });
+  }
   if (request.action === 'superLovableTool') {
     await chrome.storage.local.set({ super_lovable_pending_tool: request.data });
     return { success: true };
   }
   return { success: false, error: 'Ação desconhecida.' };
 }
+
 
 
 async function handleUpload({ url, headers, body, byteLength }) {
@@ -122,44 +176,25 @@ async function handleApiFetch({ url, method, headers, body }) {
 
 /**
  * Texto capturado no campo nativo da Lovable.
- * O envio real continua exclusivamente no fluxo original do popup: aqui o
- * pedido só entra na fila e no registro pendente de histórico.
+ * Agora usa a mesma função central: envia na hora quando a Lovable está livre
+ * e enfileira automaticamente quando há execução em andamento.
  */
 async function handleForward({ text, projectId, origin }) {
-  const store = await chrome.storage.local.get([QUEUE_KEY, PENDING_KEY]);
-  const queue = Array.isArray(store[QUEUE_KEY]) ? store[QUEUE_KEY] : [];
-  const item = {
-    id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+  void QUEUE_KEY; void PENDING_KEY;
+  const res = await QueueEngine.submitOrQueuePrompt({
     text,
-    model: 'auto',
-    mode: 'prompt',
-    date: Date.now(),
-    attempts: 0,
-    status: 'pendente',
-    error: null,
-    origin: origin || 'chat nativo redirecionado',
-    projectId: projectId || null,
-    attachmentNames: [],
-  };
-  queue.push(item);
-
-  const pending = Array.isArray(store[PENDING_KEY]) ? store[PENDING_KEY] : [];
-  pending.push({
-    text,
-    project: projectId || null,
-    status: 'na fila',
-    origin: item.origin,
-    date: item.date,
+    projectId,
+    source: origin === 'native_toolbar' ? 'native_toolbar' : 'native_chat',
     attachments: [],
   });
-
-  await chrome.storage.local.set({ [QUEUE_KEY]: queue, [PENDING_KEY]: pending.slice(-100) });
-  try {
-    await chrome.action.setBadgeText({ text: String(queue.length) });
-    await chrome.action.setBadgeBackgroundColor({ color: '#8B5CF6' });
-  } catch (e) { /* badge é opcional */ }
-
-  return { success: true, queued: true, position: queue.length, queueSize: queue.length };
+  const snap = await QueueEngine.snapshot();
+  return { ...res, queueSize: snap.summary.total, position: res.position || snap.summary.total };
 }
 
+
 bootLicense();
+
+// Mantém a fila viva mesmo com o popup fechado: alarme periódico + tick imediato.
+chrome.alarms.create(QUEUE_ALARM, { periodInMinutes: 0.5 });
+QueueEngine.scheduleTick(1500);
+

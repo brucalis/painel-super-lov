@@ -113,3 +113,76 @@
   #super-lovable-native-toolbar .sl-btn,
   #super-lovable-toast { transition: none; }
 }
+
+/* v1.4 — barra com composer próprio */
+#super-lovable-native-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  overflow: visible;
+}
+#super-lovable-native-toolbar .sl-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+#super-lovable-native-toolbar .sl-compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 7px;
+}
+#super-lovable-native-toolbar #sl-input {
+  flex: 1;
+  resize: none;
+  max-height: 90px;
+  min-height: 32px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: #f8fafc;
+  border: 1px solid rgba(182, 193, 221, 0.25);
+  background: rgba(12, 17, 36, 0.9);
+  font: 500 12px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+  outline: none;
+}
+#super-lovable-native-toolbar #sl-input:focus { border-color: rgba(139, 92, 246, 0.75); }
+#super-lovable-native-toolbar #sl-input:disabled,
+#super-lovable-native-toolbar .sl-send:disabled { opacity: 0.5; cursor: not-allowed; }
+#super-lovable-native-toolbar .sl-send {
+  cursor: pointer;
+  min-width: 36px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  color: #0b1020;
+  font-size: 14px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #4c7dff, #8b5cf6 45%, #ec5dce);
+}
+#super-lovable-native-toolbar .sl-flag.busy { color: #facc5c; }
+#super-lovable-native-toolbar .sl-flag.queued { color: #7dd3fc; }
+#super-lovable-native-toolbar .sl-flag.warn { color: #fb7185; }
+#super-lovable-native-toolbar .sl-queue { cursor: pointer; border: 0; color: #f8fafc; }
+#super-lovable-mini.hidden { display: none !important; }
+#super-lovable-mini:not(.hidden) { display: flex; }
+#super-lovable-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translate(-50%, 20px);
+  max-width: 460px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  background: rgba(11, 16, 32, 0.96);
+  color: #f8fafc;
+  font: 500 12.5px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+  z-index: 2147483600;
+}
+#super-lovable-toast.show { opacity: 1; transform: translate(-50%, 0); }
+#super-lovable-toast.err { border-color: rgba(251, 113, 133, 0.6); }

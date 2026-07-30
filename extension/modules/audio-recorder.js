@@ -47,12 +47,15 @@
   const AudioRecorder = {
     get state() { return state; },
     onChange(fn) { listeners.push(fn); },
-    async start() {
+    /** Pedido de permissão feito no próprio clique (sem await antes). */
+    requestStream() {
+      return navigator.mediaDevices.getUserMedia({ audio: true });
+    },
+    /** Inicia com um stream já autorizado pelo clique do usuário. */
+    startWithStream(granted) {
       if (state === 'recording' || state === 'paused') return;
       try {
-        state = 'permission';
-        emit();
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream = granted;
         const mimeType = pickMime();
         recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
         chunks = [];
@@ -67,7 +70,21 @@
       } catch (e) {
         cleanup();
         state = 'error';
-        const denied = e && /denied|not allowed|dismissed/i.test(`${e.name} ${e.message}`);
+        emit({ error: `Não foi possível iniciar a gravação: ${e.message}` });
+        throw e;
+      }
+    },
+    async start() {
+      if (state === 'recording' || state === 'paused') return;
+      try {
+        state = 'permission';
+        emit();
+        const granted = await AudioRecorder.requestStream();
+        AudioRecorder.startWithStream(granted);
+      } catch (e) {
+        cleanup();
+        state = 'error';
+        const denied = e && /denied|not allowed|dismissed|permission/i.test(`${e.name} ${e.message}`);
         const msg = denied
           ? 'O Chrome não autorizou o uso do microfone. Clique no ícone de permissões do navegador e permita o acesso para a SUPER LOVABLE.'
           : `Microfone indisponível: ${e.message}`;
@@ -75,6 +92,7 @@
         throw new Error(msg);
       }
     },
+
     pause() {
       if (state !== 'recording' || !recorder) return;
       try { recorder.pause(); state = 'paused'; emit(); } catch (e) { console.warn(e); }
