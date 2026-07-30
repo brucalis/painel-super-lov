@@ -782,3 +782,83 @@ body:not(.role-admin) .admin-only { display: none !important; }
 .composer-actions .send { width: 44px; height: 34px; }
 .quick-dock { margin: 8px 0 0; }
 .quick-dock .qa-list { grid-template-columns: repeat(3, 1fr); }
+
+/* v1.6 — configurações alinhadas (nada de texto vazando) */
+#panel-settings { padding-right: 4px; }
+#panel-settings .chk,
+#panel-settings .fld {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 10px;
+  line-height: 1.35;
+}
+#panel-settings .chk {
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: nowrap;
+  overflow-wrap: anywhere;
+}
+#panel-settings .chk input { flex: 0 0 auto; margin-top: 2px; }
+#panel-settings .fld { overflow-wrap: anywhere; }
+#panel-settings .fld > input,
+#panel-settings .fld > select,
+#panel-settings .fld > textarea {
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+#panel-settings .section,
+#panel-settings .toolbar { max-width: 100%; }
+#panel-settings .toolbar > * { max-width: 100%; overflow-wrap: anywhere; }
+#panel-settings .pid { overflow-wrap: anywhere; }
+
+/* Pop-up de escolha do modo de envio */
+.sl-modal-back {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(6, 10, 25, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 2147483000;
+}
+.sl-modal {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  background: linear-gradient(150deg, rgba(15, 20, 40, 0.98), rgba(34, 25, 70, 0.98));
+  box-shadow: 0 20px 50px rgba(4, 8, 20, 0.6);
+}
+.sl-modal h3 { margin: 0 0 2px; font-size: 14px; color: #f8fafc; }
+.sl-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #f8fafc;
+  border: 1px solid rgba(182, 193, 221, 0.25);
+  background: rgba(20, 27, 55, 0.9);
+}
+.sl-mode:hover { border-color: rgba(236, 93, 206, 0.6); }
+.sl-mode b { font-size: 12.5px; }
+.sl-mode span { font-size: 11.5px; color: #b6c1dd; line-height: 1.35; }
+.sl-remember { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #b6c1dd; }
+.sl-cancel {
+  cursor: pointer;
+  padding: 7px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #b6c1dd;
+  border: 0;
+  background: transparent;
+}
