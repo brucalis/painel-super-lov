@@ -28,6 +28,13 @@
     $('licenseGate').hidden = true;
   }
 
+  /** Aplica o nível de acesso: só a chave de administrador vê as configurações internas. */
+  function applyRole(state) {
+    const admin = window.LicenseClient.isAdmin(state);
+    document.body.classList.toggle('role-admin', admin);
+    document.body.classList.toggle('role-user', !admin);
+  }
+
   function fmtDate(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
