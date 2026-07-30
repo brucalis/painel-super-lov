@@ -1,10 +1,11 @@
 /* content.js — SUPER LOVABLE dentro da interface da Lovable.
  * Responsabilidades:
- *  1. barra de controles próxima ao campo nativo (#super-lovable-native-toolbar);
+ *  1. barra integrada ao chat nativo, com campo próprio, envio direto e contador da fila;
  *  2. painel Mini;
  *  3. detecção do estado de execução (detectLovableExecutionState);
- *  4. encaminhamento do texto digitado no campo nativo para o fluxo da extensão.
- * NÃO envia nada para a API: o envio continua exclusivamente no fluxo original do popup.
+ *  4. encaminhamento do texto digitado no campo nativo para a função central.
+ * O envio real é feito pelo motor da fila no service worker, que reproduz
+ * exatamente o fluxo original (mesmos IDs, payload, intent e endpoint).
  */
 (function () {
   if (window.__superLovableInjected) return;
@@ -12,9 +13,11 @@
 
   const TOOLBAR_ID = 'super-lovable-native-toolbar';
   const MINI_ID = 'super-lovable-mini';
+  const MAX_QUEUE_ITEMS = 10;
   let settings = { nativeCapture: true, mini: 'open' };
   let lastState = { isRunning: false, confidence: 0, signals: [], lastChangeAt: Date.now() };
   let lastRunningChange = Date.now();
+  let summary = { total: 0, waiting: 0, isFull: false, paused: false, activeStatus: null };
 
   // ---------- utils ----------
   const projectId = () => (location.pathname.match(/\/projects\/([0-9a-zA-Z-]+)/) || [])[1] || null;
@@ -46,13 +49,15 @@
 
     // sinal 3: indicadores de carregamento visíveis
     const spinners = root.querySelectorAll(
-      '[role="progressbar"], [data-loading="true"], [aria-busy="true"], .animate-spin'
+      '[role="progressbar"], [data-loading="true"], [aria-busy="true"], .animate-spin, [data-state="loading"]'
     );
     if (spinners.length) signals.push('spinner');
 
     // sinal 4: textos típicos de processamento
     const txt = (root.innerText || '').slice(0, 4000).toLowerCase();
-    if (/(thinking|working|generating|gerando|pensando|editing files|analisando)/.test(txt)) signals.push('progress-text');
+    if (/(thinking|working|generating|gerando|pensando|editing files|analisando|building|restarting|deploying)/.test(txt)) {
+      signals.push('progress-text');
+    }
 
     // sinal 5: streaming — última mensagem mudando de tamanho
     const last = root.querySelector('[data-message-id]:last-of-type, [data-testid*="message"]:last-of-type');
@@ -61,6 +66,13 @@
       signals.push('streaming');
     }
     detectLovableExecutionState._len = len;
+
+    // sinal 6: botão de envio nativo ausente/desabilitado enquanto há campo
+    if (ta) {
+      const form = ta.closest('form') || ta.parentElement;
+      const sendBtn = form?.querySelector('button[type="submit"], button[aria-label*="end" i], button[aria-label*="nvi" i]');
+      if (sendBtn && sendBtn.disabled && (ta.value || ta.innerText || '').trim()) signals.push('send-disabled');
+    }
 
     const isRunning = signals.length > 0;
     if (isRunning !== lastState.isRunning) lastRunningChange = Date.now();
@@ -86,12 +98,10 @@
       const r = el.getBoundingClientRect();
       if (r.width < 180 || r.height < 20) return false;
       if (el.closest('[data-super-lovable-ui]')) return false;
-      // evita editores de código, modais e campos de login
       if (el.closest('.monaco-editor, .cm-editor, [role="dialog"], form[action*="login"]')) return false;
       if (/password|email|senha/i.test(el.getAttribute('name') || el.getAttribute('type') || '')) return false;
       return true;
     });
-    // pontuação por sinais múltiplos
     let best = null;
     let bestScore = 0;
     candidates.forEach((el) => {
@@ -102,8 +112,8 @@
       const form = el.closest('form') || el.parentElement?.parentElement;
       if (form && form.querySelector('button[type="submit"], button[aria-label*="end" i], button[aria-label*="nvi" i]')) score += 2;
       const r = el.getBoundingClientRect();
-      if (r.bottom > window.innerHeight * 0.55) score += 2; // chat fica embaixo
-      if (r.left < window.innerWidth * 0.5) score += 1; // painel de chat à esquerda
+      if (r.bottom > window.innerHeight * 0.55) score += 2;
+      if (r.left < window.innerWidth * 0.5) score += 1;
       if (score > bestScore) { bestScore = score; best = el; }
     });
     return bestScore >= 4 ? best : null;
@@ -122,30 +132,54 @@
     }
   }
 
-  function forward(text, el) {
-    chrome.runtime.sendMessage(
-      {
-        action: 'superLovableForward',
-        data: { text, projectId: projectId(), origin: 'chat nativo redirecionado', isRunning: lastState.isRunning },
-      },
-      (res) => {
-        if (chrome.runtime.lastError || !res || !res.success) {
-          // Sem licença ativa o pedido é recusado; o texto continua no campo.
-          const reason = res && res.blocked
-            ? `${res.error} Abra a extensão para ativar seu acesso.`
-            : 'Não foi possível encaminhar para a SUPER LOVABLE. O texto foi mantido no campo.';
-          flash(reason, true);
-          return;
+  // ---------- função central de envio (mesma para todos os pontos) ----------
+  function submitOrQueuePrompt({ text, source }) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        {
+          action: 'SUPER_LOVABLE_SUBMIT_PROMPT',
+          data: { text, projectId: projectId(), source: source || 'native_toolbar', attachments: [] },
+        },
+        (res) => {
+          if (chrome.runtime.lastError) {
+            resolve({ success: false, error: 'A extensão precisa ser recarregada para continuar.' });
+            return;
+          }
+          resolve(res || { success: false, error: 'Sem resposta da SUPER LOVABLE.' });
         }
-        clearValue(el); // limpa apenas após a confirmação
-        flash(
-          res.queued
-            ? `Adicionado à fila da SUPER LOVABLE (posição ${res.position}). Abra a extensão para executar.`
-            : 'Registrado na SUPER LOVABLE. Abra a extensão para executar.'
-        );
-        paintMini(res.queueSize);
-      }
-    );
+      );
+    });
+  }
+
+  async function handleSubmit(text, onDone) {
+    if (!projectId()) {
+      setBarStatus('Abra um projeto primeiro', 'warn');
+      flash('Inicie um projeto no chat principal da Lovable e depois use a extensão.', true);
+      return;
+    }
+    if (!text.trim()) return;
+    if (summary.isFull) {
+      setBarStatus('Fila cheia', 'warn');
+      flash(`A fila atingiu o limite de ${MAX_QUEUE_ITEMS} comandos. Aguarde a conclusão de um deles para adicionar outro.`, true);
+      return;
+    }
+    setBarStatus('Enviando…', 'busy');
+    const res = await submitOrQueuePrompt({ text, source: onDone ? 'native_chat' : 'native_toolbar' });
+    if (!res.success) {
+      const reason = res.blocked ? `${res.error} Abra a extensão para ativar seu acesso.` : res.error;
+      setBarStatus('Não enviado', 'warn');
+      flash(reason || 'Não foi possível enviar.', true);
+      return;
+    }
+    if (onDone) onDone();
+    if (res.sent) {
+      setBarStatus('Enviando agora', 'busy');
+      flash('Comando enviado pela SUPER LOVABLE.');
+    } else {
+      setBarStatus(`Adicionado à fila — posição ${res.position}`, 'queued');
+      flash(`Adicionado à fila (posição ${res.position}). O envio é automático.`);
+    }
+    refreshSummary();
   }
 
   function bindNativeInput() {
@@ -163,7 +197,7 @@
         if (!text) return;
         e.preventDefault();
         e.stopPropagation();
-        forward(text, el);
+        handleSubmit(text, () => clearValue(el));
       },
       true
     );
@@ -177,22 +211,43 @@
     bar.id = TOOLBAR_ID;
     bar.setAttribute('data-super-lovable-ui', 'true');
     bar.innerHTML = `
-      <span class="sl-logo" aria-hidden="true">SL</span>
-      <span class="sl-title">SUPER LOVABLE</span>
-      <span class="sl-sync" id="sl-sync">Projeto sincronizado</span>
-      <div class="sl-actions">
-        <button class="sl-btn" data-act="skills" title="Atalhos rápidos da SUPER LOVABLE">Skills</button>
-        <button class="sl-btn" data-act="improve" title="Melhorar prompt na extensão">Melhorar</button>
-        <button class="sl-btn" data-act="watermark" title="Preparar pedido de remoção de marca">Remover marca</button>
-        <button class="sl-btn" data-act="download" title="Baixar arquivos do projeto pela extensão">Baixar</button>
-        <button class="sl-btn" data-act="help" title="Como usar a SUPER LOVABLE">Ajuda</button>
-        <button class="sl-btn" data-act="mini" title="Modo Mini">Mini</button>
-        <button class="sl-btn" data-act="hide" title="Ocultar barra">Ocultar</button>
+      <div class="sl-top">
+        <span class="sl-logo" aria-hidden="true">SL</span>
+        <span class="sl-title">SUPER LOVABLE</span>
+        <span class="sl-sync" id="sl-sync">Projeto sincronizado</span>
+        <div class="sl-actions">
+          <button class="sl-btn" data-act="skills" title="Atalhos rápidos da SUPER LOVABLE">Skills</button>
+          <button class="sl-btn" data-act="improve" title="Melhorar prompt na extensão">Melhorar</button>
+          <button class="sl-btn" data-act="watermark" title="Preparar pedido de remoção de marca">Remover marca</button>
+          <button class="sl-btn" data-act="download" title="Baixar arquivos do projeto pela extensão">Baixar</button>
+          <button class="sl-btn" data-act="help" title="Como usar a SUPER LOVABLE">Ajuda</button>
+          <button class="sl-btn" data-act="mini" title="Modo Mini">Mini</button>
+          <button class="sl-btn" data-act="hide" title="Ocultar barra">Ocultar</button>
+        </div>
+        <span class="sl-flag" id="sl-flag">Pronto para enviar</span>
+        <button class="sl-queue" id="sl-queue" title="Itens na fila — clique para abrir a fila">0</button>
       </div>
-      <span class="sl-flag" id="sl-flag">Envio pela SUPER LOVABLE</span>
-      <span class="sl-queue" id="sl-queue" title="Itens na fila">0</span>`;
+      <div class="sl-compose">
+        <textarea id="sl-input" rows="1" placeholder="Escreva aqui e envie pela SUPER LOVABLE…"
+          aria-label="Prompt da SUPER LOVABLE"></textarea>
+        <button class="sl-send" id="sl-send" title="Enviar agora ou adicionar à fila">➤</button>
+      </div>`;
+
     bar.addEventListener('click', (e) => {
       const act = e.target?.dataset?.act;
+      if (e.target?.id === 'sl-send') {
+        const input = bar.querySelector('#sl-input');
+        const text = input.value.trim();
+        handleSubmit(text, () => { input.value = ''; input.style.height = 'auto'; });
+        return;
+      }
+      if (e.target?.id === 'sl-queue') {
+        chrome.runtime.sendMessage({ action: 'superLovableTool', data: { tool: 'queue', projectId: projectId() } }, () => {
+          void chrome.runtime.lastError;
+          flash('Abra o ícone da SUPER LOVABLE para ver a fila completa.');
+        });
+        return;
+      }
       if (!act) return;
       if (act === 'hide') { bar.remove(); return; }
       if (act === 'mini') { setMini(settings.mini === 'open' ? 'minimized' : 'open'); return; }
@@ -205,8 +260,62 @@
         flash('Pedido registrado. Abra a extensão para concluir esta ferramenta.');
       });
     });
+
+    bar.querySelector('#sl-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        const input = e.target;
+        handleSubmit(input.value.trim(), () => { input.value = ''; input.style.height = 'auto'; });
+      }
+    });
+    bar.querySelector('#sl-input').addEventListener('input', (e) => {
+      e.target.style.height = 'auto';
+      e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px';
+    });
+
     const host = anchor.closest('form') || anchor.parentElement;
     host?.parentElement?.insertBefore(bar, host);
+    paintBar();
+  }
+
+  function setBarStatus(text, kind) {
+    const flag = document.getElementById('sl-flag');
+    if (!flag) return;
+    flag.textContent = text;
+    flag.className = `sl-flag ${kind || ''}`;
+    clearTimeout(setBarStatus._t);
+    setBarStatus._t = setTimeout(paintBar, 5000);
+  }
+
+  function paintBar() {
+    const flag = document.getElementById('sl-flag');
+    const counter = document.getElementById('sl-queue');
+    if (counter) counter.textContent = String(summary.total || 0);
+    if (!flag) return;
+    let text = 'Pronto para enviar';
+    let kind = '';
+    if (!projectId()) { text = 'Abra um projeto primeiro'; kind = 'warn'; }
+    else if (summary.paused) { text = 'Fila pausada'; kind = 'warn'; }
+    else if (summary.isFull) { text = 'Fila cheia'; kind = 'warn'; }
+    else if (summary.activeStatus === 'sending') { text = 'Enviando…'; kind = 'busy'; }
+    else if (summary.activeStatus === 'running' || lastState.isRunning) { text = 'Lovable trabalhando…'; kind = 'busy'; }
+    else if (summary.waiting > 0) { text = `${summary.waiting} comando(s) na fila`; kind = 'queued'; }
+    flag.textContent = text;
+    flag.className = `sl-flag ${kind}`;
+    const input = document.getElementById('sl-input');
+    const send = document.getElementById('sl-send');
+    const disabled = !projectId();
+    if (input) input.disabled = disabled;
+    if (send) send.disabled = disabled;
+  }
+
+  function refreshSummary() {
+    chrome.runtime.sendMessage({ action: 'SUPER_LOVABLE_QUEUE_SNAPSHOT' }, (res) => {
+      void chrome.runtime.lastError;
+      if (res && res.summary) summary = res.summary;
+      paintBar();
+      paintMini(summary.total);
+    });
   }
 
   // ---------- Mini ----------
@@ -262,10 +371,9 @@
     const el = bindNativeInput();
     if (el) buildToolbar(el);
     detectLovableExecutionState();
-    const flag = document.getElementById('sl-flag');
-    if (flag) flag.classList.toggle('running', lastState.isRunning);
     const sy = document.getElementById('sl-sync');
-    if (sy) sy.textContent = projectId() ? `Projeto ${projectId().slice(0, 8)}…` : 'Sem projeto';
+    if (sy) sy.textContent = projectId() ? 'Projeto sincronizado' : 'Sem projeto';
+    paintBar();
   }
 
   const observer = new MutationObserver(() => {
@@ -284,6 +392,13 @@
     sync();
   }, 1200);
 
+  // Mantém o motor da fila acordado mesmo com o popup fechado.
+  setInterval(() => {
+    if (!summary.total) return;
+    chrome.runtime.sendMessage({ action: 'SUPER_LOVABLE_QUEUE_TICK' }, () => void chrome.runtime.lastError);
+  }, 2500);
+  setInterval(refreshSummary, 3000);
+
   chrome.runtime.onMessage.addListener((req, _s, sendResponse) => {
     if (req.action === 'superLovableState') {
       const st = detectLovableExecutionState();
@@ -295,10 +410,19 @@
       sendResponse({ ok: true });
       return true;
     }
+    if (req.type && req.type.startsWith('SUPER_LOVABLE_')) {
+      if (req.payload?.summary) summary = req.payload.summary;
+      paintBar();
+      paintMini(summary.total);
+      if (req.type === 'SUPER_LOVABLE_EXECUTION_FINISHED' && !summary.waiting) flash('Fila concluída.');
+      if (req.type === 'SUPER_LOVABLE_EXECUTION_FAILED') flash(`Falha no envio: ${req.payload?.error || ''}`, true);
+      return false;
+    }
     return false;
   });
 
   loadSettings();
   sync();
+  refreshSummary();
   window.detectLovableExecutionState = detectLovableExecutionState;
 })();
