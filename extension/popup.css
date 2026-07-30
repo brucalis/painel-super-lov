@@ -759,3 +759,10 @@ body.locked .statusbar { visibility: hidden; pointer-events: none; }
 .model-opt.active { background: rgba(139, 92, 246, 0.28); font-weight: 700; }
 .model-opt.off { opacity: 0.55; }
 .model-opt .mc-tag { margin-left: auto; font-size: 9.5px; color: var(--text-3); }
+
+/* v1.4 — barra de controles da fila */
+.q-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.q-toolbar .muted { margin-right: auto; font-size: 11px; }
+.q-item.status-running, .q-item.status-sending { border-color: rgba(250, 204, 92, 0.5); }
+.q-item.status-completed { opacity: 0.75; }
+.q-item.status-failed { border-color: rgba(251, 113, 133, 0.6); }
