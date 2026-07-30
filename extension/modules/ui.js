@@ -843,6 +843,14 @@
     renderShortcutEditor();
     renderQueue();
     renderHistory();
+    const resetSend = $('resetSendMode');
+    if (resetSend) {
+      resetSend.addEventListener('click', () => {
+        chrome.storage.local.remove('sl_send_mode_pref', () => {
+          window.LCA.setStatus('A escolha entre envio automático e pendente voltará a ser perguntada.', 'success');
+        });
+      });
+    }
     initRecorder();
     initTools();
     initSettings();
