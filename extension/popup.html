@@ -160,7 +160,7 @@
           <button class="tool" id="toolCloud" title="Prepara a ativação do Lovable Cloud">☁️ Ativar Lovable Cloud</button>
           <button class="tool" id="toolWatermark" title="Procura marca removível no projeto">🏷️ Remover marca</button>
           <button class="tool" id="toolShield" title="Protege contra envios duplicados e perdas">🛡️ Ativar Escudo</button>
-          <button class="tool" id="toolShieldLog" title="Registro técnico local (sem dados sensíveis)">📋 Registro técnico</button>
+          <button class="tool admin-only" id="toolShieldLog" title="Registro técnico local (sem dados sensíveis)">📋 Registro técnico</button>
         </div>
         <pre class="tool-output" id="toolOutput" aria-live="polite"></pre>
         <div class="section">
@@ -236,10 +236,10 @@
             <option value="es">Español</option>
           </select>
         </label>
-        <label class="fld">Backend de IA (opcional, sem chaves na extensão)
+        <label class="fld admin-only">Backend de IA (opcional, sem chaves na extensão)
           <input type="url" id="setAiEndpoint" placeholder="https://seu-backend/ai" />
         </label>
-        <label class="fld">Endpoint de transcrição (opcional)
+        <label class="fld admin-only">Endpoint de transcrição (opcional)
           <input type="url" id="setTranscription" placeholder="https://…" />
         </label>
         <div class="toolbar">
