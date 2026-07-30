@@ -766,3 +766,19 @@ body.locked .statusbar { visibility: hidden; pointer-events: none; }
 .q-item.status-running, .q-item.status-sending { border-color: rgba(250, 204, 92, 0.5); }
 .q-item.status-completed { opacity: 0.75; }
 .q-item.status-failed { border-color: rgba(251, 113, 133, 0.6); }
+
+/* ---------------- Níveis de acesso ---------------- */
+/* Configurações internas (servidor de licenças, endpoints) só na chave admin. */
+body:not(.role-admin) .admin-only { display: none !important; }
+
+/* ---------------- Composer largo (v1.5) ---------------- */
+.composer { display: block; }
+.composer #messageInput {
+  width: 100%;
+  min-height: 104px;
+  max-height: 220px;
+}
+.composer-actions .clip { width: 34px; height: 34px; }
+.composer-actions .send { width: 44px; height: 34px; }
+.quick-dock { margin: 8px 0 0; }
+.quick-dock .qa-list { grid-template-columns: repeat(3, 1fr); }
