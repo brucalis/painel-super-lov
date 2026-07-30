@@ -43,6 +43,30 @@ export const Route = createFileRoute("/api/public/webhooks/ensinaflix")({
 
         const n = normalizeEnsinaflixWebhook(body);
 
+        // Registra tentativas recusadas para aparecerem no painel (diagnóstico).
+        const logRejected = async (error: string, status: number) => {
+          try {
+            await supabaseAdmin.from("webhook_events").insert({
+              provider: "ensinaflix",
+              event_key: `ensinaflix:rejected:${error}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+              event_type: n.eventType || "desconhecido",
+              event_label: n.eventLabel,
+              order_id: n.orderId,
+              customer_email: n.customerEmail,
+              payload: body as never,
+              is_test: n.isTest,
+              environment: n.isTest ? "sandbox" : "production",
+              processing_status: "failed",
+              processing_error: error,
+              http_status: status,
+              duration_ms: Date.now() - started,
+              processed_at: new Date().toISOString(),
+            });
+          } catch {
+            /* nunca derruba o webhook por causa do log */
+          }
+        };
+
         // ---- segredo próprio do webhook -------------------------------------
         const configured =
           process.env.ENSAINAFLIX_WEBHOOK_SECRET ||
@@ -53,21 +77,53 @@ export const Route = createFileRoute("/api/public/webhooks/ensinaflix")({
 
         if (configured) {
           const url = new URL(request.url);
+          const headerSecret =
+            request.headers.get("x-webhook-secret") ||
+            request.headers.get("x-secret") ||
+            request.headers.get("x-api-key") ||
+            request.headers.get("x-webhook-token") ||
+            (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
           const provided =
-            request.headers.get("x-webhook-secret") || url.searchParams.get("secret") || "";
+            headerSecret ||
+            url.searchParams.get("secret") ||
+            url.searchParams.get("token") ||
+            (typeof body?.secret === "string" ? body.secret : "") ||
+            "";
           const ok = provided ? safeEqual(provided, configured) : false;
           if (!ok && !(n.isTest && allowUnsignedTest && !provided)) {
-            return jsonRes({ success: false, error: "INVALID_WEBHOOK_SECRET" }, 401);
+            await logRejected("INVALID_WEBHOOK_SECRET", 401);
+            return jsonRes(
+              {
+                success: false,
+                error: "INVALID_WEBHOOK_SECRET",
+                message: provided
+                  ? "Segredo enviado não confere."
+                  : "Nenhum segredo recebido. Use ?secret=… na URL ou o cabeçalho x-webhook-secret.",
+              },
+              401,
+            );
           }
         }
 
         // ---- validação mínima -----------------------------------------------
         if (!body.event || !body.payload || !n.orderId || !n.customerEmail) {
+          const faltando = [
+            !body.event && "event",
+            !body.payload && "payload",
+            !n.orderId && "payload.order.id",
+            !n.customerEmail && "payload.customer.email",
+          ].filter(Boolean);
+          await logRejected(`INVALID_PAYLOAD: ${faltando.join(", ")}`, 400);
           return jsonRes(
-            { success: false, error: "INVALID_PAYLOAD", message: "Payload obrigatório incompleto." },
+            {
+              success: false,
+              error: "INVALID_PAYLOAD",
+              message: `Payload obrigatório incompleto. Faltando: ${faltando.join(", ")}`,
+            },
             400,
           );
         }
+
 
         const eventKey = eventKeyFor(n, raw);
         const environment = n.isTest ? "sandbox" : "production";
