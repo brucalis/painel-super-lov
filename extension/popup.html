@@ -90,27 +90,21 @@
             <button class="chip-btn" id="recCancel" aria-label="Cancelar gravação">✕</button>
             <button class="chip-btn" id="recHelp" hidden aria-label="Ver como liberar o microfone">Ver como liberar</button>
           </div>
-
-          <div class="section">
-            <div class="section-title" data-i18n="quick_actions">Atalhos rápidos</div>
-            <div class="qa-list" id="quickActions"></div>
-          </div>
         </div>
 
-        <!-- Área de escrita fixa -->
+        <!-- Área de escrita fixa: caixa de texto larga, ícones e atalhos abaixo -->
         <div class="composer-dock">
           <div class="composer">
+            <textarea id="messageInput" rows="4" placeholder="Descreva o que deseja criar ou alterar…" aria-label="Mensagem para a Lovable"></textarea>
+          </div>
+
+          <div class="composer-actions">
             <label class="clip" title="Anexar arquivos (Ctrl+U)" aria-label="Anexar arquivos">
               📎
               <input type="file" id="fileInput" multiple hidden
                 accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,text/plain,text/markdown,application/json,text/csv,application/zip,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/webm,audio/ogg,audio/aac" />
             </label>
             <button class="clip" id="recordBtn" aria-label="Gravar áudio (Ctrl+M)" title="Gravar áudio (Ctrl+M)">🎙️</button>
-            <textarea id="messageInput" rows="1" placeholder="Descreva o que deseja criar ou alterar…" aria-label="Mensagem para a Lovable"></textarea>
-            <button id="sendBtn" class="send" title="Enviar agora (Ctrl+Enter)" aria-label="Enviar agora">➤</button>
-          </div>
-
-          <div class="composer-actions">
             <select id="improveMode" aria-label="Modo de melhoria do prompt">
               <option value="clareza">Mais claro</option>
               <option value="detalhes">Mais detalhado</option>
@@ -123,10 +117,17 @@
             </select>
             <button class="ghost" id="improveBtn" aria-label="Melhorar prompt">✨ <span data-i18n="improve">Melhorar prompt</span></button>
             <button class="ghost" id="queueBtn" aria-label="Adicionar à fila (Ctrl+Shift+Enter)">＋ <span data-i18n="add_queue">Adicionar à fila</span></button>
+            <button id="sendBtn" class="send" title="Enviar agora (Ctrl+Enter)" aria-label="Enviar agora">➤</button>
             <span class="sending-dot" id="sendingDot" title="Processando"></span>
             <span class="char-count" id="charCount">0</span>
           </div>
+
+          <div class="section quick-dock">
+            <div class="section-title" data-i18n="quick_actions">Atalhos rápidos</div>
+            <div class="qa-list" id="quickActions"></div>
+          </div>
         </div>
+
       </section>
 
       <!-- ================= FILA ================= -->
