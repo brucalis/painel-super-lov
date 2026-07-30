@@ -18,6 +18,7 @@ import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/publ
 import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
 import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
+import { Route as ApiPublicProjectsWatermarkStatusRouteImport } from './routes/api/public/projects/watermark-status'
 import { Route as ApiPublicProjectsRemoveWatermarkRouteImport } from './routes/api/public/projects/remove-watermark'
 
 const AuthRoute = AuthRouteImport.update({
@@ -69,6 +70,12 @@ const ApiPublicWebhooksEnsinaflixRoute =
     path: '/api/public/webhooks/ensinaflix',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicProjectsWatermarkStatusRoute =
+  ApiPublicProjectsWatermarkStatusRouteImport.update({
+    id: '/api/public/projects/watermark-status',
+    path: '/api/public/projects/watermark-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicProjectsRemoveWatermarkRoute =
   ApiPublicProjectsRemoveWatermarkRouteImport.update({
     id: '/api/public/projects/remove-watermark',
@@ -85,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
+  '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
   '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
   '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
 }
@@ -97,6 +105,7 @@ export interface FileRoutesByTo {
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
+  '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
   '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
   '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
 }
@@ -110,6 +119,7 @@ export interface FileRoutesById {
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
+  '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
   '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
   '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
 }
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
     | '/api/public/transcribe'
     | '/api/public/validate-license'
     | '/api/public/projects/remove-watermark'
+    | '/api/public/projects/watermark-status'
     | '/api/public/webhooks/ensinaflix'
     | '/api/public/webhooks/sales'
   fileRoutesByTo: FileRoutesByTo
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
     | '/api/public/transcribe'
     | '/api/public/validate-license'
     | '/api/public/projects/remove-watermark'
+    | '/api/public/projects/watermark-status'
     | '/api/public/webhooks/ensinaflix'
     | '/api/public/webhooks/sales'
   id:
@@ -148,6 +160,7 @@ export interface FileRouteTypes {
     | '/api/public/transcribe'
     | '/api/public/validate-license'
     | '/api/public/projects/remove-watermark'
+    | '/api/public/projects/watermark-status'
     | '/api/public/webhooks/ensinaflix'
     | '/api/public/webhooks/sales'
   fileRoutesById: FileRoutesById
@@ -161,6 +174,7 @@ export interface RootRouteChildren {
   ApiPublicTranscribeRoute: typeof ApiPublicTranscribeRoute
   ApiPublicValidateLicenseRoute: typeof ApiPublicValidateLicenseRoute
   ApiPublicProjectsRemoveWatermarkRoute: typeof ApiPublicProjectsRemoveWatermarkRoute
+  ApiPublicProjectsWatermarkStatusRoute: typeof ApiPublicProjectsWatermarkStatusRoute
   ApiPublicWebhooksEnsinaflixRoute: typeof ApiPublicWebhooksEnsinaflixRoute
   ApiPublicWebhooksSalesRoute: typeof ApiPublicWebhooksSalesRoute
 }
@@ -230,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksEnsinaflixRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/projects/watermark-status': {
+      id: '/api/public/projects/watermark-status'
+      path: '/api/public/projects/watermark-status'
+      fullPath: '/api/public/projects/watermark-status'
+      preLoaderRoute: typeof ApiPublicProjectsWatermarkStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/projects/remove-watermark': {
       id: '/api/public/projects/remove-watermark'
       path: '/api/public/projects/remove-watermark'
@@ -249,6 +270,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicTranscribeRoute: ApiPublicTranscribeRoute,
   ApiPublicValidateLicenseRoute: ApiPublicValidateLicenseRoute,
   ApiPublicProjectsRemoveWatermarkRoute: ApiPublicProjectsRemoveWatermarkRoute,
+  ApiPublicProjectsWatermarkStatusRoute: ApiPublicProjectsWatermarkStatusRoute,
   ApiPublicWebhooksEnsinaflixRoute: ApiPublicWebhooksEnsinaflixRoute,
   ApiPublicWebhooksSalesRoute: ApiPublicWebhooksSalesRoute,
 }
