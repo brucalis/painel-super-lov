@@ -20,7 +20,9 @@
   const LOCK_TTL_MS = 20000;
 
   const ACTIVE = ['preparing', 'sending', 'running'];
-  const OPEN = ['queued', 'preparing', 'sending', 'running'];
+  // 'pending' = envio manual: fica guardado, pode ser editado e só sai quando a
+  // pessoa manda enviar. Não bloqueia nem participa do avanço automático.
+  const OPEN = ['queued', 'pending', 'preparing', 'sending', 'running'];
 
   let ticking = false;
 
@@ -116,6 +118,7 @@
     return {
       total: open.length,
       waiting: items.filter((i) => i.status === 'queued').length,
+      pending: items.filter((i) => i.status === 'pending').length,
       max: MAX_QUEUE_ITEMS,
       isFull: open.length >= MAX_QUEUE_ITEMS,
       paused: !!meta.paused,
@@ -142,11 +145,12 @@
       text: data.text || '',
       attachments: Array.isArray(data.attachments) ? data.attachments : [],
       source: data.source || 'popup',
+      mode: data.mode === 'pending' ? 'pending' : 'auto',
       model: data.model || 'auto',
       createdAt: now,
       updatedAt: now,
       position: null,
-      status: 'queued',
+      status: data.mode === 'pending' ? 'pending' : 'queued',
       attempts: 0,
       lastError: null,
       sentAt: null,
@@ -173,6 +177,14 @@
     }
 
     const item = makeItem(promptData);
+    if (item.status === 'pending') {
+      items.push(item);
+      await writeQueue(items, meta);
+      const freshP = (await readQueue()).items;
+      const posP = freshP.filter((i) => OPEN.includes(i.status)).findIndex((i) => i.id === item.id) + 1;
+      await broadcast('SUPER_LOVABLE_QUEUE_UPDATED', { id: item.id, position: posP });
+      return { success: true, sent: false, pending: true, id: item.id, position: posP };
+    }
     const active = items.find((i) => ACTIVE.includes(i.status));
     const exec = await getLovableExecutionState(promptData.projectId);
     const canSendNow = !promptData.forceQueue && !meta.paused && !active && !exec.isRunning
@@ -400,8 +412,47 @@
       scheduleTick(300);
     },
     async edit(id, text) {
-      await patch(id, { text, status: 'queued', lastError: null });
+      const { items } = await readQueue();
+      const cur = items.find((i) => i.id === id);
+      const status = cur && cur.status === 'pending' ? 'pending' : 'queued';
+      await patch(id, { text, status, lastError: null });
       await broadcast('SUPER_LOVABLE_QUEUE_UPDATED', {});
+    },
+    /** Envio manual: tira do modo pendente e manda na hora (ou entra na fila). */
+    async sendNow(id) {
+      const { items, meta } = await readQueue();
+      const it = items.find((i) => i.id === id);
+      if (!it) return { success: false, error: 'Item inexistente.' };
+      meta.paused = false;
+      it.mode = 'auto';
+      it.status = 'queued';
+      it.updatedAt = Date.now();
+      await writeQueue(items, meta);
+      const active = items.find((i) => ACTIVE.includes(i.status));
+      const exec = await getLovableExecutionState(it.projectId);
+      if (!active && !exec.isRunning) {
+        const sent = await sendItem(id);
+        await broadcast('SUPER_LOVABLE_QUEUE_UPDATED', { id });
+        return { success: sent.success, sent: sent.success, error: sent.error };
+      }
+      await broadcast('SUPER_LOVABLE_QUEUE_UPDATED', { id });
+      scheduleTick(800);
+      return { success: true, sent: false, queued: true };
+    },
+    /** Alterna entre envio automático e envio pendente. */
+    async setMode(id, mode) {
+      const next = mode === 'pending' ? 'pending' : 'auto';
+      const { items, meta } = await readQueue();
+      const it = items.find((i) => i.id === id);
+      if (!it) return { success: false };
+      if (!['queued', 'pending'].includes(it.status)) return { success: false, error: 'Este item já está em execução.' };
+      it.mode = next;
+      it.status = next === 'pending' ? 'pending' : 'queued';
+      it.updatedAt = Date.now();
+      await writeQueue(items, meta);
+      await broadcast('SUPER_LOVABLE_QUEUE_UPDATED', { id });
+      if (next === 'auto') scheduleTick(500);
+      return { success: true };
     },
     async remove(id) {
       const { items, meta } = await readQueue();

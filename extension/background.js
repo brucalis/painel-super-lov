@@ -77,6 +77,8 @@ const QUEUE_CONTROL = {
   SUPER_LOVABLE_QUEUE_RETRY: (d) => QueueEngine.retry(d.id).then(() => ({ success: true })),
   SUPER_LOVABLE_QUEUE_SKIP: (d) => QueueEngine.skip(d.id).then(() => ({ success: true })),
   SUPER_LOVABLE_QUEUE_EDIT: (d) => QueueEngine.edit(d.id, d.text).then(() => ({ success: true })),
+  SUPER_LOVABLE_QUEUE_SEND_NOW: (d) => QueueEngine.sendNow(d.id),
+  SUPER_LOVABLE_QUEUE_SET_MODE: (d) => QueueEngine.setMode(d.id, d.mode),
   SUPER_LOVABLE_QUEUE_REMOVE: (d) => QueueEngine.remove(d.id).then(() => ({ success: true })),
   SUPER_LOVABLE_QUEUE_MOVE: (d) => QueueEngine.moveTo(d.id, d.index).then(() => ({ success: true })),
   SUPER_LOVABLE_QUEUE_DUPLICATE: (d) => QueueEngine.duplicate(d.id).then(() => ({ success: true })),

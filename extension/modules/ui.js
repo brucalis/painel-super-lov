@@ -190,6 +190,7 @@
   }
 
   const QUEUE_LABEL = {
+    pending: 'aguardando envio manual',
     queued: 'na fila', preparing: 'preparando', sending: 'enviando', running: 'executando',
     completed: 'concluído', failed: 'falhou', cancelled: 'cancelado', paused: 'pausado',
   };
@@ -278,6 +279,22 @@
         b.addEventListener('click', fn);
         acts.appendChild(b);
       };
+      if (it.status === 'pending') {
+        mk('➤ Enviar agora', 'Enviar este prompt imediatamente', async () => {
+          const r = await queueCall('SUPER_LOVABLE_QUEUE_SEND_NOW', { id: it.id });
+          if (r && r.error) window.LCA.setStatus(r.error, 'error', 6000);
+          renderQueue();
+        });
+        mk('⚡', 'Passar para envio automático', async () => {
+          await queueCall('SUPER_LOVABLE_QUEUE_SET_MODE', { id: it.id, mode: 'auto' });
+          renderQueue();
+        });
+      } else if (it.status === 'queued') {
+        mk('⏸ Deixar pendente', 'Segurar este prompt para editar e enviar manualmente', async () => {
+          await queueCall('SUPER_LOVABLE_QUEUE_SET_MODE', { id: it.id, mode: 'pending' });
+          renderQueue();
+        });
+      }
       mk('▲', 'Mover para o topo', async () => { await queueCall('SUPER_LOVABLE_QUEUE_MOVE', { id: it.id, index: 0 }); renderQueue(); });
       mk('✎', 'Editar', async () => {
         const text = window.prompt('Editar prompt:', it.text);
@@ -438,13 +455,31 @@
       try { chrome.tabs.create({ url: chrome.runtime.getURL('permission.html') }); } catch (e) { /* noop */ }
     }
 
+    /** Recebe a gravação, transcreve e escreve o texto no campo do prompt. */
+    async function transcribeAndFill(file) {
+      const input = $('messageInput') || window.LCA?.els?.input;
+      window.LCA.setStatus('Transcrevendo sua fala…', 'info', 15000);
+      StatusBar.set('Transcrevendo sua fala…', 'info', { sticky: true });
+      try {
+        const text = await window.Transcription.transcribe(file);
+        if (input) {
+          const cur = (input.value || '').trim();
+          input.value = cur ? `${cur} ${text}` : text;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.focus();
+        }
+        window.LCA.setStatus('Fala transcrita no campo do prompt.', 'success');
+        StatusBar.set('Fala transcrita no campo do prompt.', 'success');
+      } catch (e) {
+        window.LCA.setStatus(e.message, 'error', 8000);
+        StatusBar.set(e.message, 'error', { sticky: true });
+      }
+    }
+
     btn.addEventListener('click', async () => {
       if (window.AudioRecorder.state === 'recording' || window.AudioRecorder.state === 'paused') {
         window.AudioRecorder.stop()
-          .then((file) => {
-            window.AttachmentManager.add(file);
-            window.LCA.setStatus('Gravação anexada ao prompt.', 'success');
-          })
+          .then(transcribeAndFill)
           .catch(() => { /* já reportado pelo onChange */ });
         return;
       }
@@ -481,7 +516,7 @@
     stopBtn.addEventListener('click', async () => {
       try {
         const file = await window.AudioRecorder.stop();
-        window.AttachmentManager.add(file);
+        await transcribeAndFill(file);
       } catch (e) { window.LCA.setStatus(e.message, 'error'); }
     });
     cancelBtn.addEventListener('click', () => window.AudioRecorder.cancel());
@@ -808,6 +843,14 @@
     renderShortcutEditor();
     renderQueue();
     renderHistory();
+    const resetSend = $('resetSendMode');
+    if (resetSend) {
+      resetSend.addEventListener('click', () => {
+        chrome.storage.local.remove('sl_send_mode_pref', () => {
+          window.LCA.setStatus('A escolha entre envio automático e pendente voltará a ser perguntada.', 'success');
+        });
+      });
+    }
     initRecorder();
     initTools();
     initSettings();
