@@ -352,17 +352,34 @@
       }
     });
 
-    btn.addEventListener('click', async () => {
-      try {
-        if (window.AudioRecorder.state === 'recording' || window.AudioRecorder.state === 'paused') {
-          const file = await window.AudioRecorder.stop();
-          window.AttachmentManager.add(file);
-          window.LCA.setStatus('Gravação anexada ao prompt.', 'success');
-        } else {
-          await window.AudioRecorder.start();
-        }
-      } catch (e) { /* já reportado pelo onChange */ }
+    btn.addEventListener('click', (ev) => {
+      void ev;
+      if (window.AudioRecorder.state === 'recording' || window.AudioRecorder.state === 'paused') {
+        window.AudioRecorder.stop()
+          .then((file) => {
+            window.AttachmentManager.add(file);
+            window.LCA.setStatus('Gravação anexada ao prompt.', 'success');
+          })
+          .catch(() => { /* já reportado pelo onChange */ });
+        return;
+      }
+      // getUserMedia chamado direto no clique: o Chrome só concede a permissão
+      // quando o pedido acontece dentro do gesto do usuário.
+      const p = window.AudioRecorder.requestStream();
+      window.AudioRecorder.startWithStream && p
+        .then((stream) => window.AudioRecorder.startWithStream(stream))
+        .catch((e) => {
+          const denied = /denied|not allowed|dismissed|permission/i.test(`${e.name} ${e.message}`);
+          const msg = denied
+            ? 'O Chrome não autorizou o uso do microfone. Clique no ícone de permissões do navegador e permita o acesso para a SUPER LOVABLE.'
+            : `Microfone indisponível: ${e.message}`;
+          window.LCA.setStatus(msg, 'error', 8000);
+          StatusBar.set(msg, 'error', { sticky: true });
+          $('recHelp').hidden = false;
+          $('recorderPanel').classList.add('open');
+        });
     });
+
     pauseBtn.addEventListener('click', () => {
       if (window.AudioRecorder.state === 'paused') window.AudioRecorder.resume();
       else window.AudioRecorder.pause();
