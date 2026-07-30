@@ -726,3 +726,36 @@ body.locked .statusbar { visibility: hidden; pointer-events: none; }
 .lic-msg.warn { color: #fbbf24; }
 .lic-msg.error { color: #f87171; }
 .lic-msg.info { color: rgba(226, 232, 240, 0.75); }
+
+/* v1.4 — seletor de modelo compacto */
+#modelPicker.model-compact { display: block; position: relative; }
+.model-current {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  padding: 7px 10px; cursor: pointer;
+  border-radius: 10px; color: var(--text-1);
+  border: 1px solid rgba(182, 193, 221, 0.22);
+  background: rgba(20, 26, 54, 0.85);
+  font-size: 12px; font-weight: 600;
+}
+.model-current:hover { border-color: rgba(236, 93, 206, 0.5); }
+.model-current .mc-caret { margin-left: auto; color: var(--text-3); }
+.model-menu {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+  z-index: 40; max-height: 210px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px; padding: 5px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  background: rgba(11, 16, 32, 0.98);
+  box-shadow: 0 12px 30px rgba(6, 10, 25, 0.55);
+}
+.model-menu[hidden] { display: none; }
+.model-opt {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 7px 9px; border: 0; border-radius: 9px;
+  color: var(--text-1); background: transparent;
+  font-size: 12px; text-align: left;
+}
+.model-opt:hover { background: rgba(76, 125, 255, 0.18); }
+.model-opt.active { background: rgba(139, 92, 246, 0.28); font-weight: 700; }
+.model-opt.off { opacity: 0.55; }
+.model-opt .mc-tag { margin-left: auto; font-size: 9.5px; color: var(--text-3); }
