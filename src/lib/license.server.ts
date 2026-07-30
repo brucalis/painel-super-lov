@@ -78,6 +78,7 @@ export type LicenseRow = {
   minimum_version: string | null;
   offline_grace_seconds: number;
   customer_id: string | null;
+  access_role?: string | null;
 };
 
 /** Retorna a situação efetiva considerando a data de expiração. */
