@@ -78,6 +78,7 @@ export type LicenseRow = {
   minimum_version: string | null;
   offline_grace_seconds: number;
   customer_id: string | null;
+  access_role?: string | null;
 };
 
 /** Retorna a situação efetiva considerando a data de expiração. */
@@ -123,6 +124,7 @@ export async function licenseResponse(license: LicenseRow, token: string | null)
   return {
     status: effectiveStatus(license),
     license_token: token,
+    access_role: license.access_role === "admin" ? "admin" : "user",
     plan: license.plan,
     plan_name: license.plan_name,
     expires_at: license.expires_at,

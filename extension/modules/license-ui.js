@@ -28,6 +28,13 @@
     $('licenseGate').hidden = true;
   }
 
+  /** Aplica o nível de acesso: só a chave de administrador vê as configurações internas. */
+  function applyRole(state) {
+    const admin = window.LicenseClient.isAdmin(state);
+    document.body.classList.toggle('role-admin', admin);
+    document.body.classList.toggle('role-user', !admin);
+  }
+
   function fmtDate(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
@@ -36,10 +43,14 @@
 
   // ---------------- cartão em Ajustes ----------------
   function renderCard(state) {
+    applyRole(state);
     const card = $('licenseCard');
     if (!card) return;
     const active = LC.hasActiveLicense(state);
     const days = LC.daysLeft(state);
+    const admin = LC.isAdmin(state);
+    const roleEl = $('licRole');
+    if (roleEl) roleEl.textContent = admin ? 'Administrador' : 'Usuário';
 
     $('licPlan').textContent = state.plan_name || state.plan || (active ? 'Plano ativo' : '—');
     $('licStatus').textContent = active
@@ -180,6 +191,7 @@
   }
 
   async function boot() {
+    document.body.classList.add('role-user');
     showGate(); // a interface principal nunca aparece antes da ativação válida
     wire();
     await LC.getDeviceId(); // garante o identificador na primeira execução

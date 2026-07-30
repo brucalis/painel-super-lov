@@ -90,27 +90,21 @@
             <button class="chip-btn" id="recCancel" aria-label="Cancelar gravação">✕</button>
             <button class="chip-btn" id="recHelp" hidden aria-label="Ver como liberar o microfone">Ver como liberar</button>
           </div>
-
-          <div class="section">
-            <div class="section-title" data-i18n="quick_actions">Atalhos rápidos</div>
-            <div class="qa-list" id="quickActions"></div>
-          </div>
         </div>
 
-        <!-- Área de escrita fixa -->
+        <!-- Área de escrita fixa: caixa de texto larga, ícones e atalhos abaixo -->
         <div class="composer-dock">
           <div class="composer">
+            <textarea id="messageInput" rows="4" placeholder="Descreva o que deseja criar ou alterar…" aria-label="Mensagem para a Lovable"></textarea>
+          </div>
+
+          <div class="composer-actions">
             <label class="clip" title="Anexar arquivos (Ctrl+U)" aria-label="Anexar arquivos">
               📎
               <input type="file" id="fileInput" multiple hidden
                 accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,text/plain,text/markdown,application/json,text/csv,application/zip,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/webm,audio/ogg,audio/aac" />
             </label>
             <button class="clip" id="recordBtn" aria-label="Gravar áudio (Ctrl+M)" title="Gravar áudio (Ctrl+M)">🎙️</button>
-            <textarea id="messageInput" rows="1" placeholder="Descreva o que deseja criar ou alterar…" aria-label="Mensagem para a Lovable"></textarea>
-            <button id="sendBtn" class="send" title="Enviar agora (Ctrl+Enter)" aria-label="Enviar agora">➤</button>
-          </div>
-
-          <div class="composer-actions">
             <select id="improveMode" aria-label="Modo de melhoria do prompt">
               <option value="clareza">Mais claro</option>
               <option value="detalhes">Mais detalhado</option>
@@ -123,10 +117,17 @@
             </select>
             <button class="ghost" id="improveBtn" aria-label="Melhorar prompt">✨ <span data-i18n="improve">Melhorar prompt</span></button>
             <button class="ghost" id="queueBtn" aria-label="Adicionar à fila (Ctrl+Shift+Enter)">＋ <span data-i18n="add_queue">Adicionar à fila</span></button>
+            <button id="sendBtn" class="send" title="Enviar agora (Ctrl+Enter)" aria-label="Enviar agora">➤</button>
             <span class="sending-dot" id="sendingDot" title="Processando"></span>
             <span class="char-count" id="charCount">0</span>
           </div>
+
+          <div class="section quick-dock">
+            <div class="section-title" data-i18n="quick_actions">Atalhos rápidos</div>
+            <div class="qa-list" id="quickActions"></div>
+          </div>
         </div>
+
       </section>
 
       <!-- ================= FILA ================= -->
@@ -159,7 +160,7 @@
           <button class="tool" id="toolCloud" title="Prepara a ativação do Lovable Cloud">☁️ Ativar Lovable Cloud</button>
           <button class="tool" id="toolWatermark" title="Procura marca removível no projeto">🏷️ Remover marca</button>
           <button class="tool" id="toolShield" title="Protege contra envios duplicados e perdas">🛡️ Ativar Escudo</button>
-          <button class="tool" id="toolShieldLog" title="Registro técnico local (sem dados sensíveis)">📋 Registro técnico</button>
+          <button class="tool admin-only" id="toolShieldLog" title="Registro técnico local (sem dados sensíveis)">📋 Registro técnico</button>
         </div>
         <pre class="tool-output" id="toolOutput" aria-live="polite"></pre>
         <div class="section">
@@ -179,6 +180,7 @@
             <div class="lic-row"><span class="lic-label">Status</span><span class="lic-value" id="licStatus">—</span></div>
             <div class="lic-row"><span class="lic-label">Validade</span><span class="lic-value" id="licExpiry">—</span></div>
             <div class="lic-row"><span class="lic-label">Dispositivo</span><span class="lic-value" id="licDevices">—</span></div>
+            <div class="lic-row"><span class="lic-label">Nível de acesso</span><span class="lic-value" id="licRole">Usuário</span></div>
             <div class="lic-row"><span class="lic-label">Última validação</span><span class="lic-value" id="licLast">—</span></div>
           </div>
           <div class="toolbar">
@@ -187,9 +189,10 @@
             <button class="ghost danger" id="licDeactivate">Desativar neste dispositivo</button>
             <button class="ghost" id="licSupport">Suporte</button>
           </div>
-          <label class="fld">Servidor de licenças
+          <label class="fld admin-only">Servidor de licenças
             <input type="text" id="licServer" placeholder="https://licencas.superlovable.app" />
           </label>
+
           <div class="lic-msg" id="licMsg" role="status" aria-live="polite"></div>
         </div>
         <div class="section">
@@ -233,10 +236,10 @@
             <option value="es">Español</option>
           </select>
         </label>
-        <label class="fld">Backend de IA (opcional, sem chaves na extensão)
+        <label class="fld admin-only">Backend de IA (opcional, sem chaves na extensão)
           <input type="url" id="setAiEndpoint" placeholder="https://seu-backend/ai" />
         </label>
-        <label class="fld">Endpoint de transcrição (opcional)
+        <label class="fld admin-only">Endpoint de transcrição (opcional)
           <input type="url" id="setTranscription" placeholder="https://…" />
         </label>
         <div class="toolbar">

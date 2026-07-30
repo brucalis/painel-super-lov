@@ -30,6 +30,10 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
+// Atualize junto com o pacote da extensão (horário de Brasília).
+const EXTENSION_VERSION = "1.5.0";
+const EXTENSION_UPDATED_AT = "30/07/2026 às 17:10";
+
 function AdminPage() {
   const navigate = useNavigate();
   const [state, setState] = useState<"loading" | "denied" | "ok">("loading");
@@ -79,9 +83,25 @@ function AdminPage() {
     );
   }
 
+  const downloadAdminExtension = () => {
+    fetch("/super-lovable.zip")
+      .then((res) => {
+        if (!res.ok) throw new Error(`Download falhou: ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "super-lovable-admin.zip";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      })
+      .catch((err) => alert(err.message));
+  };
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
-      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Painel de licenças</h1>
           <p className="text-sm text-muted-foreground">Conectado como {email}</p>
@@ -96,6 +116,21 @@ function AdminPage() {
           Sair
         </Button>
       </header>
+
+      <section className="mb-8 rounded-xl border bg-muted/30 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-medium">Extensão do administrador</h2>
+            <p className="text-sm text-muted-foreground">
+              Versão {EXTENSION_VERSION} · atualizada em {EXTENSION_UPDATED_AT}. Chaves com nível
+              administrador liberam servidor de licenças e endpoints; chaves comuns não veem esses
+              campos.
+            </p>
+          </div>
+          <Button onClick={downloadAdminExtension}>Baixar extensão do administrador</Button>
+        </div>
+      </section>
+
 
       <Tabs defaultValue="licenses">
         <TabsList className="mb-6">

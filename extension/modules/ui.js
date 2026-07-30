@@ -430,8 +430,15 @@
       }
     });
 
-    btn.addEventListener('click', (ev) => {
-      void ev;
+    // Abre a página da extensão que consegue exibir o aviso de permissão do Chrome.
+    function openMicPermission() {
+      const msg = 'Abrimos uma aba para o Chrome pedir autorização do microfone. Permita e volte aqui.';
+      window.LCA.setStatus(msg, 'info', 8000);
+      StatusBar.set(msg, 'warn', { sticky: true });
+      try { chrome.tabs.create({ url: chrome.runtime.getURL('permission.html') }); } catch (e) { /* noop */ }
+    }
+
+    btn.addEventListener('click', async () => {
       if (window.AudioRecorder.state === 'recording' || window.AudioRecorder.state === 'paused') {
         window.AudioRecorder.stop()
           .then((file) => {
@@ -441,22 +448,31 @@
           .catch(() => { /* já reportado pelo onChange */ });
         return;
       }
-      // getUserMedia chamado direto no clique: o Chrome só concede a permissão
-      // quando o pedido acontece dentro do gesto do usuário.
-      const p = window.AudioRecorder.requestStream();
-      window.AudioRecorder.startWithStream && p
+
+      // 1) Se o Chrome ainda não decidiu, a página dedicada mostra o pop-up nativo.
+      let perm = null;
+      try {
+        perm = await navigator.permissions.query({ name: 'microphone' });
+      } catch (e) { perm = null; }
+      if (perm && perm.state !== 'granted') {
+        openMicPermission();
+        if (perm.state === 'denied') return;
+      }
+
+      // 2) Com a permissão concedida, grava direto no painel.
+      window.AudioRecorder.requestStream()
         .then((stream) => window.AudioRecorder.startWithStream(stream))
         .catch((e) => {
           const denied = /denied|not allowed|dismissed|permission/i.test(`${e.name} ${e.message}`);
-          const msg = denied
-            ? 'O Chrome não autorizou o uso do microfone. Clique no ícone de permissões do navegador e permita o acesso para a SUPER LOVABLE.'
-            : `Microfone indisponível: ${e.message}`;
+          if (denied) { openMicPermission(); return; }
+          const msg = `Microfone indisponível: ${e.message}`;
           window.LCA.setStatus(msg, 'error', 8000);
           StatusBar.set(msg, 'error', { sticky: true });
           $('recHelp').hidden = false;
           $('recorderPanel').classList.add('open');
         });
     });
+
 
     pauseBtn.addEventListener('click', () => {
       if (window.AudioRecorder.state === 'paused') window.AudioRecorder.resume();
