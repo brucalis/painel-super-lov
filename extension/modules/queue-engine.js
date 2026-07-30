@@ -175,7 +175,9 @@
     const item = makeItem(promptData);
     const active = items.find((i) => ACTIVE.includes(i.status));
     const exec = await getLovableExecutionState(promptData.projectId);
-    const canSendNow = !meta.paused && !active && !exec.isRunning && !items.some((i) => i.status === 'queued');
+    const canSendNow = !promptData.forceQueue && !meta.paused && !active && !exec.isRunning
+      && !items.some((i) => i.status === 'queued');
+
 
     items.push(item);
     await writeQueue(items, meta);
