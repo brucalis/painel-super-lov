@@ -380,12 +380,55 @@ function appendMessage(role, text, meta) {
   return div;
 }
 
+
+// ---------- escolha do modo de envio ----------
+// Pop-up simples: envio automático (sai sozinho quando a Lovable ficar livre)
+// ou envio pendente (fica guardado para editar e enviar manualmente).
+function chooseSendMode() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get('sl_send_mode_pref', (r) => {
+      const pref = r && r.sl_send_mode_pref;
+      if (pref === 'auto' || pref === 'pending') return resolve(pref);
+
+      const back = document.createElement('div');
+      back.className = 'sl-modal-back';
+      back.innerHTML = `
+        <div class="sl-modal" role="dialog" aria-modal="true" aria-label="Como enviar este prompt">
+          <h3>Como você quer enviar?</h3>
+          <button class="sl-mode auto" data-mode="auto">
+            <b>Envio automático</b>
+            <span>Sai na hora se a Lovable estiver parada. Se estiver executando, entra na fila e é enviado sozinho ao terminar.</span>
+          </button>
+          <button class="sl-mode pending" data-mode="pending">
+            <b>Envio pendente</b>
+            <span>Fica guardado na fila para você editar e enviar manualmente quando quiser.</span>
+          </button>
+          <label class="sl-remember"><input type="checkbox" id="slRemember" /> Sempre usar a opção escolhida</label>
+          <button class="sl-cancel" data-mode="">Cancelar</button>
+        </div>`;
+      document.body.appendChild(back);
+      back.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-mode]');
+        if (!btn) return;
+        const mode = btn.dataset.mode;
+        const remember = back.querySelector('#slRemember').checked;
+        back.remove();
+        if (mode && remember) chrome.storage.local.set({ sl_send_mode_pref: mode });
+        resolve(mode || null);
+      });
+    });
+  });
+}
+
 async function sendMessage() {
   if (isBusy) return;
   const message = els.input.value.trim();
   if (!message && attachments.length === 0) return;
   if (!currentProjectId) return setStatus('Nenhum projeto detectado na aba ativa.', 'error');
   if (!authToken) return setStatus('Sem token de sessão. Faça login em lovable.dev.', 'error');
+
+  const sendMode = await chooseSendMode();
+  if (!sendMode) return;
 
   setBusy(true);
   try {
@@ -427,6 +470,7 @@ async function sendMessage() {
             text: message,
             attachments: files,
             source: 'popup',
+            mode: sendMode,
             model: window.AIProviderClient?.current?.() || 'auto',
           },
         },
@@ -440,7 +484,10 @@ async function sendMessage() {
     if (!res.success) throw new Error(res.error || 'Não foi possível enviar.');
 
     attachments.splice(0).forEach((a) => a.el?.remove());
-    if (res.sent) {
+    if (res.pending) {
+      appendMessage('ai', `Guardado como envio pendente (posição ${res.position}). Abra a aba Fila para editar e enviar quando quiser.`);
+      setStatus('Prompt pendente na fila.', 'info', 6000);
+    } else if (res.sent) {
       appendMessage('ai', 'Comando enviado à Lovable. Acompanhe a resposta na aba do projeto.');
       setStatus('Mensagem enviada.', 'success');
     } else {
