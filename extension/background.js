@@ -193,3 +193,8 @@ async function handleForward({ text, projectId, origin }) {
 
 
 bootLicense();
+
+// Mantém a fila viva mesmo com o popup fechado: alarme periódico + tick imediato.
+chrome.alarms.create(QUEUE_ALARM, { periodInMinutes: 0.5 });
+QueueEngine.scheduleTick(1500);
+
