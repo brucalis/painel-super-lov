@@ -27,12 +27,17 @@ async function bootLicense() {
 }
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === QUEUE_ALARM) {
+    QueueEngine.tick().catch(() => {});
+    return;
+  }
   if (alarm.name !== LICENSE_ALARM) return;
   const state = await LicenseClient.getStoredLicense();
   if (!state.license_token) return;
   await LicenseClient.validateLicense();
   await broadcastLicense();
 });
+
 
 async function broadcastLicense() {
   const state = await LicenseClient.getStoredLicense();
