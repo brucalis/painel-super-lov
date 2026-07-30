@@ -439,6 +439,50 @@ export type Database = {
         }
         Relationships: []
       }
+      watermark_removal_requests: {
+        Row: {
+          created_at: string
+          device_id: string
+          error: string | null
+          id: string
+          license_id: string | null
+          mechanism: string | null
+          ok: boolean
+          project_id: string
+          result_code: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          error?: string | null
+          id?: string
+          license_id?: string | null
+          mechanism?: string | null
+          ok?: boolean
+          project_id: string
+          result_code: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          error?: string | null
+          id?: string
+          license_id?: string | null
+          mechanism?: string | null
+          ok?: boolean
+          project_id?: string
+          result_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watermark_removal_requests_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_events: {
         Row: {
           created_at: string
