@@ -58,7 +58,7 @@
     });
   }
 
-  // ---------------- Modelo ----------------
+  // ---------------- Modelo (seletor compacto) ----------------
   async function initModel() {
     const wrap = $('modelPicker');
     await window.AiProviderClient.load();
@@ -68,15 +68,26 @@
     let selected = map[projectId] || window.SettingsManager.get('defaultModel') || 'auto';
     if (!providers.find((m) => m.id === selected && m.enabled)) selected = 'auto';
 
-    wrap.innerHTML = '';
+    const cur = providers.find((m) => m.id === selected) || providers[0];
+    wrap.classList.add('model-compact');
+    wrap.innerHTML = `
+      <button class="model-current" id="modelCurrent" aria-haspopup="listbox" aria-expanded="false"
+        title="Escolher o modelo usado nos envios">
+        <span class="mc-ico">${cur ? cur.icon : '✨'}</span>
+        <span class="mc-label">${cur ? cur.name : 'Automático'}</span>
+        <span class="mc-caret">▾</span>
+      </button>
+      <div class="model-menu" id="modelMenu" role="listbox" hidden></div>`;
+
+    const menu = wrap.querySelector('#modelMenu');
     providers.forEach((m) => {
       const b = document.createElement('button');
-      b.className = `model-chip${m.id === selected ? ' active' : ''}${m.enabled ? '' : ' off'}`;
-      b.innerHTML = `<span class="mc-name">${m.icon} ${m.name}</span>
-        <span class="mc-desc"></span>
-        ${m.state === 'nao-configurado' ? '<span class="mc-tag">não configurado</span>' : ''}`;
-      b.querySelector('.mc-desc').textContent = m.description;
-      b.setAttribute('aria-label', `${m.name}: ${m.description}`);
+      b.className = `model-opt${m.id === selected ? ' active' : ''}${m.enabled ? '' : ' off'}`;
+      b.setAttribute('role', 'option');
+      b.setAttribute('aria-selected', String(m.id === selected));
+      b.innerHTML = `<span class="mo-ico">${m.icon}</span><span class="mo-name"></span>
+        ${m.state === 'nao-configurado' ? '<span class="mc-tag">sem API</span>' : ''}`;
+      b.querySelector('.mo-name').textContent = m.name;
       b.title = m.enabled ? m.description : 'Este provedor ainda não possui uma API configurada.';
       b.addEventListener('click', async () => {
         if (!m.enabled) {
@@ -88,10 +99,21 @@
         await window.StorageManager.local.set('lca_model_by_project', map);
         initModel();
       });
-      wrap.appendChild(b);
+      menu.appendChild(b);
     });
+
+    const toggle = wrap.querySelector('#modelCurrent');
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = menu.hidden;
+      menu.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+    });
+    document.addEventListener('click', () => { menu.hidden = true; toggle.setAttribute('aria-expanded', 'false'); });
+
     window.LCA_selectedModel = selected;
   }
+
 
   // ---------------- Atalhos rápidos ----------------
   function renderShortcuts() {
