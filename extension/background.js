@@ -2,6 +2,7 @@
 // Além de repassar uploads e consultas, hospeda o motor único da fila:
 // é ele que envia ou enfileira, detecta a conclusão e avança sozinho,
 // inclusive com o popup fechado.
+importScripts('modules/prompt-modes.js');
 importScripts('modules/license-client.js');
 importScripts('modules/lovable-sender.js');
 importScripts('modules/queue-engine.js');

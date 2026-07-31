@@ -69,7 +69,8 @@
       <section class="panel active" id="panel-prompt" role="tabpanel" aria-label="Prompt">
         <div class="prompt-scroll">
           <div class="row">
-            <span class="row-label" data-i18n="model">Modelo</span>
+            <span class="row-label">Modo de otimização</span>
+            <span class="mode-badge" id="modeBadge" title="Modo aplicado ao preparar o pedido">Modo: Automático</span>
           </div>
           <div class="model-picker" id="modelPicker"></div>
 
@@ -209,6 +210,10 @@
         <label class="chk"><input type="checkbox" id="setConfirmSend" /> Confirmar antes do envio</label>
         <label class="chk"><input type="checkbox" id="setConfirmDelete" /> Confirmar exclusões</label>
         <div class="section">
+          <div class="section-title">Modos de otimização</div>
+          <p class="hint-note">Os modos alteram a forma como o seu pedido é preparado antes de ser enviado à Lovable. Eles não representam conexão direta com APIs externas.</p>
+        </div>
+        <div class="section">
           <div class="section-title">Envio</div>
           <div class="toolbar">
             <button class="ghost" id="resetSendMode">Perguntar de novo: automático ou pendente</button>
@@ -315,6 +320,7 @@
     <script src="modules/device-id.js"></script>
     <script src="modules/i18n.js"></script>
     <script src="modules/settings-manager.js"></script>
+    <script src="modules/prompt-modes.js"></script>
     <script src="modules/ai-provider-client.js"></script>
     <script src="modules/notification-manager.js"></script>
     <script src="modules/shield-manager.js"></script>
