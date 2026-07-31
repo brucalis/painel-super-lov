@@ -471,7 +471,7 @@ async function sendMessage() {
             attachments: files,
             source: 'popup',
             mode: sendMode,
-            model: window.AIProviderClient?.current?.() || 'auto',
+            promptMode: await window.PromptModes.getActive(),
           },
         },
         (r) => {
