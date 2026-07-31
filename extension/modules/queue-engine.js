@@ -145,6 +145,8 @@
       text: data.text || '',
       attachments: Array.isArray(data.attachments) ? data.attachments : [],
       source: data.source || 'popup',
+      // modo de otimização escolhido NO MOMENTO do envio (não muda depois)
+      promptMode: (root.PromptModes ? root.PromptModes.get(data.promptMode).id : 'automatic'),
       mode: data.mode === 'pending' ? 'pending' : 'auto',
       model: data.model || 'auto',
       createdAt: now,
@@ -226,9 +228,14 @@
     if (!it) return { success: false, error: 'Item inexistente.' };
     await broadcast('SUPER_LOVABLE_EXECUTION_STARTED', { id });
     try {
+      // Preparação do prompt: a instrução interna do modo é combinada apenas
+      // em memória, aqui, no instante do envio. it.text permanece original.
+      const preparedText = root.PromptModes
+        ? root.PromptModes.buildPrompt({ text: it.text, modeId: it.promptMode, attachments: it.attachments })
+        : it.text;
       await root.LovableSender.sendPrompt({
         projectId: it.projectId,
-        text: it.text,
+        text: preparedText,
         files: (it.attachments || []).filter((a) => a && a.url).map((a) => ({ url: a.url, name: a.name, type: a.type })),
       });
       await patch(id, { status: 'running', sentAt: Date.now(), lastError: null });
@@ -236,7 +243,7 @@
       meta.consecutiveFailures = 0;
       await writeQueue(null, meta);
       await pushHistory({
-        text: it.text, project: it.projectId, status: 'enviado',
+        text: it.text, promptMode: it.promptMode, project: it.projectId, status: 'enviado',
         origin: it.source, attachments: (it.attachments || []).map((a) => a.name).filter(Boolean),
       });
       scheduleTick(1500);
@@ -253,7 +260,7 @@
       meta.consecutiveFailures = (meta.consecutiveFailures || 0) + 1;
       if (meta.consecutiveFailures >= 3) meta.paused = true;
       await writeQueue(items, meta);
-      await pushHistory({ text: it.text, project: it.projectId, status: 'falhou', error: err.message, origin: it.source });
+      await pushHistory({ text: it.text, promptMode: it.promptMode, project: it.projectId, status: 'falhou', error: err.message, origin: it.source });
       await broadcast('SUPER_LOVABLE_EXECUTION_FAILED', { id, error: err.message });
       return { success: false, error: err.message };
     }
@@ -302,7 +309,7 @@
         meta.advanceAt = Date.now() + QUEUE_ADVANCE_DELAY_MS;
         await writeQueue(items, meta);
         await pushHistory({
-          text: active.text, project: active.projectId, status: 'concluído', origin: active.source,
+          text: active.text, promptMode: active.promptMode, project: active.projectId, status: 'concluído', origin: active.source,
           durationMs: active.completedAt - (active.sentAt || active.completedAt),
         });
         await broadcast('SUPER_LOVABLE_EXECUTION_FINISHED', { id: active.id });
