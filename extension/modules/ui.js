@@ -63,6 +63,14 @@
     const wrap = $('modelPicker');
     await window.AiProviderClient.load();
     const providers = window.AiProviderClient.providers;
+    if (!wrap) {
+      const map0 = (await window.StorageManager.local.get('lca_model_by_project', {})) || {};
+      const pid0 = window.LCA.projectId || 'global';
+      let sel0 = map0[pid0] || window.SettingsManager.get('defaultModel') || 'auto';
+      if (!providers.find((m) => m.id === sel0 && m.enabled)) sel0 = 'auto';
+      window.LCA_selectedModel = sel0;
+      return;
+    }
     const map = (await window.StorageManager.local.get('lca_model_by_project', {})) || {};
     const projectId = window.LCA.projectId || 'global';
     let selected = map[projectId] || window.SettingsManager.get('defaultModel') || 'auto';
