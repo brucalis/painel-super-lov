@@ -65,9 +65,6 @@ function Index() {
   return (
     <main className="min-h-screen bg-[#0B1020] text-slate-100">
       <section className="mx-auto max-w-3xl px-6 py-20">
-        <p className="text-sm uppercase tracking-widest text-violet-300/70">
-          Chrome Extension · Manifest V3
-        </p>
         <h1 className="mt-3 bg-gradient-to-r from-sky-400 via-violet-500 to-fuchsia-500 bg-clip-text text-5xl font-bold text-transparent">
           SUPER LOVABLE
         </h1>
