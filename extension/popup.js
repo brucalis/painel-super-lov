@@ -430,10 +430,6 @@ async function sendMessage() {
   const sendMode = await chooseSendMode();
   if (!sendMode) return;
 
-  // Modo de otimização ativo: só o identificador viaja aqui. A instrução
-  // interna é combinada ao texto no motor de envio, nunca no campo de texto.
-  const promptMode = await window.PromptModes.getActive();
-
   setBusy(true);
   try {
     const files = [];
@@ -475,7 +471,7 @@ async function sendMessage() {
             attachments: files,
             source: 'popup',
             mode: sendMode,
-            promptMode,
+            model: window.AIProviderClient?.current?.() || 'auto',
           },
         },
         (r) => {

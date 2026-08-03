@@ -14,7 +14,7 @@
   const TOOLBAR_ID = 'super-lovable-native-toolbar';
   const MINI_ID = 'super-lovable-mini';
   const MAX_QUEUE_ITEMS = 10;
-  let settings = { nativeCapture: true, mini: 'open', promptMode: 'automatic' };
+  let settings = { nativeCapture: true, mini: 'open' };
   let lastState = { isRunning: false, confidence: 0, signals: [], lastChangeAt: Date.now() };
   let lastRunningChange = Date.now();
   let summary = { total: 0, waiting: 0, isFull: false, paused: false, activeStatus: null };
@@ -23,11 +23,10 @@
   const projectId = () => (location.pathname.match(/\/projects\/([0-9a-zA-Z-]+)/) || [])[1] || null;
 
   function loadSettings() {
-    chrome.storage.local.get(['super_lovable_settings', 'super_lovable_mini', 'super_lovable_active_mode'], (r) => {
+    chrome.storage.local.get(['super_lovable_settings', 'super_lovable_mini'], (r) => {
       const s = r.super_lovable_settings || {};
       settings.nativeCapture = s.nativeCapture !== false;
       settings.mini = r.super_lovable_mini || 'open';
-      settings.promptMode = r.super_lovable_active_mode || 'automatic';
       paintMini();
     });
   }
@@ -142,14 +141,7 @@
       chrome.runtime.sendMessage(
         {
           action: 'SUPER_LOVABLE_SUBMIT_PROMPT',
-          data: {
-            text,
-            projectId: projectId(),
-            source: source || 'native_toolbar',
-            attachments: [],
-            // mesmo modo escolhido no popup (sincronizado pelo armazenamento)
-            promptMode: settings.promptMode || 'automatic',
-          },
+          data: { text, projectId: projectId(), source: source || 'native_toolbar', attachments: [] },
         },
         (res) => {
           if (chrome.runtime.lastError) {
@@ -433,11 +425,6 @@
   });
 
   loadSettings();
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.super_lovable_active_mode) {
-      settings.promptMode = changes.super_lovable_active_mode.newValue || 'automatic';
-    }
-  });
   sync();
   refreshSummary();
   window.detectLovableExecutionState = detectLovableExecutionState;

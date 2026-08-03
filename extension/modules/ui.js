@@ -58,53 +58,51 @@
     });
   }
 
-  // ---------------- Modos de otimização do prompt ----------------
-  // As opções NÃO chamam APIs externas: cada uma prepara o pedido de um jeito
-  // diferente antes do envio pelo mecanismo já existente.
+  // ---------------- Modelo (seletor compacto) ----------------
   async function initModel() {
     const wrap = $('modelPicker');
-    if (!wrap) return;
-    const modes = window.PromptModes.MODES;
-    const selected = await window.PromptModes.getActive();
-    const cur = window.PromptModes.get(selected);
+    await window.AiProviderClient.load();
+    const providers = window.AiProviderClient.providers;
+    const map = (await window.StorageManager.local.get('lca_model_by_project', {})) || {};
+    const projectId = window.LCA.projectId || 'global';
+    let selected = map[projectId] || window.SettingsManager.get('defaultModel') || 'auto';
+    if (!providers.find((m) => m.id === selected && m.enabled)) selected = 'auto';
 
+    const cur = providers.find((m) => m.id === selected) || providers[0];
     wrap.classList.add('model-compact');
     wrap.innerHTML = `
-      <button class="model-current" id="modelCurrent" aria-haspopup="listbox" aria-expanded="false">
-        <span class="mc-ico"></span>
-        <span class="mc-texts"><span class="mc-label"></span><span class="mc-desc"></span></span>
+      <button class="model-current" id="modelCurrent" aria-haspopup="listbox" aria-expanded="false"
+        title="Escolher o modelo usado nos envios">
+        <span class="mc-ico">${cur ? cur.icon : '✨'}</span>
+        <span class="mc-label">${cur ? cur.name : 'Automático'}</span>
         <span class="mc-caret">▾</span>
       </button>
       <div class="model-menu" id="modelMenu" role="listbox" hidden></div>`;
 
-    const toggle = wrap.querySelector('#modelCurrent');
-    toggle.title = cur.tooltip;
-    toggle.querySelector('.mc-ico').textContent = cur.icon;
-    toggle.querySelector('.mc-label').textContent = cur.name;
-    toggle.querySelector('.mc-desc').textContent = cur.description;
-
     const menu = wrap.querySelector('#modelMenu');
-    modes.forEach((m) => {
+    providers.forEach((m) => {
       const b = document.createElement('button');
-      b.className = `model-opt${m.id === selected ? ' active' : ''}`;
+      b.className = `model-opt${m.id === selected ? ' active' : ''}${m.enabled ? '' : ' off'}`;
       b.setAttribute('role', 'option');
       b.setAttribute('aria-selected', String(m.id === selected));
-      b.title = m.tooltip;
-      b.innerHTML = `<span class="mo-ico"></span>
-        <span class="mo-texts"><span class="mo-name"></span><span class="mo-desc"></span></span>`;
-      b.querySelector('.mo-ico').textContent = m.icon;
+      b.innerHTML = `<span class="mo-ico">${m.icon}</span><span class="mo-name"></span>
+        ${m.state === 'nao-configurado' ? '<span class="mc-tag">sem API</span>' : ''}`;
       b.querySelector('.mo-name').textContent = m.name;
-      b.querySelector('.mo-desc').textContent = m.description;
+      b.title = m.enabled ? m.description : 'Este provedor ainda não possui uma API configurada.';
       b.addEventListener('click', async () => {
-        await window.PromptModes.setActive(m.id);
-        window.LCA_selectedModel = m.id;
-        menu.hidden = true;
-        await initModel();
-        StatusBar.set(`Modo ${m.short} ativo — ${m.tooltip}`, 'info');
+        if (!m.enabled) {
+          window.LCA.setStatus('Este provedor ainda não possui uma API configurada.', 'info', 5000);
+          StatusBar.set('Provedor sem API configurada. Envio segue em Automático.', 'warn');
+          return;
+        }
+        map[projectId] = m.id;
+        await window.StorageManager.local.set('lca_model_by_project', map);
+        initModel();
       });
       menu.appendChild(b);
     });
 
+    const toggle = wrap.querySelector('#modelCurrent');
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
       const open = menu.hidden;
@@ -114,12 +112,8 @@
     document.addEventListener('click', () => { menu.hidden = true; toggle.setAttribute('aria-expanded', 'false'); });
 
     window.LCA_selectedModel = selected;
-    const badge = $('modeBadge');
-    if (badge) {
-      badge.textContent = `Modo: ${cur.short}`;
-      badge.title = cur.tooltip;
-    }
   }
+
 
   // ---------------- Atalhos rápidos ----------------
   function renderShortcuts() {
@@ -362,9 +356,9 @@
           <span class="h-status ${it.status === 'falhou' ? 'bad' : 'ok'}">${it.status}</span>
         </div>
         <div class="h-text"></div>
-        <div class="h-meta">${it.project || '-'} · Modo: ${window.PromptModes.label(it.promptMode || it.model)} · ${it.origin}${it.durationMs ? ` · ${Math.round(it.durationMs / 1000)}s` : ''}</div>
+        <div class="h-meta">${it.project || '-'} · ${it.model || 'auto'} · ${it.origin}${it.durationMs ? ` · ${Math.round(it.durationMs / 1000)}s` : ''}</div>
         <div class="h-actions"></div>`;
-      row.querySelector('.h-text').textContent = window.PromptModes.stripMarker(it.text);
+      row.querySelector('.h-text').textContent = it.text;
       const acts = row.querySelector('.h-actions');
       const mk = (t, title, fn) => {
         const b = document.createElement('button');
@@ -809,8 +803,7 @@
         }
         await window.HistoryManager.add({
           text, project: projectId, status: failed ? 'falhou' : 'concluído',
-          model: window.LCA_selectedModel || 'automatic',
-          promptMode: window.LCA_selectedModel || 'automatic', origin: 'prompt',
+          model: window.LCA_selectedModel || 'auto', origin: 'prompt',
           attachments: names, durationMs: Date.now() - started,
         });
         if (document.querySelector('#panel-history.active')) renderHistory();
@@ -1000,7 +993,6 @@
       await window.HistoryManager.add({
         text: p.text, project: p.project, status: p.status || 'na fila',
         origin: p.origin || 'chat nativo redirecionado', attachments: p.attachments || [],
-        promptMode: p.promptMode || 'automatic',
       });
     }
     if (pending.length) {
