@@ -13,7 +13,7 @@
   const DEFAULT_LICENSE_SERVER_URL = 'https://painel-super-lov.lovable.app/api/public';
 
   const KEYS = {
-    device: 'extension_device_id',
+    canonical: 'super_lovable_device_identity_v2',
     license: 'license_state',
     server: 'license_server_url',
   };
@@ -70,17 +70,22 @@
   // ---------------- identificador do dispositivo ----------------
   /** Aleatório, estável enquanto a extensão estiver instalada. Nada invasivo. */
   async function getDeviceId() {
-    let id = await get(KEYS.device, null);
+    if (root.DeviceIdentityManager) {
+      const identity = await root.DeviceIdentityManager.get();
+      return identity.deviceId;
+    }
+    // Fallback caso o manager não esteja carregado
+    let id = await get('extension_device_id', null);
     if (typeof id === 'string' && /^[0-9a-f]{32}$/i.test(id)) return id;
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    id = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-    await set({ [KEYS.device]: id });
-    return id;
+    return id || 'unknown';
   }
 
   /** Nome genérico do dispositivo: navegador + sistema, sem fingerprint. */
-  function getDeviceName() {
+  async function getDeviceName() {
+    if (root.DeviceIdentityManager) {
+      const identity = await root.DeviceIdentityManager.get();
+      return `${identity.browserName} • ${identity.operatingSystem}`;
+    }
     const ua = (root.navigator && root.navigator.userAgent) || '';
     let browser = 'Navegador Chromium';
     if (/Edg\//.test(ua)) browser = 'Edge';
@@ -303,7 +308,7 @@
       body: {
         license_key: key,
         device_id: await getDeviceId(),
-        device_name: getDeviceName(),
+        device_name: await getDeviceName(),
         extension_version: getExtensionVersion(),
       },
     });
