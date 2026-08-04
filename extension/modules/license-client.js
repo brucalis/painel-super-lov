@@ -388,6 +388,20 @@
     return clearLicense();
   }
 
+  /** Tenta reassociar o dispositivo se o ID local foi perdido mas o sync existe. */
+  async function recoverDevice() {
+    if (!root.DeviceIdentityManager) return { ok: false };
+    const identity = await root.DeviceIdentityManager.get();
+    const state = await getStoredLicense();
+    
+    // Precisamos de uma chave para recuperar
+    const keyHint = state.key_hint; 
+    // Como a chave completa não é salva, a recuperação automática depende do usuário 
+    // ter pelo menos tentado ativar uma vez e a licença estar no estado 'none' ou similar
+    // mas com um hint. Na prática, o popup pedirá a chave e o manager usará o ID recuperado.
+    return { ok: false, message: 'Recuperação automática requer intervenção.' };
+  }
+
   const LicenseClient = {
     KEYS,
     REASONS,
@@ -395,6 +409,7 @@
     DEFAULT_LICENSE_SERVER_URL,
     activateLicense,
     validateLicense,
+    recoverDevice,
     ensureFresh,
     deactivateDevice,
     getStoredLicense,

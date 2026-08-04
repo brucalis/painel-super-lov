@@ -114,7 +114,7 @@ export async function logEvent(
   });
 }
 
-export async function licenseResponse(license: LicenseRow, token: string | null) {
+export async function licenseResponse(license: LicenseRow, token: string | null, deviceId?: string) {
   const { count } = await supabaseAdmin
     .from("license_devices")
     .select("id", { count: "exact", head: true })
@@ -135,6 +135,7 @@ export async function licenseResponse(license: LicenseRow, token: string | null)
     minimum_version: license.minimum_version,
     offline_grace_seconds: license.offline_grace_seconds,
     server_time: new Date().toISOString(),
+    device_id: deviceId,
   };
 }
 
