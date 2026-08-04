@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SUPER LOVABLE V2 — Licença</title>
+    <link rel="stylesheet" href="license-test.css" />
+  </head>
+  <body data-view="booting">
+    <main class="shell">
+      <header class="brand-row">
+        <span class="logo">SL</span>
+        <div>
+          <strong>SUPER LOVABLE</strong>
+          <small>Validação de licença v2</small>
+        </div>
+      </header>
+
+      <section class="view boot-view" data-license-view="booting">
+        <div class="spinner"></div>
+        <h1>Preparando sua extensão…</h1>
+        <p>Estamos verificando sua licença sem interromper a abertura.</p>
+      </section>
+
+      <section class="view main-view" data-license-view="main" hidden>
+        <span class="status-pill success">Acesso liberado</span>
+        <h1>Extensão pronta para usar</h1>
+        <p id="mainMessage">Sua licença foi confirmada neste dispositivo.</p>
+        <dl>
+          <div><dt>Plano</dt><dd id="planValue">—</dd></div>
+          <div><dt>Validade</dt><dd id="expiryValue">—</dd></div>
+          <div><dt>Dispositivo</dt><dd id="deviceValue">—</dd></div>
+          <div><dt>Origem</dt><dd id="sourceValue">—</dd></div>
+        </dl>
+        <div class="actions">
+          <button id="validateNow" class="primary">Validar novamente</button>
+          <button id="clearSession" class="secondary">Limpar sessão local</button>
+        </div>
+      </section>
+
+      <section class="view activation-view" data-license-view="activation" hidden>
+        <span class="status-pill warning" id="activationBadge">Ativação necessária</span>
+        <h1 id="activationTitle">Ative seu acesso</h1>
+        <p id="activationMessage">Informe a chave recebida na compra.</p>
+        <label>
+          <span>Chave de acesso</span>
+          <input id="licenseKey" autocomplete="off" spellcheck="false" placeholder="LVA-XXXX-XXXX-XXXX-XXXX" />
+        </label>
+        <button id="activateLicense" class="primary">Ativar neste dispositivo</button>
+        <p class="feedback" id="feedback" role="status"></p>
+      </section>
+    </main>
+
+    <script type="module" src="license-test.js"></script>
+  </body>
+</html>
