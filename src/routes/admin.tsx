@@ -32,7 +32,7 @@ export const Route = createFileRoute("/admin")({
 
 // Atualize junto com o pacote da extensão (horário de Brasília).
 const EXTENSION_VERSION = "1.7.0";
-const EXTENSION_UPDATED_AT = "04/08/2026 às 12:35 (horário de Brasília)";
+const EXTENSION_UPDATED_AT = "04/08/2026 às 18:56 (horário de Brasília)";
 
 function AdminPage() {
   const navigate = useNavigate();
