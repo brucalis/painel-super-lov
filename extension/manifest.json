@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "SUPER LOVABLE",
-  "version": "1.7.0",
-  "description": "SUPER LOVABLE: painel premium para a plataforma Lovable, com anexos, gravação de voz, fila real de comandos, histórico e ferramentas.",
+  "name": "SUPER LOVABLE V2 — TESTE",
+  "version": "1.7.1",
+  "description": "SUPER LOVABLE V2: ambiente isolado de desenvolvimento e validação do novo fluxo de licença.",
   "permissions": [
     "activeTab",
     "cookies",
@@ -54,8 +54,8 @@
     }
   ],
   "action": {
-    "default_popup": "popup.html",
-    "default_title": "SUPER LOVABLE",
+    "default_popup": "v2/runtime/license-test.html",
+    "default_title": "SUPER LOVABLE V2 — TESTE",
     "default_icon": {
       "48": "icon.png",
       "128": "icon.png"
