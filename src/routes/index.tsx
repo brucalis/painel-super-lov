@@ -40,7 +40,6 @@ const features = [
   "Histórico completo com busca, favoritos e reenvio",
   "9 atalhos rápidos para correções, SEO, segurança e responsividade",
   "Barra e mini painel injetados no próprio chat do Lovable",
-  
   "Modo Escudo contra envios acidentais e projeto trocado",
 ];
 
@@ -63,6 +62,35 @@ function Index() {
 
   return (
     <main className="min-h-screen bg-[#0B1020] text-slate-100">
+      <style>{`
+        @keyframes downloadPulse {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 10px 40px -10px rgba(139, 92, 246, 0.8);
+          }
+          50% {
+            transform: scale(1.035);
+            box-shadow: 0 12px 48px -8px rgba(217, 70, 239, 0.95);
+          }
+        }
+
+        .download-pulse {
+          animation: downloadPulse 2.2s ease-in-out infinite;
+          will-change: transform, box-shadow;
+        }
+
+        .download-pulse:hover {
+          animation-play-state: paused;
+          transform: scale(1.045);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .download-pulse {
+            animation: none;
+          }
+        }
+      `}</style>
+
       <section className="mx-auto max-w-3xl px-6 py-20">
         <h1 className="mt-3 bg-gradient-to-r from-sky-400 via-violet-500 to-fuchsia-500 bg-clip-text text-5xl font-bold text-transparent">
           SUPER LOVABLE
@@ -74,14 +102,13 @@ function Index() {
 
         <button
           onClick={download}
-          className="mt-8 rounded-xl bg-gradient-to-r from-sky-500 via-violet-600 to-fuchsia-600 px-6 py-3 font-medium text-white shadow-[0_10px_40px_-10px_rgba(139,92,246,0.8)] transition hover:opacity-90"
+          className="download-pulse mt-8 rounded-xl bg-gradient-to-r from-sky-500 via-violet-600 to-fuchsia-600 px-6 py-3 font-medium text-white transition hover:opacity-95"
         >
           Baixar extensão (.zip)
         </button>
         <p className="mt-3 text-sm text-slate-400">
           Versão {EXTENSION_VERSION} · atualizada em {EXTENSION_UPDATED_AT}
         </p>
-
 
         <h2 className="mt-14 text-xl font-semibold">Como instalar</h2>
         <ol className="mt-4 space-y-2 text-slate-300">
