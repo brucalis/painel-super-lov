@@ -58,68 +58,10 @@
     });
   }
 
-  // ---------------- Modelo (seletor compacto) ----------------
+  // ---------------- Modelo (removido na v1.7.0) ----------------
   async function initModel() {
-    const wrap = $('modelPicker');
-    await window.AiProviderClient.load();
-    const providers = window.AiProviderClient.providers;
-    if (!wrap) {
-      const map0 = (await window.StorageManager.local.get('lca_model_by_project', {})) || {};
-      const pid0 = window.LCA.projectId || 'global';
-      let sel0 = map0[pid0] || window.SettingsManager.get('defaultModel') || 'auto';
-      if (!providers.find((m) => m.id === sel0 && m.enabled)) sel0 = 'auto';
-      window.LCA_selectedModel = sel0;
-      return;
-    }
-    const map = (await window.StorageManager.local.get('lca_model_by_project', {})) || {};
-    const projectId = window.LCA.projectId || 'global';
-    let selected = map[projectId] || window.SettingsManager.get('defaultModel') || 'auto';
-    if (!providers.find((m) => m.id === selected && m.enabled)) selected = 'auto';
-
-    const cur = providers.find((m) => m.id === selected) || providers[0];
-    wrap.classList.add('model-compact');
-    wrap.innerHTML = `
-      <button class="model-current" id="modelCurrent" aria-haspopup="listbox" aria-expanded="false"
-        title="Escolher o modelo usado nos envios">
-        <span class="mc-ico">${cur ? cur.icon : '✨'}</span>
-        <span class="mc-label">${cur ? cur.name : 'Automático'}</span>
-        <span class="mc-caret">▾</span>
-      </button>
-      <div class="model-menu" id="modelMenu" role="listbox" hidden></div>`;
-
-    const menu = wrap.querySelector('#modelMenu');
-    providers.forEach((m) => {
-      const b = document.createElement('button');
-      b.className = `model-opt${m.id === selected ? ' active' : ''}${m.enabled ? '' : ' off'}`;
-      b.setAttribute('role', 'option');
-      b.setAttribute('aria-selected', String(m.id === selected));
-      b.innerHTML = `<span class="mo-ico">${m.icon}</span><span class="mo-name"></span>
-        ${m.state === 'nao-configurado' ? '<span class="mc-tag">sem API</span>' : ''}`;
-      b.querySelector('.mo-name').textContent = m.name;
-      b.title = m.enabled ? m.description : 'Este provedor ainda não possui uma API configurada.';
-      b.addEventListener('click', async () => {
-        if (!m.enabled) {
-          window.LCA.setStatus('Este provedor ainda não possui uma API configurada.', 'info', 5000);
-          StatusBar.set('Provedor sem API configurada. Envio segue em Automático.', 'warn');
-          return;
-        }
-        map[projectId] = m.id;
-        await window.StorageManager.local.set('lca_model_by_project', map);
-        initModel();
-      });
-      menu.appendChild(b);
-    });
-
-    const toggle = wrap.querySelector('#modelCurrent');
-    toggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = menu.hidden;
-      menu.hidden = !open;
-      toggle.setAttribute('aria-expanded', String(open));
-    });
-    document.addEventListener('click', () => { menu.hidden = true; toggle.setAttribute('aria-expanded', 'false'); });
-
-    window.LCA_selectedModel = selected;
+    // A lógica interna de seleção automática é preservada, mas a interface foi removida a pedido.
+    window.LCA_selectedModel = window.SettingsManager.get('defaultModel') || 'auto';
   }
 
 
