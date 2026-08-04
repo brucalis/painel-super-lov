@@ -536,14 +536,9 @@
       if (!payload.name) { out.textContent = 'Informe um nome.'; return; }
       out.textContent = 'Verificando integração…';
       try {
-        const r = await window.CloudManager.createProject(payload);
-        if (r.created) {
-          out.textContent = 'Projeto criado.';
-          window.NotificationManager.play('sendDone');
-        } else {
-          out.textContent = `${window.I18n.t('err_unavailable')} Abrindo o fluxo oficial…`;
-          out.textContent = await window.CloudManager.fallbackCreate(payload.initialPrompt || payload.description);
-        }
+        const r = await window.ActionRouter.run('CREATE_PROJECT', payload, window.LCA.projectId);
+        out.textContent = r.message || (r.success ? 'Projeto criado.' : window.I18n.t('err_unavailable'));
+        if (r.success) window.NotificationManager.play('sendDone');
       } catch (e) {
         out.textContent = e.message;
       }
@@ -553,17 +548,21 @@
       const out = $('toolOutput');
       out.textContent = 'Verificando o estado do projeto…';
       try {
-        const st = await window.CloudManager.checkCloud();
-        if (!st.available) {
-          out.textContent = window.I18n.t('err_unavailable');
-          return;
-        }
-        if (st.enabled) { out.textContent = 'O Lovable Cloud já parece ativo neste projeto.'; return; }
-        const ok = window.confirm('Será enviado um pedido de ativação do Lovable Cloud (banco de dados, autenticação e funções) para este projeto. Continuar?');
+        const st = await window.ActionRouter.run('CHECK_CLOUD', {}, window.LCA.projectId);
+        out.textContent = st.message || window.I18n.t('err_unavailable');
+        const ready = st.success && st.data && st.data.status === 'ready';
+        if (!st.success || ready) return;
+        const ok = window.confirm('Será ativado o Lovable Cloud (banco de dados, autenticação e funções) neste projeto. Continuar?');
         if (!ok) { out.textContent = 'Ação cancelada.'; return; }
-        window.LCA.els.input.value = window.CloudManager.cloudPrompt();
-        document.querySelector('.tab[data-tab="prompt"]').click();
-        out.textContent = 'Pedido preparado no prompt. Revise e clique em Enviar agora.';
+        const res = await window.ActionRouter.run(
+          'ENABLE_CLOUD',
+          {
+            confirmed: true,
+            chatFallbackText: window.CloudManager.cloudPrompt(),
+          },
+          window.LCA.projectId,
+        );
+        out.textContent = res.message || window.I18n.t('err_unavailable');
       } catch (e) {
         out.textContent = e.message;
       }
