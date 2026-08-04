@@ -2,6 +2,7 @@
 // Além de repassar uploads e consultas, hospeda o motor único da fila:
 // é ele que envia ou enfileira, detecta a conclusão e avança sozinho,
 // inclusive com o popup fechado.
+importScripts('modules/device-identity-manager.js');
 importScripts('modules/license-client.js');
 importScripts('modules/lovable-sender.js');
 importScripts('modules/queue-engine.js');
@@ -11,7 +12,12 @@ const QUEUE_ALARM = 'super_lovable_queue_tick';
 
 
 // Validação na instalação/atualização e a cada início do navegador.
-chrome.runtime.onInstalled.addListener(() => { bootLicense('instalação'); });
+chrome.runtime.onInstalled.addListener(async (details) => {
+  if (typeof DeviceIdentityManager !== 'undefined') {
+    await DeviceIdentityManager.ensure({ reason: details.reason });
+  }
+  bootLicense('instalação');
+});
 chrome.runtime.onStartup.addListener(() => { bootLicense('início do navegador'); });
 
 async function bootLicense() {
