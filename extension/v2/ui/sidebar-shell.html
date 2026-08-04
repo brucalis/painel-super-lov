@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Super Lovable v2 — Shell</title>
+  <link rel="stylesheet" href="sidebar-shell.css" />
+</head>
+<body>
+  <main class="app-shell" aria-label="Protótipo da Super Lovable v2">
+    <aside class="sidebar" aria-label="Navegação principal">
+      <div class="brand-block">
+        <span class="brand-icon">SL</span>
+        <div class="brand-copy">
+          <strong>Super Lovable</strong>
+          <small>Workspace</small>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <button class="nav-item active" data-view="create"><span>✦</span><span>Criar</span></button>
+        <button class="nav-item" data-view="queue"><span>☷</span><span>Fila</span><span class="nav-badge">0</span></button>
+        <button class="nav-item" data-view="history"><span>◷</span><span>Histórico</span></button>
+        <button class="nav-item" data-view="projects"><span>⌘</span><span>Projetos</span></button>
+        <button class="nav-item" data-view="tools"><span>⚙</span><span>Ferramentas</span></button>
+        <button class="nav-item" data-view="integrations"><span>↗</span><span>Integrações</span></button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-view="help"><span>?</span><span>Ajuda</span></button>
+        <button class="nav-item" data-view="settings"><span>⚙</span><span>Configurações</span></button>
+        <div class="connection-card">
+          <span class="connection-dot"></span>
+          <div><strong>Extensão ativa</strong><small>Projeto não associado</small></div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="workspace-header">
+        <div>
+          <p class="eyebrow">CRIAR</p>
+          <h1>O que você quer alterar?</h1>
+        </div>
+        <button class="project-selector">Selecionar projeto <span>⌄</span></button>
+      </header>
+
+      <section class="context-alert" role="status">
+        <div class="alert-icon">i</div>
+        <div>
+          <strong>Conecte um projeto para começar</strong>
+          <p>A Super Lovable fará as alterações no repositório autorizado e manterá o histórico de tudo.</p>
+        </div>
+        <button>Conectar GitHub</button>
+      </section>
+
+      <section class="composer-card">
+        <textarea placeholder="Descreva o que deseja criar, corrigir ou melhorar…" aria-label="Comando"></textarea>
+        <div class="composer-toolbar">
+          <div class="left-actions">
+            <button title="Anexar arquivos">📎</button>
+            <button title="Gravar áudio">🎙</button>
+            <button class="text-action">✦ Melhorar prompt</button>
+          </div>
+          <button class="primary-action">Planejar alteração <span>→</span></button>
+        </div>
+      </section>
+
+      <section class="quick-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">ATALHOS</p><h2>Comece mais rápido</h2></div>
+          <button class="quiet-action">Editar</button>
+        </div>
+        <div class="shortcut-strip">
+          <button><strong>Corrigir</strong><small>Encontrar e resolver erros</small></button>
+          <button><strong>Refatorar</strong><small>Organizar e limpar o código</small></button>
+          <button><strong>Interface</strong><small>Melhorar UI e responsividade</small></button>
+          <button><strong>SEO</strong><small>Otimizar estrutura e conteúdo</small></button>
+        </div>
+      </section>
+
+      <section class="recent-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">ATIVIDADE</p><h2>Últimas tarefas</h2></div>
+        </div>
+        <div class="empty-state">
+          <span>◇</span>
+          <strong>Nenhuma tarefa por aqui</strong>
+          <p>Depois que você enviar o primeiro comando, o andamento aparecerá neste espaço.</p>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="sidebar-shell.js"></script>
+</body>
+</html>
