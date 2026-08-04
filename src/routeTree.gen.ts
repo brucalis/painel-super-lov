@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/public/validate-license'
 import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/transcribe'
+import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
 import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
 import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
@@ -45,6 +46,11 @@ const ApiPublicValidateLicenseRoute =
 const ApiPublicTranscribeRoute = ApiPublicTranscribeRouteImport.update({
   id: '/api/public/transcribe',
   path: '/api/public/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicRecoverDeviceRoute = ApiPublicRecoverDeviceRouteImport.update({
+  id: '/api/public/recover-device',
+  path: '/api/public/recover-device',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicDeactivateDeviceRoute =
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
+  '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
+  '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
+  '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
+    | '/api/public/recover-device'
     | '/api/public/transcribe'
     | '/api/public/validate-license'
     | '/api/public/projects/remove-watermark'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
+    | '/api/public/recover-device'
     | '/api/public/transcribe'
     | '/api/public/validate-license'
     | '/api/public/projects/remove-watermark'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
+    | '/api/public/recover-device'
     | '/api/public/transcribe'
     | '/api/public/validate-license'
     | '/api/public/projects/remove-watermark'
@@ -171,6 +183,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
   ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
+  ApiPublicRecoverDeviceRoute: typeof ApiPublicRecoverDeviceRoute
   ApiPublicTranscribeRoute: typeof ApiPublicTranscribeRoute
   ApiPublicValidateLicenseRoute: typeof ApiPublicValidateLicenseRoute
   ApiPublicProjectsRemoveWatermarkRoute: typeof ApiPublicProjectsRemoveWatermarkRoute
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/transcribe'
       fullPath: '/api/public/transcribe'
       preLoaderRoute: typeof ApiPublicTranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/recover-device': {
+      id: '/api/public/recover-device'
+      path: '/api/public/recover-device'
+      fullPath: '/api/public/recover-device'
+      preLoaderRoute: typeof ApiPublicRecoverDeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/deactivate-device': {
@@ -267,6 +287,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
   ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
+  ApiPublicRecoverDeviceRoute: ApiPublicRecoverDeviceRoute,
   ApiPublicTranscribeRoute: ApiPublicTranscribeRoute,
   ApiPublicValidateLicenseRoute: ApiPublicValidateLicenseRoute,
   ApiPublicProjectsRemoveWatermarkRoute: ApiPublicProjectsRemoveWatermarkRoute,
@@ -277,13 +298,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

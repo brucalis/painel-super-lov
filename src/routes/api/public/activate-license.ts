@@ -105,7 +105,7 @@ export const Route = createFileRoute("/api/public/activate-license")({
           version,
         });
 
-        return json(await licenseResponse(license, token));
+        return json(await licenseResponse(license, token, deviceId));
       },
     },
   },

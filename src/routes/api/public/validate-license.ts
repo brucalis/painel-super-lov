@@ -51,7 +51,7 @@ export const Route = createFileRoute("/api/public/validate-license")({
           .eq("id", device.id);
         await supabaseAdmin.from("licenses").update({ last_validated_at: now }).eq("id", license.id);
 
-        return json(await licenseResponse(license, token));
+        return json(await licenseResponse(license, token, device.device_id));
       },
     },
   },
