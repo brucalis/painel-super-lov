@@ -40,7 +40,7 @@ const features = [
   "Histórico completo com busca, favoritos e reenvio",
   "9 atalhos rápidos para correções, SEO, segurança e responsividade",
   "Barra e mini painel injetados no próprio chat do Lovable",
-  "Anexos preservados byte a byte, sem imagens corrompidas",
+  
   "Modo Escudo contra envios acidentais e projeto trocado",
 ];
 
