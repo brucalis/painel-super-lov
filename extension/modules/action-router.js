@@ -5,8 +5,9 @@
 (function (root) {
   const CHAT_ONLY = new Set(['SEND_PROMPT', 'CREATE_FEATURE', 'UPDATE_INTERFACE', 'FIX_APPLICATION_LOGIC']);
 
-  function trace(evt, data) {
-    if (root.RuntimeTraceManager) root.RuntimeTraceManager.log(evt, data);
+  function trace(actionName, actionType, status, extra = {}) {
+    if (!root.RuntimeTraceManager) return;
+    void root.RuntimeTraceManager.record({ actionName, actionType, status, ...extra });
   }
 
   async function runChat(action) {
@@ -71,7 +72,7 @@
       if (!def) {
         return { success: false, type: 'unknown', status: 'unsupported', code: 'UNKNOWN_ACTION', message: 'Ação desconhecida.' };
       }
-      trace('action:start', { name: action.name, type: def.type });
+      trace(action.name, def.type, 'started', { projectId: action.projectId });
 
       let result;
       if (def.type === 'local') {
@@ -81,7 +82,7 @@
         // Fallback para o chat só quando o recurso nativo não existe E a ação
         // é do tipo que a Lovable realmente consegue interpretar por prompt.
         if (!result.success && result.status === 'unsupported' && action.payload && action.payload.chatFallbackText) {
-          trace('action:fallback-chat', { name: action.name });
+          trace(action.name, 'chat', 'fallback', { projectId: action.projectId });
           const chat = await runChat({ ...action, payload: { ...action.payload, text: action.payload.chatFallbackText } });
           chat.fallbackFrom = action.name;
           chat.message = `${result.message} ${chat.message}`;
@@ -98,7 +99,7 @@
         if (note && result.type === 'chat') result.message = note;
       }
 
-      trace('action:end', { name: action.name, type: result.type, status: result.status, ok: result.success });
+      trace(action.name, result.type, result.status, { durationMs: Date.now() - startedAt, projectId: action.projectId, errorCode: result.success ? undefined : result.code });
       await record(action, result, startedAt);
       return result;
     },
