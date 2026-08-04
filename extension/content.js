@@ -385,15 +385,43 @@
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  let lastPath = location.pathname;
-  setInterval(() => {
-    if (location.pathname !== lastPath) {
-      lastPath = location.pathname;
-      document.getElementById(TOOLBAR_ID)?.remove();
-      document.querySelectorAll('[data-super-lovable-bound]').forEach((e) => e.removeAttribute('data-super-lovable-bound'));
-    }
+  // ---------- detecção nativa de navegação SPA ----------
+  function handleNavigation() {
+    const url = location.href;
+    const pid = projectId();
+
+    // Remove toolbar antiga se houver troca de rota
+    document.getElementById(TOOLBAR_ID)?.remove();
+    document.querySelectorAll('[data-super-lovable-bound]').forEach((e) => e.removeAttribute('data-super-lovable-bound'));
+
+    // Emite evento customizado solicitado
+    window.dispatchEvent(
+      new CustomEvent('super-lovable:navigation-change', {
+        detail: { url, projectId: pid }
+      })
+    );
+
     sync();
-  }, 1200);
+  }
+
+  // Monkey-patching das funções de histórico para detectar navegação SPA
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+
+  history.pushState = function (...args) {
+    originalPushState.apply(this, args);
+    handleNavigation();
+  };
+
+  history.replaceState = function (...args) {
+    originalReplaceState.apply(this, args);
+    handleNavigation();
+  };
+
+  window.addEventListener('popstate', handleNavigation);
+
+  // Fallback periódico apenas para garantir sincronia do estado
+  setInterval(sync, 3000);
 
   // Mantém o motor da fila acordado mesmo com o popup fechado.
   setInterval(() => {

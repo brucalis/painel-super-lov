@@ -25,7 +25,10 @@
 
   const HANDLERS = {
     async projectFiles(action, ctx) {
-      const r = await root.ProjectFiles.downloadAll(action.payload && action.payload.onProgress);
+      const r = await root.ProjectFiles.downloadAll(
+        action.payload && action.payload.onProgress,
+        action.payload && action.payload.signal
+      );
       return result(true, 'completed', { data: r, message: `${r.fileName} · ${r.downloaded} de ${r.total} arquivos.` });
     },
 

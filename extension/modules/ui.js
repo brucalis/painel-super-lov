@@ -490,26 +490,33 @@
       btn.textContent = '⬇️ Preparando download...';
       out.textContent = 'Preparando download...';
       try {
-        const r = await window.ProjectFiles.downloadAll((p) => {
-          if (p.phase === 'validate' || p.phase === 'list') {
-            btn.textContent = '⬇️ Baixando arquivos do projeto...';
-            out.textContent = p.message || 'Baixando arquivos do projeto...';
+        const r = await window.ActionRouter.run('DOWNLOAD_PROJECT', {
+          onProgress: (p) => {
+            if (p.phase === 'validate' || p.phase === 'list') {
+              btn.textContent = '⬇️ Baixando arquivos do projeto...';
+              out.textContent = p.message || 'Baixando arquivos do projeto...';
+            }
+            if (p.phase === 'found') {
+              out.textContent = `${p.total} arquivos encontrados.${p.total > 300 ? ' Projetos grandes podem levar alguns instantes.' : ''}`;
+            }
+            if (p.phase === 'download') {
+              btn.textContent = `⬇️ Baixando ${p.done} de ${p.total} arquivos...`;
+              out.textContent = `${p.done} de ${p.total} arquivos baixados${p.failures ? ` · falhas: ${p.failures}` : ''}`;
+            }
+            if (p.phase === 'zip') {
+              btn.textContent = '⬇️ Criando arquivo ZIP...';
+              out.textContent = 'Criando arquivo ZIP...';
+            }
           }
-          if (p.phase === 'found') {
-            out.textContent = `${p.total} arquivos encontrados.${p.total > 300 ? ' Projetos grandes podem levar alguns instantes.' : ''}`;
-          }
-          if (p.phase === 'download') {
-            btn.textContent = `⬇️ Baixando ${p.done} de ${p.total} arquivos...`;
-            out.textContent = `${p.done} de ${p.total} arquivos baixados${p.failures ? ` · falhas: ${p.failures}` : ''}`;
-          }
-          if (p.phase === 'zip') {
-            btn.textContent = '⬇️ Criando arquivo ZIP...';
-            out.textContent = 'Criando arquivo ZIP...';
-          }
-        });
-        btn.textContent = '⬇️ Download concluído';
-        out.textContent = `${r.fileName} · ${r.downloaded} de ${r.total} arquivos${r.failures.length ? ` · ${r.failures.length} não incluídos (veja DOWNLOAD-REPORT.txt)` : ''}`;
-        window.NotificationManager.play('uploadDone');
+        }, window.LCA.projectId);
+
+        if (r.success) {
+          btn.textContent = '⬇️ Download concluído';
+          out.textContent = `${r.data.fileName} · ${r.data.downloaded} de ${r.data.total} arquivos${r.data.failures.length ? ` · ${r.data.failures.length} não incluídos (veja DOWNLOAD-REPORT.txt)` : ''}`;
+          window.NotificationManager.play('uploadDone');
+        } else {
+          throw new Error(r.message);
+        }
         setTimeout(() => { btn.textContent = label; }, 4000);
       } catch (e) {
         btn.textContent = '⬇️ Não foi possível baixar o projeto';
@@ -578,9 +585,10 @@
       btn.textContent = '⏳ Removendo marca d’água…';
       out.textContent = 'Removendo marca d’água…';
       try {
-        const res = await window.WatermarkRemover.run();
-        out.textContent = res.message;
-        if (res.state === 'done') {
+        const r = await window.ActionRouter.run('REMOVE_WATERMARK', {}, window.LCA.projectId);
+        const res = r.data || {};
+        out.textContent = r.message || res.message;
+        if (r.success && res.state === 'done') {
           btn.textContent = '✅ Marca removida';
           out.textContent = res.confirmed
             ? `${res.message}. Atualize o preview do projeto para conferir.`
@@ -602,7 +610,7 @@
         setTimeout(() => { btn.textContent = idleLabel; }, 6000);
       } catch (e) {
         console.error('watermark', e);
-        out.textContent = e.message || window.WatermarkRemover.MESSAGES.UNEXPECTED;
+        out.textContent = e.message || 'Erro inesperado na remoção de marca.';
         btn.textContent = '⚠️ Erro inesperado';
         setTimeout(() => { btn.textContent = idleLabel; }, 6000);
       } finally {

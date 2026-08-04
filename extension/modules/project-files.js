@@ -231,7 +231,7 @@
      * onProgress recebe { phase, message, done, total, failures }.
      * phases: 'validate' | 'list' | 'found' | 'download' | 'zip' | 'done'
      */
-    async downloadAll(onProgress = () => {}) {
+    async downloadAll(onProgress = () => {}, signal = null) {
       onProgress({ phase: 'validate', message: 'Preparando download...' });
       const { projectId } = await resolveContext();
       await ensureLicense();
@@ -246,9 +246,14 @@
       const failures = [];
       let done = 0;
       let cursor = 0;
+      let aborted = false;
+
+      if (signal) {
+        signal.addEventListener('abort', () => { aborted = true; });
+      }
 
       async function worker() {
-        while (cursor < files.length) {
+        while (cursor < files.length && !aborted) {
           const index = cursor++;
           const file = files[index];
           try {
@@ -266,6 +271,8 @@
       await Promise.all(
         Array.from({ length: Math.min(CONCURRENCY, Math.max(1, files.length)) }, worker)
       );
+
+      if (aborted) throw new Error('Download cancelado pelo usuário.');
 
       const packed = entries.filter(Boolean);
       if (!packed.length) throw new Error('Projeto sem arquivos disponíveis para download.');

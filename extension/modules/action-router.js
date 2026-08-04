@@ -1,40 +1,16 @@
 /* action-router.js — ponto único de entrada de qualquer ação da SUPER LOVABLE.
- * Ordem obrigatória: LOCAL -> NATIVO -> CHAT (apenas quando faz sentido).
- * Nunca envia prompt de chat para ação local ou nativa disponível.
+ * Responsável por decidir como cada ação deve ser executada.
  */
 (function (root) {
-  const CHAT_ONLY = new Set(['SEND_PROMPT', 'CREATE_FEATURE', 'UPDATE_INTERFACE', 'FIX_APPLICATION_LOGIC']);
+  const ACTION_TYPES = {
+    LOCAL: 'local',
+    NATIVE: 'native',
+    CHAT: 'chat',
+  };
 
   function trace(actionName, actionType, status, extra = {}) {
     if (!root.RuntimeTraceManager) return;
     void root.RuntimeTraceManager.record({ actionName, actionType, status, ...extra });
-  }
-
-  async function runChat(action) {
-    const payload = action.payload || {};
-    const text = payload.text || '';
-    if (!text.trim()) {
-      return { success: false, type: 'chat', status: 'failed', code: 'EMPTY_PROMPT', message: 'Escreva o que deseja antes de enviar.' };
-    }
-    try {
-      const res = await chrome.runtime.sendMessage({
-        action: 'SUPER_LOVABLE_SUBMIT_PROMPT',
-        data: { text, projectId: action.projectId || null, attachments: payload.files || [], source: payload.source || 'popup' },
-      });
-      if (!res || !res.success) {
-        const message = (res && res.error) || 'Não foi possível enviar para a Lovable.';
-        return { success: false, type: 'chat', status: res && res.blocked ? 'blocked' : 'failed', code: 'CHAT_SEND_FAILED', message, canRetry: true };
-      }
-      return {
-        success: true,
-        type: 'chat',
-        status: res.queued ? 'queued' : 'completed',
-        data: res,
-        message: res.queued ? `Na fila (posição ${res.position || '—'}).` : 'Enviado para a Lovable.',
-      };
-    } catch (e) {
-      return { success: false, type: 'chat', status: 'failed', code: 'CHAT_SEND_FAILED', message: e.message, canRetry: true };
-    }
   }
 
   async function record(action, result, startedAt) {
@@ -50,56 +26,65 @@
         durationMs: Date.now() - startedAt,
         origin: 'action-router',
       });
-    } catch (e) { /* histórico nunca derruba a ação */ }
+    } catch (e) {
+      /* histórico nunca derruba a ação */
+    }
   }
 
   const ActionRouter = {
-    /** Decide, sem executar, qual caminho a ação seguirá. */
-    async resolve(name) {
-      const def = root.ActionRegistry.get(name);
-      if (!def) return { type: 'unknown', reason: 'Ação desconhecida.' };
-      if (def.type === 'local') return { type: 'local' };
-      if (def.type === 'native') {
-        const supported = await root.LovableNativeBridge.supports(name);
-        return supported ? { type: 'native' } : { type: 'unsupported', reason: 'Recurso indisponível na conta ou projeto atual.' };
-      }
-      return { type: 'chat' };
-    },
-
+    /** Método principal de execução seguindo o contrato solicitado. */
     async execute(action) {
       const startedAt = Date.now();
       const def = root.ActionRegistry.get(action.name);
+
       if (!def) {
-        return { success: false, type: 'unknown', status: 'unsupported', code: 'UNKNOWN_ACTION', message: 'Ação desconhecida.' };
+        return {
+          success: false,
+          type: action.type || 'unknown',
+          status: 'unsupported',
+          code: 'UNKNOWN_ACTION_TYPE',
+          message: 'Tipo de ação não reconhecido.',
+        };
       }
-      trace(action.name, def.type, 'started', { projectId: action.projectId });
+
+      trace(action.name, action.type, 'running', { projectId: action.projectId });
 
       let result;
-      if (def.type === 'local') {
-        result = await root.LocalActionManager.execute(action);
-      } else if (def.type === 'native') {
-        result = await root.LovableNativeBridge.execute(action);
-        // Fallback para o chat só quando o recurso nativo não existe E a ação
-        // é do tipo que a Lovable realmente consegue interpretar por prompt.
-        if (!result.success && result.status === 'unsupported' && action.payload && action.payload.chatFallbackText) {
-          trace(action.name, 'chat', 'fallback', { projectId: action.projectId });
-          const chat = await runChat({ ...action, payload: { ...action.payload, text: action.payload.chatFallbackText } });
-          chat.fallbackFrom = action.name;
-          chat.message = `${result.message} ${chat.message}`;
-          result = chat;
-        }
-      } else if (CHAT_ONLY.has(action.name)) {
-        result = await runChat(action);
-      } else {
-        result = { success: false, type: 'unknown', status: 'unsupported', code: 'UNKNOWN_ACTION', message: 'Ação desconhecida.' };
+      switch (action.type) {
+        case ACTION_TYPES.LOCAL:
+          result = await root.LocalActionManager.execute(action);
+          break;
+
+        case ACTION_TYPES.NATIVE:
+          result = await root.LovableNativeBridge.execute(action);
+          break;
+
+        case ACTION_TYPES.CHAT:
+          result = await root.LovableChatAdapter.execute(action);
+          break;
+
+        default:
+          result = {
+            success: false,
+            type: action.type,
+            status: 'unsupported',
+            code: 'UNKNOWN_ACTION_TYPE',
+            message: 'Tipo de ação não reconhecido.',
+          };
       }
 
-      if (!result.success && root.LovableUsageState) {
+      // Adiciona nota de quota se a ação falhar e for do tipo chat
+      if (!result.success && root.LovableUsageState && result.type === 'chat') {
         const note = root.LovableUsageState.message();
-        if (note && result.type === 'chat') result.message = note;
+        if (note) result.message = note;
       }
 
-      trace(action.name, result.type, result.status, { durationMs: Date.now() - startedAt, projectId: action.projectId, errorCode: result.success ? undefined : result.code });
+      trace(action.name, result.type, result.status, {
+        durationMs: Date.now() - startedAt,
+        projectId: action.projectId,
+        errorCode: result.success ? undefined : result.code,
+      });
+
       await record(action, result, startedAt);
       return result;
     },

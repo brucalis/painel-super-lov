@@ -15,14 +15,28 @@
       return ok('completed', res);
     },
 
-    async ADD_TO_QUEUE({ text, files = [] }) {
-      await root.QueueManager.add({ text, files });
-      return ok('queued', null, 'Adicionado à fila.');
+    async ADD_TO_QUEUE(payload, action) {
+      const res = await chrome.runtime.sendMessage({
+        action: 'SUPER_LOVABLE_ENQUEUE_PROMPT',
+        data: {
+          text: payload.text,
+          attachments: payload.files || [],
+          projectId: action.projectId
+        }
+      });
+      if (res && res.success) {
+        return ok('queued', res, `Adicionado à fila (posição ${res.position || '—'}).`);
+      }
+      throw new Error(res?.error || 'Não foi possível adicionar à fila.');
     },
 
     async REORDER_QUEUE({ id, index }) {
-      await root.QueueManager.moveTo(id, index);
-      return ok();
+      const res = await chrome.runtime.sendMessage({
+        action: 'SUPER_LOVABLE_QUEUE_MOVE',
+        data: { id, index }
+      });
+      if (res && res.success) return ok();
+      throw new Error(res?.error || 'Não foi possível mover o item.');
     },
 
     async EXPORT_HISTORY() {
@@ -94,7 +108,7 @@
         return { success: false, type: 'local', status: 'unsupported', code: 'LOCAL_ACTION_UNAVAILABLE', message: 'Esta ação local não existe.' };
       }
       try {
-        return await handler(action.payload || {});
+        return await handler(action.payload || {}, action);
       } catch (e) {
         return fail('LOCAL_ACTION_FAILED', e.message);
       }

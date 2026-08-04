@@ -457,33 +457,21 @@ async function sendMessage() {
     els.input.value = '';
     els.input.style.height = 'auto';
 
-    // Função central: o motor no service worker envia agora (quando a Lovable
-    // está livre) ou enfileira. O payload, os IDs e o endpoint continuam
-    // exatamente os mesmos — apenas passaram a viver no background para que a
-    // fila siga funcionando com o popup fechado.
-    const res = await new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        {
-          action: 'SUPER_LOVABLE_SUBMIT_PROMPT',
-          data: {
-            projectId: currentProjectId,
-            text: message,
-            attachments: files,
-            source: 'popup',
-            mode: sendMode,
-            model: window.AIProviderClient?.current?.() || 'auto',
-          },
-        },
-        (r) => {
-          void chrome.runtime.lastError;
-          resolve(r || { success: false, error: 'Sem resposta da SUPER LOVABLE.' });
-        }
-      );
-    });
+    // Agora utilizamos o ActionRouter como ponto único de entrada.
+    // Ele delegará para o LovableChatAdapter, que por sua vez se comunica com o background.
+    const r = await window.ActionRouter.run('SEND_PROMPT', {
+      text: message,
+      attachments: files,
+      source: 'popup',
+      mode: sendMode,
+      model: window.AIProviderClient?.current?.() || 'auto',
+    }, currentProjectId);
 
-    if (!res.success) throw new Error(res.error || 'Não foi possível enviar.');
+    if (!r.success) throw new Error(r.message || 'Não foi possível enviar.');
 
+    const res = r.data || {};
     attachments.splice(0).forEach((a) => a.el?.remove());
+
     if (res.pending) {
       appendMessage('ai', `Guardado como envio pendente (posição ${res.position}). Abra a aba Fila para editar e enviar quando quiser.`);
       setStatus('Prompt pendente na fila.', 'info', 6000);
