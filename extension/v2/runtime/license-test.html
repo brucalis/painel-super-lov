@@ -49,6 +49,47 @@
         <button id="activateLicense" class="primary">Ativar neste dispositivo</button>
         <p class="feedback" id="feedback" role="status"></p>
       </section>
+
+      <section class="developer-panel" aria-labelledby="developerTitle">
+        <div class="developer-heading">
+          <div>
+            <span class="status-pill dev">Modo de desenvolvimento</span>
+            <h2 id="developerTitle">Simular estados da licença</h2>
+          </div>
+          <label class="switch-row">
+            <input id="simulatorEnabled" type="checkbox" />
+            <span>Simulador ativo</span>
+          </label>
+        </div>
+
+        <div class="developer-grid">
+          <label>
+            <span>Cenário</span>
+            <select id="simulatorScenario">
+              <option value="active">Licença ativa</option>
+              <option value="expired">Licença expirada</option>
+              <option value="device_limit">Limite de dispositivos</option>
+              <option value="revoked">Licença revogada</option>
+              <option value="invalid">Chave inválida</option>
+            </select>
+          </label>
+          <label>
+            <span>Duração do teste</span>
+            <select id="simulatorDuration">
+              <option value="1">1 minuto</option>
+              <option value="5">5 minutos</option>
+              <option value="25">25 minutos</option>
+              <option value="60">60 minutos</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="developer-actions">
+          <button id="applyScenario" class="primary">Aplicar cenário</button>
+          <button id="restartTrial" class="secondary">Reiniciar contagem</button>
+        </div>
+        <p class="developer-note" id="simulatorStatus">Os testes locais não alteram licenças reais.</p>
+      </section>
     </main>
 
     <script type="module" src="license-test.js"></script>
