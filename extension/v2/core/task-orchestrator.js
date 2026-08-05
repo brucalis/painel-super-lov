@@ -3,6 +3,7 @@ import { getTask, saveTask, updateTask, setActiveTask } from './task-store.js';
 import { createRemoteTask } from './task-agent-adapter.js';
 import { executeRemoteTask, rollbackRemoteTask } from './task-execution-adapter.js';
 import { clearStagedAttachments, getStagedAttachments } from './attachment-store.js';
+import { compileProjectMemory, getProjectMemory } from './project-memory-store.js';
 
 function sameProject(task, context) {
   return Boolean(
@@ -56,6 +57,7 @@ export class TaskOrchestrator {
       let current = await updateTask(task.id, TASK_STATUS.QUEUED);
       current = await updateTask(task.id, TASK_STATUS.READING_REPOSITORY);
       current = await updateTask(task.id, TASK_STATUS.PLANNING);
+      const memory = compileProjectMemory(await getProjectMemory(current.repository, current.branch));
 
       const result = await createRemoteTask({
         id: current.id,
@@ -65,13 +67,15 @@ export class TaskOrchestrator {
         originalPrompt: current.prompt,
         attachments: current.attachments,
         delivery: current.delivery,
-        projectId: current.projectId
+        projectId: current.projectId,
+        projectMemory: memory
       });
 
       return updateTask(task.id, TASK_STATUS.AWAITING_CONFIRMATION, {
         remoteTaskId: result.remoteTaskId || null,
         plan: result.plan || null,
         riskLevel: result.plan?.riskLevel || current.riskLevel,
+        projectMemorySnapshot: memory,
         message: result.message || null
       });
     } catch (error) {
