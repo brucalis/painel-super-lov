@@ -17,17 +17,13 @@ const STATUS_LABELS = {
 function ensureExecutionDialog() {
   let dialog = document.querySelector('#executionDialog');
   if (dialog) return dialog;
-
   dialog = document.createElement('dialog');
   dialog.id = 'executionDialog';
   dialog.className = 'task-dialog execution-dialog';
   dialog.innerHTML = `
     <div class="execution-body">
       <div class="dialog-heading">
-        <div>
-          <p class="eyebrow">EXECUÇÃO</p>
-          <h2 id="executionTitle">Preparando alteração</h2>
-        </div>
+        <div><p class="eyebrow">EXECUÇÃO</p><h2 id="executionTitle">Preparando alteração</h2></div>
         <button class="dialog-close" id="executionClose" aria-label="Fechar" disabled>×</button>
       </div>
       <p id="executionMessage">Validando o projeto selecionado…</p>
@@ -75,7 +71,6 @@ function showExecutionResult(task) {
     </div>
     ${files.length ? `<details><summary>${files.length} arquivo(s) alterado(s)</summary><ul>${files.map((file) => `<li>${file.path} · ${file.action}</li>`).join('')}</ul></details>` : ''}
     ${task.commitUrl ? `<button class="quiet-action" id="openCommit">Ver commit</button>` : ''}`;
-
   const openCommit = result.querySelector('#openCommit');
   if (openCommit) openCommit.addEventListener('click', () => chrome.tabs.create({ url: task.commitUrl }));
   dialog.querySelector('#executionClose').disabled = false;
@@ -85,13 +80,11 @@ async function executeLatestApprovedTask() {
   const tasks = await listTasks();
   const task = tasks.find((item) => item.status === TASK_STATUS.AWAITING_CONFIRMATION);
   if (!task) return;
-
   const dialog = ensureExecutionDialog();
   dialog.querySelector('#executionResult').hidden = true;
   dialog.querySelector('#executionClose').disabled = true;
   if (!dialog.open) dialog.showModal();
   setExecutionState('editing', 'Confirmando o repositório e iniciando a edição…');
-
   try {
     const completed = await orchestrator.execute(task);
     setExecutionState('completed', completed.message || 'Alteração concluída.');
@@ -114,7 +107,6 @@ async function decorateTaskCards() {
     if (!task) return;
     const actions = card.querySelector('.task-actions');
     if (!actions) return;
-
     if (task.status === TASK_STATUS.COMPLETED && task.commitSha && !actions.querySelector('[data-task-action="rollback"]')) {
       const rollback = document.createElement('button');
       rollback.dataset.taskAction = 'rollback';
@@ -122,7 +114,6 @@ async function decorateTaskCards() {
       rollback.className = 'danger-text';
       actions.prepend(rollback);
     }
-
     if (task.commitUrl && !actions.querySelector('[data-task-action="commit"]')) {
       const commit = document.createElement('button');
       commit.dataset.taskAction = 'commit';
@@ -135,13 +126,11 @@ async function decorateTaskCards() {
 async function rollbackTask(task) {
   const confirmed = globalThis.confirm('Desfazer esta alteração criando um novo commit de reversão?');
   if (!confirmed) return;
-
   const dialog = ensureExecutionDialog();
   dialog.querySelector('#executionResult').hidden = true;
   dialog.querySelector('#executionClose').disabled = true;
   if (!dialog.open) dialog.showModal();
   setExecutionState('committing', 'Preparando a reversão da alteração…');
-
   try {
     const reverted = await orchestrator.rollback(task);
     setExecutionState('rolled_back', reverted.message || 'Alteração desfeita.');
@@ -174,6 +163,11 @@ document.addEventListener('click', async (event) => {
   }
   if (button.dataset.taskAction === 'rollback') await rollbackTask(task);
 }, true);
+
+window.addEventListener('superlovable:rollback-request', async (event) => {
+  const task = await getTask(event.detail?.taskId);
+  if (task) await rollbackTask(task);
+});
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes.slv2_task_store) return;
