@@ -13,7 +13,9 @@ const DEFAULT_STATE = Object.freeze({
   scenario: 'active',
   plan: 'Vitalício',
   durationMinutes: 25,
-  devicesLimit: 1
+  devicesLimit: 1,
+  startedAt: null,
+  expiresAt: null
 });
 
 function storageGet() {
@@ -43,31 +45,67 @@ export async function getLicenseSimulatorSettings() {
 
 export async function saveLicenseSimulatorSettings(input = {}) {
   const current = await getLicenseSimulatorSettings();
+  const scenario = String(input.scenario || current.scenario);
+  const durationMinutes = Math.max(1, Number(input.durationMinutes) || current.durationMinutes);
+  const shouldRestart =
+    input.restart === true ||
+    scenario !== current.scenario ||
+    durationMinutes !== current.durationMinutes ||
+    !current.startedAt;
+
+  const startedAt = shouldRestart ? new Date().toISOString() : current.startedAt;
+  const expiresAt = shouldRestart
+    ? new Date(Date.now() + durationMinutes * 60 * 1000).toISOString()
+    : current.expiresAt;
+
   const next = {
     enabled: input.enabled ?? current.enabled,
-    scenario: String(input.scenario || current.scenario),
+    scenario,
     plan: String(input.plan || current.plan),
-    durationMinutes: Math.max(1, Number(input.durationMinutes) || current.durationMinutes),
-    devicesLimit: Math.max(1, Number(input.devicesLimit) || current.devicesLimit)
+    durationMinutes,
+    devicesLimit: Math.max(1, Number(input.devicesLimit) || current.devicesLimit),
+    startedAt,
+    expiresAt
   };
   await storageSet(next);
   return next;
 }
 
-function futureIso(minutes) {
-  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+export async function resetLicenseSimulatorClock() {
+  return saveLicenseSimulatorSettings({ restart: true });
+}
+
+function hasExpired(settings) {
+  if (!settings.expiresAt) return false;
+  const timestamp = new Date(settings.expiresAt).getTime();
+  return Number.isFinite(timestamp) && timestamp <= Date.now();
 }
 
 export async function simulateLicenseRequest(payload) {
-  const settings = await getLicenseSimulatorSettings();
+  let settings = await getLicenseSimulatorSettings();
   if (!settings.enabled) return null;
+
+  if (!settings.startedAt || !settings.expiresAt) {
+    settings = await saveLicenseSimulatorSettings({ restart: true });
+  }
 
   const base = {
     plan: settings.plan,
     deviceId: payload?.deviceId || null,
     devicesUsed: 1,
-    devicesLimit: settings.devicesLimit
+    devicesLimit: settings.devicesLimit,
+    startedAt: settings.startedAt
   };
+
+  if (settings.scenario === 'active' && hasExpired(settings)) {
+    return {
+      ...base,
+      status: 'expired',
+      valid: false,
+      expiresAt: settings.expiresAt,
+      message: 'O período de teste simulado terminou.'
+    };
+  }
 
   switch (settings.scenario) {
     case 'expired':
@@ -106,7 +144,7 @@ export async function simulateLicenseRequest(payload) {
         ...base,
         status: 'active',
         valid: true,
-        expiresAt: futureIso(settings.durationMinutes),
+        expiresAt: settings.expiresAt,
         message: 'Licença simulada validada com sucesso.'
       };
   }
