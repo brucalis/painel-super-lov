@@ -4,7 +4,6 @@ import {
   fetchGithubUser,
   findUserInstallationId,
   saveConnection,
-  callbackUrl,
 } from "@/lib/github.server";
 
 function back(request: Request, params: Record<string, string>) {
@@ -50,7 +49,7 @@ export async function handleGithubCallback(request: Request): Promise<Response> 
   }
 
   try {
-    const userToken = await exchangeCodeForToken(code, callbackUrl(request));
+    const userToken = await exchangeCodeForToken(code, `${url.origin}${url.pathname}`);
     const githubUser = await fetchGithubUser(userToken);
 
     // installation_id só é aceito se a instalação realmente pertencer a este usuário.
