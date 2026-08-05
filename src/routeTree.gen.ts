@@ -17,6 +17,7 @@ import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/tra
 import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
 import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
 import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
+import { Route as ApiGithubCallbackRouteImport } from './routes/api/github/callback'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
 import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
 import { Route as ApiPublicProjectsWatermarkStatusRouteImport } from './routes/api/public/projects/watermark-status'
@@ -65,6 +66,11 @@ const ApiPublicActivateLicenseRoute =
     path: '/api/public/activate-license',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiGithubCallbackRoute = ApiGithubCallbackRouteImport.update({
+  id: '/api/github/callback',
+  path: '/api/github/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
   id: '/api/public/webhooks/sales',
   path: '/api/public/webhooks/sales',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/api/github/callback'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/api/github/callback'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/api/github/callback'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
@@ -181,6 +193,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  ApiGithubCallbackRoute: typeof ApiGithubCallbackRoute
   ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
   ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
   ApiPublicRecoverDeviceRoute: typeof ApiPublicRecoverDeviceRoute
@@ -250,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicActivateLicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/github/callback': {
+      id: '/api/github/callback'
+      path: '/api/github/callback'
+      fullPath: '/api/github/callback'
+      preLoaderRoute: typeof ApiGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/sales': {
       id: '/api/public/webhooks/sales'
       path: '/api/public/webhooks/sales'
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  ApiGithubCallbackRoute: ApiGithubCallbackRoute,
   ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
   ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
   ApiPublicRecoverDeviceRoute: ApiPublicRecoverDeviceRoute,
@@ -298,3 +319,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
