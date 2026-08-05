@@ -1,3 +1,4 @@
+import './external-integrations-runtime.js';
 import {
   beginSupabaseConnection,
   disconnectSupabase,
