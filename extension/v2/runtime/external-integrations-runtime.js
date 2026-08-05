@@ -18,6 +18,26 @@ const CATEGORY_LABELS = {
 const $ = (selector) => document.querySelector(selector);
 let state = await getExternalIntegrationsState();
 
+function injectExternalIntegrationsUi() {
+  if (!document.querySelector('link[href="external-integrations.css"]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'external-integrations.css';
+    document.head.appendChild(link);
+  }
+
+  const panel = document.querySelector('[data-panel="integrations"]');
+  if (!panel || $('#externalIntegrationsSection')) return;
+  panel.insertAdjacentHTML('beforeend', `
+    <section class="external-section" id="externalIntegrationsSection">
+      <div class="section-heading"><div><p class="eyebrow">OUTRAS INTEGRAÇÕES</p><h2>Pagamentos, e-mail, mídia e automações</h2></div></div>
+      <p class="helper-text">As credenciais privadas serão armazenadas somente no backend seguro. Nada sensível será salvo na extensão ou no GitHub.</p>
+      <div class="external-grid" id="externalIntegrationsGrid"></div>
+      <p class="external-feedback" id="externalFeedback" role="status"></p>
+      <div class="external-events"><h3>Eventos recentes</h3><ul id="externalEvents"></ul></div>
+    </section>`);
+}
+
 function providerCard(provider) {
   const connected = Boolean(state.connections[provider.id]);
   return `
@@ -78,6 +98,7 @@ async function handleAction(button) {
   }
 }
 
+injectExternalIntegrationsUi();
 document.addEventListener('click', (event) => {
   const button = event.target.closest('[data-external-action]');
   if (button) void handleAction(button);
