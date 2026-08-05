@@ -4,6 +4,11 @@ import {
   activateLicenseRemote,
   validateLicenseRemote
 } from '../core/license-api-adapter.js';
+import {
+  getLicenseSimulatorSettings,
+  resetLicenseSimulatorClock,
+  saveLicenseSimulatorSettings
+} from '../core/license-simulator.js';
 
 const $ = (selector) => document.querySelector(selector);
 const loadingElement = $('[data-license-view="booting"]');
@@ -77,6 +82,36 @@ function renderSession(session) {
 async function boot() {
   const session = await controller.start();
   renderSession(session);
+  return session;
+}
+
+async function refreshSimulatorControls() {
+  const settings = await getLicenseSimulatorSettings();
+  $('#simulatorEnabled').checked = settings.enabled;
+  $('#simulatorScenario').value = settings.scenario;
+  $('#simulatorDuration').value = String(settings.durationMinutes);
+  $('#simulatorStatus').textContent = settings.enabled
+    ? `Simulador ativo: ${settings.scenario}. Validade: ${formatDate(settings.expiresAt)}.`
+    : 'Simulador desativado. As próximas validações usarão o servidor configurado.';
+}
+
+async function applySimulatorScenario({ restart = true } = {}) {
+  const button = $('#applyScenario');
+  button.disabled = true;
+  try {
+    await saveLicenseSimulatorSettings({
+      enabled: $('#simulatorEnabled').checked,
+      scenario: $('#simulatorScenario').value,
+      durationMinutes: Number($('#simulatorDuration').value),
+      restart
+    });
+    await manager.clearLocalSession();
+    $('#licenseKey').value = 'LVA-TESTE-SUPER-LOVABLE';
+    await boot();
+    await refreshSimulatorControls();
+  } finally {
+    button.disabled = false;
+  }
 }
 
 $('#activateLicense').addEventListener('click', async () => {
@@ -133,6 +168,28 @@ $('#clearSession').addEventListener('click', async () => {
   await boot();
 });
 
+$('#applyScenario').addEventListener('click', () => applySimulatorScenario({ restart: true }));
+
+$('#restartTrial').addEventListener('click', async () => {
+  const button = $('#restartTrial');
+  button.disabled = true;
+  try {
+    await resetLicenseSimulatorClock();
+    await manager.clearLocalSession();
+    $('#licenseKey').value = 'LVA-TESTE-SUPER-LOVABLE';
+    await boot();
+    await refreshSimulatorControls();
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$('#simulatorEnabled').addEventListener('change', async () => {
+  await saveLicenseSimulatorSettings({ enabled: $('#simulatorEnabled').checked, restart: false });
+  await refreshSimulatorControls();
+});
+
 globalThis.addEventListener('superlovable:license-state', (event) => renderSession(event.detail));
 
-boot();
+await refreshSimulatorControls();
+await boot();
