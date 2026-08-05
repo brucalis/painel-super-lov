@@ -17,10 +17,16 @@ import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/tra
 import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
 import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
 import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
+import { Route as ApiGithubStatusRouteImport } from './routes/api/github/status'
+import { Route as ApiGithubRepositoriesRouteImport } from './routes/api/github/repositories'
+import { Route as ApiGithubDisconnectRouteImport } from './routes/api/github/disconnect'
+import { Route as ApiGithubConnectRouteImport } from './routes/api/github/connect'
+import { Route as ApiGithubCallbackRouteImport } from './routes/api/github/callback'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
 import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
 import { Route as ApiPublicProjectsWatermarkStatusRouteImport } from './routes/api/public/projects/watermark-status'
 import { Route as ApiPublicProjectsRemoveWatermarkRouteImport } from './routes/api/public/projects/remove-watermark'
+import { Route as ApiPublicGithubCallbackRouteImport } from './routes/api/public/github/callback'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -65,6 +71,31 @@ const ApiPublicActivateLicenseRoute =
     path: '/api/public/activate-license',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiGithubStatusRoute = ApiGithubStatusRouteImport.update({
+  id: '/api/github/status',
+  path: '/api/github/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubRepositoriesRoute = ApiGithubRepositoriesRouteImport.update({
+  id: '/api/github/repositories',
+  path: '/api/github/repositories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubDisconnectRoute = ApiGithubDisconnectRouteImport.update({
+  id: '/api/github/disconnect',
+  path: '/api/github/disconnect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubConnectRoute = ApiGithubConnectRouteImport.update({
+  id: '/api/github/connect',
+  path: '/api/github/connect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubCallbackRoute = ApiGithubCallbackRouteImport.update({
+  id: '/api/github/callback',
+  path: '/api/github/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
   id: '/api/public/webhooks/sales',
   path: '/api/public/webhooks/sales',
@@ -88,16 +119,27 @@ const ApiPublicProjectsRemoveWatermarkRoute =
     path: '/api/public/projects/remove-watermark',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGithubCallbackRoute = ApiPublicGithubCallbackRouteImport.update({
+  id: '/api/public/github/callback',
+  path: '/api/public/github/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/api/github/callback': typeof ApiGithubCallbackRoute
+  '/api/github/connect': typeof ApiGithubConnectRoute
+  '/api/github/disconnect': typeof ApiGithubDisconnectRoute
+  '/api/github/repositories': typeof ApiGithubRepositoriesRoute
+  '/api/github/status': typeof ApiGithubStatusRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
   '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
@@ -107,11 +149,17 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/api/github/callback': typeof ApiGithubCallbackRoute
+  '/api/github/connect': typeof ApiGithubConnectRoute
+  '/api/github/disconnect': typeof ApiGithubDisconnectRoute
+  '/api/github/repositories': typeof ApiGithubRepositoriesRoute
+  '/api/github/status': typeof ApiGithubStatusRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
   '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
@@ -122,11 +170,17 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/api/github/callback': typeof ApiGithubCallbackRoute
+  '/api/github/connect': typeof ApiGithubConnectRoute
+  '/api/github/disconnect': typeof ApiGithubDisconnectRoute
+  '/api/github/repositories': typeof ApiGithubRepositoriesRoute
+  '/api/github/status': typeof ApiGithubStatusRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
   '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
@@ -138,11 +192,17 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/api/github/callback'
+    | '/api/github/connect'
+    | '/api/github/disconnect'
+    | '/api/github/repositories'
+    | '/api/github/status'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
     | '/api/public/transcribe'
     | '/api/public/validate-license'
+    | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
     | '/api/public/webhooks/ensinaflix'
@@ -152,11 +212,17 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/api/github/callback'
+    | '/api/github/connect'
+    | '/api/github/disconnect'
+    | '/api/github/repositories'
+    | '/api/github/status'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
     | '/api/public/transcribe'
     | '/api/public/validate-license'
+    | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
     | '/api/public/webhooks/ensinaflix'
@@ -166,11 +232,17 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/api/github/callback'
+    | '/api/github/connect'
+    | '/api/github/disconnect'
+    | '/api/github/repositories'
+    | '/api/github/status'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
     | '/api/public/transcribe'
     | '/api/public/validate-license'
+    | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
     | '/api/public/webhooks/ensinaflix'
@@ -181,11 +253,17 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  ApiGithubCallbackRoute: typeof ApiGithubCallbackRoute
+  ApiGithubConnectRoute: typeof ApiGithubConnectRoute
+  ApiGithubDisconnectRoute: typeof ApiGithubDisconnectRoute
+  ApiGithubRepositoriesRoute: typeof ApiGithubRepositoriesRoute
+  ApiGithubStatusRoute: typeof ApiGithubStatusRoute
   ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
   ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
   ApiPublicRecoverDeviceRoute: typeof ApiPublicRecoverDeviceRoute
   ApiPublicTranscribeRoute: typeof ApiPublicTranscribeRoute
   ApiPublicValidateLicenseRoute: typeof ApiPublicValidateLicenseRoute
+  ApiPublicGithubCallbackRoute: typeof ApiPublicGithubCallbackRoute
   ApiPublicProjectsRemoveWatermarkRoute: typeof ApiPublicProjectsRemoveWatermarkRoute
   ApiPublicProjectsWatermarkStatusRoute: typeof ApiPublicProjectsWatermarkStatusRoute
   ApiPublicWebhooksEnsinaflixRoute: typeof ApiPublicWebhooksEnsinaflixRoute
@@ -250,6 +328,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicActivateLicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/github/status': {
+      id: '/api/github/status'
+      path: '/api/github/status'
+      fullPath: '/api/github/status'
+      preLoaderRoute: typeof ApiGithubStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/repositories': {
+      id: '/api/github/repositories'
+      path: '/api/github/repositories'
+      fullPath: '/api/github/repositories'
+      preLoaderRoute: typeof ApiGithubRepositoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/disconnect': {
+      id: '/api/github/disconnect'
+      path: '/api/github/disconnect'
+      fullPath: '/api/github/disconnect'
+      preLoaderRoute: typeof ApiGithubDisconnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/connect': {
+      id: '/api/github/connect'
+      path: '/api/github/connect'
+      fullPath: '/api/github/connect'
+      preLoaderRoute: typeof ApiGithubConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/callback': {
+      id: '/api/github/callback'
+      path: '/api/github/callback'
+      fullPath: '/api/github/callback'
+      preLoaderRoute: typeof ApiGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/sales': {
       id: '/api/public/webhooks/sales'
       path: '/api/public/webhooks/sales'
@@ -278,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicProjectsRemoveWatermarkRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/github/callback': {
+      id: '/api/public/github/callback'
+      path: '/api/public/github/callback'
+      fullPath: '/api/public/github/callback'
+      preLoaderRoute: typeof ApiPublicGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -285,11 +405,17 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  ApiGithubCallbackRoute: ApiGithubCallbackRoute,
+  ApiGithubConnectRoute: ApiGithubConnectRoute,
+  ApiGithubDisconnectRoute: ApiGithubDisconnectRoute,
+  ApiGithubRepositoriesRoute: ApiGithubRepositoriesRoute,
+  ApiGithubStatusRoute: ApiGithubStatusRoute,
   ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
   ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
   ApiPublicRecoverDeviceRoute: ApiPublicRecoverDeviceRoute,
   ApiPublicTranscribeRoute: ApiPublicTranscribeRoute,
   ApiPublicValidateLicenseRoute: ApiPublicValidateLicenseRoute,
+  ApiPublicGithubCallbackRoute: ApiPublicGithubCallbackRoute,
   ApiPublicProjectsRemoveWatermarkRoute: ApiPublicProjectsRemoveWatermarkRoute,
   ApiPublicProjectsWatermarkStatusRoute: ApiPublicProjectsWatermarkStatusRoute,
   ApiPublicWebhooksEnsinaflixRoute: ApiPublicWebhooksEnsinaflixRoute,

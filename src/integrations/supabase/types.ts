@@ -68,6 +68,72 @@ export type Database = {
         }
         Relationships: []
       }
+      github_connections: {
+        Row: {
+          connected_at: string
+          created_at: string
+          github_avatar_url: string | null
+          github_login: string | null
+          github_user_id: number | null
+          id: string
+          installation_id: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string
+          created_at?: string
+          github_avatar_url?: string | null
+          github_login?: string | null
+          github_user_id?: number | null
+          id?: string
+          installation_id?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connected_at?: string
+          created_at?: string
+          github_avatar_url?: string | null
+          github_login?: string | null
+          github_user_id?: number | null
+          id?: string
+          installation_id?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      github_oauth_states: {
+        Row: {
+          created_at: string
+          expires_at: string
+          redirect_to: string | null
+          state: string
+          used: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          redirect_to?: string | null
+          state: string
+          used?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          redirect_to?: string | null
+          state?: string
+          used?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       license_devices: {
         Row: {
           active: boolean

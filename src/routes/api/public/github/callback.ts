@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/api/github/callback")({
+/**
+ * Alias público do callback: usado quando o site publicado está atrás do
+ * gate de autenticação da Lovable e o GitHub precisa alcançar a URL sem sessão.
+ */
+export const Route = createFileRoute("/api/public/github/callback")({
   server: {
     handlers: {
       GET: async ({ request }) => {
