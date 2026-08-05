@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SUPER LOVABLE V2 — TESTE",
-  "version": "1.7.1",
-  "description": "SUPER LOVABLE V2: ambiente isolado de desenvolvimento e validação do novo fluxo de licença.",
+  "version": "1.8.0",
+  "description": "SUPER LOVABLE V2: ambiente isolado com nova interface, licença e preparação para edição via GitHub.",
   "permissions": [
     "activeTab",
     "cookies",
@@ -54,7 +54,7 @@
     }
   ],
   "action": {
-    "default_popup": "v2/runtime/license-test.html",
+    "default_popup": "v2/runtime/app.html",
     "default_title": "SUPER LOVABLE V2 — TESTE",
     "default_icon": {
       "48": "icon.png",
