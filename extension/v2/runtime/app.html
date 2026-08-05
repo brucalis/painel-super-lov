@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SUPER LOVABLE V2</title>
+  <link rel="stylesheet" href="../ui/sidebar-shell.css" />
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body data-license-view="booting">
+  <section class="license-stage license-loading" data-license-loading>
+    <div class="license-card compact-card">
+      <span class="brand-icon">SL</span>
+      <div class="license-spinner" aria-hidden="true"></div>
+      <h1>Preparando sua extensão…</h1>
+      <p>Estamos verificando o acesso neste dispositivo.</p>
+    </div>
+  </section>
+
+  <section class="license-stage license-gate" data-license-gate hidden>
+    <div class="license-card">
+      <div class="gate-brand"><span class="brand-icon">SL</span><strong>SUPER LOVABLE</strong></div>
+      <span class="gate-pill" id="gateBadge">Ativação necessária</span>
+      <h1 id="gateTitle">Ative seu acesso</h1>
+      <p id="gateMessage">Informe a chave recebida na compra.</p>
+      <label class="gate-field">
+        <span>Chave de acesso</span>
+        <input id="licenseKey" autocomplete="off" spellcheck="false" placeholder="LVA-XXXX-XXXX-XXXX-XXXX" />
+      </label>
+      <button class="gate-primary" id="activateLicense">Ativar neste dispositivo</button>
+      <p class="gate-feedback" id="licenseStatus" data-license-status role="status"></p>
+    </div>
+  </section>
+
+  <main class="app-shell" data-license-main hidden aria-label="Super Lovable V2">
+    <aside class="sidebar" aria-label="Navegação principal">
+      <div class="brand-block">
+        <span class="brand-icon">SL</span>
+        <div class="brand-copy"><strong>Super Lovable</strong><small>GitHub Workspace</small></div>
+      </div>
+
+      <nav class="side-nav" role="tablist">
+        <button class="nav-item active" data-view="create" role="tab" aria-selected="true"><span>✦</span><span>Criar</span></button>
+        <button class="nav-item" data-view="queue" role="tab" aria-selected="false"><span>☷</span><span>Fila</span><span class="nav-badge" id="queueCount">0</span></button>
+        <button class="nav-item" data-view="history" role="tab" aria-selected="false"><span>◷</span><span>Histórico</span></button>
+        <button class="nav-item" data-view="projects" role="tab" aria-selected="false"><span>⌘</span><span>Projetos</span></button>
+        <button class="nav-item" data-view="tools" role="tab" aria-selected="false"><span>⚙</span><span>Ferramentas</span></button>
+        <button class="nav-item" data-view="integrations" role="tab" aria-selected="false"><span>↗</span><span>Integrações</span></button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-view="help" role="tab" aria-selected="false"><span>?</span><span>Ajuda</span></button>
+        <button class="nav-item" data-view="settings" role="tab" aria-selected="false"><span>⚙</span><span>Configurações</span></button>
+        <div class="connection-card">
+          <span class="connection-dot"></span>
+          <div><strong id="licenseSummary">Licença ativa</strong><small id="connectionSummary">Projeto não associado</small></div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="workspace-header">
+        <div><p class="eyebrow" id="viewEyebrow">CRIAR</p><h1 id="viewTitle">O que você quer alterar?</h1></div>
+        <button class="project-selector" id="projectSelector">Selecionar projeto <span>⌄</span></button>
+      </header>
+
+      <section class="panel-view active" data-panel="create">
+        <section class="context-alert" role="status">
+          <div class="alert-icon">i</div>
+          <div><strong>Conecte um projeto para começar</strong><p>A Super Lovable fará as alterações no repositório autorizado e manterá o histórico de tudo.</p></div>
+          <button id="connectGithub">Conectar GitHub</button>
+        </section>
+
+        <section class="composer-card">
+          <textarea id="taskInput" placeholder="Descreva o que deseja criar, corrigir ou melhorar…" aria-label="Comando"></textarea>
+          <div class="composer-toolbar">
+            <div class="left-actions">
+              <button id="attachButton" title="Anexar arquivos">📎</button>
+              <button id="recordButton" title="Gravar áudio">🎙</button>
+              <button class="text-action" id="improveButton">✦ Melhorar prompt</button>
+            </div>
+            <button class="primary-action" id="planButton">Planejar alteração <span>→</span></button>
+          </div>
+        </section>
+
+        <section class="quick-section">
+          <div class="section-heading"><div><p class="eyebrow">ATALHOS</p><h2>Comece mais rápido</h2></div><button class="quiet-action">Editar</button></div>
+          <div class="shortcut-strip">
+            <button data-shortcut="Corrija erros sem alterar funcionalidades que já funcionam."><strong>Corrigir</strong><small>Encontrar e resolver erros</small></button>
+            <button data-shortcut="Refatore o código preservando integralmente o comportamento atual."><strong>Refatorar</strong><small>Organizar e limpar o código</small></button>
+            <button data-shortcut="Melhore a interface, hierarquia visual e responsividade."><strong>Interface</strong><small>Melhorar UI e responsividade</small></button>
+            <button data-shortcut="Otimize SEO técnico, estrutura e conteúdo da página."><strong>SEO</strong><small>Otimizar estrutura e conteúdo</small></button>
+          </div>
+        </section>
+
+        <section class="recent-section"><div class="section-heading"><div><p class="eyebrow">ATIVIDADE</p><h2>Últimas tarefas</h2></div></div><div class="empty-state"><span>◇</span><strong>Nenhuma tarefa por aqui</strong><p>Depois que você enviar o primeiro comando, o andamento aparecerá neste espaço.</p></div></section>
+      </section>
+
+      <section class="panel-view" data-panel="queue"><div class="placeholder-card"><h2>Fila de alterações</h2><p>Os pedidos aguardando análise e aplicação aparecerão aqui.</p></div></section>
+      <section class="panel-view" data-panel="history"><div class="placeholder-card"><h2>Histórico</h2><p>Commits, arquivos alterados e reversões ficarão disponíveis aqui.</p></div></section>
+      <section class="panel-view" data-panel="projects"><div class="placeholder-card"><h2>Projetos</h2><p>Selecione o repositório e a branch que serão editados.</p></div></section>
+      <section class="panel-view" data-panel="tools"><div class="placeholder-card"><h2>Ferramentas</h2><p>Download, build, rollback e análise de segurança serão organizados nesta área.</p></div></section>
+      <section class="panel-view" data-panel="integrations"><div class="placeholder-card"><h2>Integrações</h2><p>GitHub, Supabase, pagamentos, e-mail e armazenamento.</p></div></section>
+      <section class="panel-view" data-panel="help"><div class="placeholder-card"><h2>Ajuda contextual</h2><p>Orientações claras para configurações que precisam ser feitas fora da extensão.</p></div></section>
+      <section class="panel-view" data-panel="settings"><div class="placeholder-card"><h2>Configurações</h2><dl class="license-details"><div><dt>Plano</dt><dd id="settingsPlan">—</dd></div><div><dt>Validade</dt><dd id="settingsExpiry">—</dd></div><div><dt>Dispositivo</dt><dd id="settingsDevice">—</dd></div></dl><button class="quiet-action" id="validateLicenseNow">Validar licença agora</button></div></section>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
