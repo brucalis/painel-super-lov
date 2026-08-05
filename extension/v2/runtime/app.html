@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="execution.css" />
   <link rel="stylesheet" href="input.css" />
   <link rel="stylesheet" href="tools.css" />
+  <link rel="stylesheet" href="supabase.css" />
+  <link rel="stylesheet" href="help.css" />
 </head>
 <body data-license-view="booting">
   <section class="license-stage license-loading" data-license-loading><div class="license-card compact-card"><span class="brand-icon">SL</span><div class="license-spinner"></div><h1>Preparando sua extensão…</h1><p>Estamos verificando o acesso neste dispositivo.</p></div></section>
@@ -41,22 +43,17 @@
       <section class="panel-view" data-panel="queue"><div class="section-heading"><div><p class="eyebrow">FILA</p><h2>Alterações em andamento</h2></div></div><div id="queueTasks" class="task-list"></div></section>
       <section class="panel-view" data-panel="history"><div class="section-heading"><div><p class="eyebrow">HISTÓRICO</p><h2>Tarefas finalizadas</h2></div></div><div id="historyTasks" class="task-list"></div></section>
       <section class="panel-view" data-panel="projects"><div class="settings-card"><div class="section-heading"><div><p class="eyebrow">PROJETO ATUAL</p><h2>Repositório e branch</h2></div><button class="quiet-action" id="refreshProjects">Atualizar</button></div><div class="project-state" id="projectState">Nenhum projeto selecionado.</div><label class="field-label">Repositório<select id="repositorySelect"><option value="">Selecione um repositório</option></select></label><label class="field-label">Branch<select id="branchSelect" disabled><option value="">Selecione uma branch</option></select></label><p class="helper-text">A extensão só permitirá alterações em repositórios que tenham permissão de escrita.</p></div></section>
-      <section class="panel-view" data-panel="tools">
-        <div class="section-heading"><div><p class="eyebrow">FERRAMENTAS</p><h2>Ações seguras no projeto</h2></div></div>
-        <div class="tools-grid">
-          <article class="tool-card"><div class="tool-card-head"><span>↓</span><div><h3>Baixar projeto</h3><p>Gera o ZIP a partir do repositório e da branch selecionados.</p></div></div><button id="toolDownload">Baixar ZIP</button></article>
-          <article class="tool-card"><div class="tool-card-head"><span>✓</span><div><h3>Verificar build</h3><p>Valida dependências, TypeScript, lint e compilação.</p></div></div><button id="toolBuild">Executar verificação</button></article>
-          <article class="tool-card"><div class="tool-card-head"><span>◈</span><div><h3>Analisar segurança</h3><p>Procura segredos expostos, riscos e configurações frágeis.</p></div></div><button id="toolSecurity">Analisar projeto</button></article>
-          <article class="tool-card"><div class="tool-card-head"><span>≡</span><div><h3>Arquivos alterados</h3><p>Mostra os arquivos registrados nas últimas tarefas.</p></div></div><button id="toolFiles">Ver arquivos</button></article>
-          <article class="tool-card"><div class="tool-card-head"><span>↶</span><div><h3>Desfazer alteração</h3><p>Cria um novo commit de reversão sem apagar o histórico.</p></div></div><button id="toolRollback">Localizar último commit</button></article>
-          <article class="tool-card"><div class="tool-card-head"><span>◇</span><div><h3>Marcas do projeto</h3><p>Separa marcas presentes no código do badge oficial da plataforma.</p></div></div><button id="toolBranding">Analisar marcas</button></article>
-          <article class="tool-card"><div class="tool-card-head"><span>↗</span><div><h3>Publicação</h3><p>Confere sincronização e orienta a atualização na Lovable.</p></div></div><button id="toolPublish">Verificar publicação</button></article>
+      <section class="panel-view" data-panel="tools"><div class="section-heading"><div><p class="eyebrow">FERRAMENTAS</p><h2>Ações seguras no projeto</h2></div></div><div class="tools-grid"><article class="tool-card"><div class="tool-card-head"><span>↓</span><div><h3>Baixar projeto</h3><p>Gera o ZIP a partir do repositório e da branch selecionados.</p></div></div><button id="toolDownload">Baixar ZIP</button></article><article class="tool-card"><div class="tool-card-head"><span>✓</span><div><h3>Verificar build</h3><p>Valida dependências, TypeScript, lint e compilação.</p></div></div><button id="toolBuild">Executar verificação</button></article><article class="tool-card"><div class="tool-card-head"><span>◈</span><div><h3>Analisar segurança</h3><p>Procura segredos expostos, riscos e configurações frágeis.</p></div></div><button id="toolSecurity">Analisar projeto</button></article><article class="tool-card"><div class="tool-card-head"><span>≡</span><div><h3>Arquivos alterados</h3><p>Mostra os arquivos registrados nas últimas tarefas.</p></div></div><button id="toolFiles">Ver arquivos</button></article><article class="tool-card"><div class="tool-card-head"><span>↶</span><div><h3>Desfazer alteração</h3><p>Cria um novo commit de reversão sem apagar o histórico.</p></div></div><button id="toolRollback">Localizar último commit</button></article><article class="tool-card"><div class="tool-card-head"><span>◇</span><div><h3>Marcas do projeto</h3><p>Separa marcas presentes no código do badge oficial da plataforma.</p></div></div><button id="toolBranding">Analisar marcas</button></article><article class="tool-card"><div class="tool-card-head"><span>↗</span><div><h3>Publicação</h3><p>Confere sincronização e orienta a atualização na Lovable.</p></div></div><button id="toolPublish">Verificar publicação</button></article></div><p class="tools-status" id="toolsStatus" role="status"></p><section class="tool-result" id="toolResult" hidden></section></section>
+
+      <section class="panel-view" data-panel="integrations">
+        <div class="integration-grid">
+          <article class="integration-card"><div><span class="service-icon">GH</span><div><h2>GitHub</h2><p id="githubStatusText">Não conectado</p></div></div><button class="primary-action" id="githubAction">Conectar GitHub</button><button class="quiet-action danger-text" id="disconnectGithub" hidden>Desconectar</button></article>
+          <article class="integration-card"><div><span class="service-icon">SB</span><div><h2>Supabase</h2><p id="supabaseStatusText">Não conectado</p></div></div><button class="primary-action" id="supabaseAction">Conectar Supabase</button><button class="quiet-action danger-text" id="disconnectSupabase" hidden>Desconectar</button></article>
         </div>
-        <p class="tools-status" id="toolsStatus" role="status"></p>
-        <section class="tool-result" id="toolResult" hidden></section>
+        <section class="supabase-workspace" id="supabaseWorkspace" hidden><div class="section-heading"><div><p class="eyebrow">SUPABASE</p><h2>Banco, autenticação e funções</h2></div></div><label class="field-label">Projeto Supabase<select id="supabaseProjectSelect"><option value="">Selecione um projeto</option></select></label><div class="supabase-actions"><button data-supabase-action="inspect">Diagnosticar</button><button data-supabase-action="apply_migration">Migrations</button><button data-supabase-action="update_rls">Políticas RLS</button><button data-supabase-action="configure_auth">Autenticação</button><button data-supabase-action="configure_storage">Storage</button><button data-supabase-action="deploy_function">Edge Functions</button><button data-supabase-action="save_secret">Secrets</button></div><p id="supabaseFeedback" class="helper-text" role="status"></p><section id="supabaseResult" class="supabase-result" hidden></section></section>
       </section>
-      <section class="panel-view" data-panel="integrations"><div class="integration-grid"><article class="integration-card"><div><span class="service-icon">GH</span><div><h2>GitHub</h2><p id="githubStatusText">Não conectado</p></div></div><button class="primary-action" id="githubAction">Conectar GitHub</button><button class="quiet-action danger-text" id="disconnectGithub" hidden>Desconectar</button></article><article class="integration-card muted"><div><span class="service-icon">SB</span><div><h2>Supabase</h2><p>Será conectado em uma etapa posterior.</p></div></div><span class="coming-soon">Em breve</span></article></div></section>
-      <section class="panel-view" data-panel="help"><div class="placeholder-card"><h2>Ajuda contextual</h2><p>Orientações claras para configurações que precisam ser feitas fora da extensão.</p></div></section>
+
+      <section class="panel-view" data-panel="help"><div class="section-heading"><div><p class="eyebrow">AJUDA</p><h2>O que você precisa configurar?</h2></div></div><div class="help-toolbar"><input id="helpSearch" type="search" placeholder="Buscar GitHub, Cloud, domínio, webhook…" aria-label="Buscar orientação" /></div><div class="help-categories" id="helpCategories"></div><div class="help-grid" id="helpGuides"></div></section>
       <section class="panel-view" data-panel="settings"><div class="placeholder-card"><h2>Configurações</h2><dl class="license-details"><div><dt>Plano</dt><dd id="settingsPlan">—</dd></div><div><dt>Validade</dt><dd id="settingsExpiry">—</dd></div><div><dt>Dispositivo</dt><dd id="settingsDevice">—</dd></div></dl><button class="quiet-action" id="validateLicenseNow">Validar licença agora</button></div></section>
     </section>
   </main>
@@ -67,5 +64,7 @@
   <script type="module" src="execution-runtime.js"></script>
   <script type="module" src="input-runtime.js"></script>
   <script type="module" src="tools-runtime.js"></script>
+  <script type="module" src="supabase-runtime.js"></script>
+  <script type="module" src="help-runtime.js"></script>
 </body>
 </html>
