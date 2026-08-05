@@ -1,21 +1,34 @@
 {
   "manifest_version": 3,
   "name": "SUPER LOVABLE V2 — TESTE",
-  "version": "1.9.0",
-  "description": "SUPER LOVABLE V2: ambiente isolado com nova interface, licença, edição via GitHub e seleção visual.",
-  "permissions": ["activeTab","cookies","storage","tabs","scripting","alarms","downloads"],
+  "version": "1.9.1",
+  "description": "SUPER LOVABLE V2: edição autorizada por GitHub, integrações e seleção visual.",
+  "permissions": ["activeTab", "storage", "tabs", "scripting", "downloads"],
   "optional_permissions": ["notifications"],
-  "host_permissions": ["https://*.lovable.dev/*","https://api.lovable.dev/*","https://lovable.dev/*","https://storage.googleapis.com/*","https://*.storage.googleapis.com/*","https://*.googleapis.com/*","https://painel-super-lov.lovable.app/*"],
-  "background": { "service_worker": "background.js" },
-  "content_scripts": [{
-    "matches": ["https://lovable.dev/*","https://*.lovable.dev/*"],
-    "js": ["content.js","v2/runtime/visual-editor-content.js"],
-    "css": ["content.css"],
-    "run_at": "document_idle"
-  }],
-  "web_accessible_resources": [{"resources":["icon.png"],"matches":["https://lovable.dev/*","https://*.lovable.dev/*"]}],
-  "action": {"default_popup":"v2/runtime/app.html","default_title":"SUPER LOVABLE V2 — TESTE","default_icon":{"48":"icon.png","128":"icon.png"}},
-  "icons": {"48":"icon.png","128":"icon.png"},
-  "content_security_policy": {"extension_pages":"script-src 'self'; object-src 'self'"},
+  "host_permissions": [
+    "https://lovable.dev/*",
+    "https://*.lovable.dev/*",
+    "https://painel-super-lov.lovable.app/*"
+  ],
+  "background": {
+    "service_worker": "v2/background-v2.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://lovable.dev/*", "https://*.lovable.dev/*"],
+      "js": ["v2/runtime/visual-editor-content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "v2/runtime/app.html",
+    "default_title": "SUPER LOVABLE V2 — TESTE",
+    "default_icon": {"48": "icon.png", "128": "icon.png"}
+  },
+  "icons": {"48": "icon.png", "128": "icon.png"},
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
   "optional_host_permissions": ["https://*/*"]
 }
