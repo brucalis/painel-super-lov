@@ -2,6 +2,7 @@ import { createTask, TASK_STATUS, validateTask } from './task-contracts.js';
 import { getTask, saveTask, updateTask, setActiveTask } from './task-store.js';
 import { createRemoteTask } from './task-agent-adapter.js';
 import { executeRemoteTask, rollbackRemoteTask } from './task-execution-adapter.js';
+import { clearStagedAttachments, getStagedAttachments } from './attachment-store.js';
 
 function sameProject(task, context) {
   return Boolean(
@@ -21,12 +22,13 @@ export class TaskOrchestrator {
     this.running = false;
   }
 
-  async createDraft({ prompt, improvedPrompt = null, source = 'text', attachments = [] } = {}) {
+  async createDraft({ prompt, improvedPrompt = null, source = 'text', attachments = null } = {}) {
     const context = await this.getProjectContext();
     if (!context?.repository?.fullName || !context?.branch) {
       throw new Error('Selecione um repositório e uma branch antes de continuar.');
     }
 
+    const taskAttachments = Array.isArray(attachments) ? attachments : await getStagedAttachments();
     const task = createTask({
       projectId: context.projectId || context.repository.id || context.repository.fullName,
       repository: context.repository.fullName,
@@ -34,12 +36,14 @@ export class TaskOrchestrator {
       prompt,
       improvedPrompt,
       source,
-      attachments
+      attachments: taskAttachments
     });
 
     const check = validateTask(task);
     if (!check.valid) throw new Error(check.errors.join(' '));
     await saveTask(task);
+    if (taskAttachments.length) await clearStagedAttachments();
+    globalThis.dispatchEvent(new CustomEvent('superlovable:attachments-consumed', { detail: { taskId: task.id } }));
     return task;
   }
 
