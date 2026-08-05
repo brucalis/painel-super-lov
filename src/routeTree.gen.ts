@@ -17,6 +17,7 @@ import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/tra
 import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
 import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
 import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
+import { Route as ApiGithubRepositoriesRouteImport } from './routes/api/github/repositories'
 import { Route as ApiGithubConnectRouteImport } from './routes/api/github/connect'
 import { Route as ApiGithubCallbackRouteImport } from './routes/api/github/callback'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
@@ -67,6 +68,11 @@ const ApiPublicActivateLicenseRoute =
     path: '/api/public/activate-license',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiGithubRepositoriesRoute = ApiGithubRepositoriesRouteImport.update({
+  id: '/api/github/repositories',
+  path: '/api/github/repositories',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGithubConnectRoute = ApiGithubConnectRouteImport.update({
   id: '/api/github/connect',
   path: '/api/github/connect',
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/connect': typeof ApiGithubConnectRoute
+  '/api/github/repositories': typeof ApiGithubRepositoriesRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/connect': typeof ApiGithubConnectRoute
+  '/api/github/repositories': typeof ApiGithubRepositoriesRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
   '/api/github/connect': typeof ApiGithubConnectRoute
+  '/api/github/repositories': typeof ApiGithubRepositoriesRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/api/github/callback'
     | '/api/github/connect'
+    | '/api/github/repositories'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/api/github/callback'
     | '/api/github/connect'
+    | '/api/github/repositories'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/api/github/callback'
     | '/api/github/connect'
+    | '/api/github/repositories'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
@@ -207,6 +219,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiGithubCallbackRoute: typeof ApiGithubCallbackRoute
   ApiGithubConnectRoute: typeof ApiGithubConnectRoute
+  ApiGithubRepositoriesRoute: typeof ApiGithubRepositoriesRoute
   ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
   ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
   ApiPublicRecoverDeviceRoute: typeof ApiPublicRecoverDeviceRoute
@@ -276,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicActivateLicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/github/repositories': {
+      id: '/api/github/repositories'
+      path: '/api/github/repositories'
+      fullPath: '/api/github/repositories'
+      preLoaderRoute: typeof ApiGithubRepositoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/github/connect': {
       id: '/api/github/connect'
       path: '/api/github/connect'
@@ -327,6 +347,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiGithubCallbackRoute: ApiGithubCallbackRoute,
   ApiGithubConnectRoute: ApiGithubConnectRoute,
+  ApiGithubRepositoriesRoute: ApiGithubRepositoriesRoute,
   ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
   ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
   ApiPublicRecoverDeviceRoute: ApiPublicRecoverDeviceRoute,
