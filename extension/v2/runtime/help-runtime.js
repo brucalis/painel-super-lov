@@ -1,3 +1,4 @@
+import './project-memory-runtime.js';
 import { HELP_GUIDES, searchGuides } from '../core/help-guides.js';
 
 const $ = (selector) => document.querySelector(selector);
