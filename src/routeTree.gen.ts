@@ -17,6 +17,7 @@ import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/tra
 import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
 import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
 import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
+import { Route as ApiGithubConnectRouteImport } from './routes/api/github/connect'
 import { Route as ApiGithubCallbackRouteImport } from './routes/api/github/callback'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
 import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
@@ -66,6 +67,11 @@ const ApiPublicActivateLicenseRoute =
     path: '/api/public/activate-license',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiGithubConnectRoute = ApiGithubConnectRouteImport.update({
+  id: '/api/github/connect',
+  path: '/api/github/connect',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGithubCallbackRoute = ApiGithubCallbackRouteImport.update({
   id: '/api/github/callback',
   path: '/api/github/callback',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
+  '/api/github/connect': typeof ApiGithubConnectRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
+  '/api/github/connect': typeof ApiGithubConnectRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/api/github/callback': typeof ApiGithubCallbackRoute
+  '/api/github/connect': typeof ApiGithubConnectRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/api/github/callback'
+    | '/api/github/connect'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/api/github/callback'
+    | '/api/github/connect'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/api/github/callback'
+    | '/api/github/connect'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/recover-device'
@@ -194,6 +206,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
   ApiGithubCallbackRoute: typeof ApiGithubCallbackRoute
+  ApiGithubConnectRoute: typeof ApiGithubConnectRoute
   ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
   ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
   ApiPublicRecoverDeviceRoute: typeof ApiPublicRecoverDeviceRoute
@@ -263,6 +276,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicActivateLicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/github/connect': {
+      id: '/api/github/connect'
+      path: '/api/github/connect'
+      fullPath: '/api/github/connect'
+      preLoaderRoute: typeof ApiGithubConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/github/callback': {
       id: '/api/github/callback'
       path: '/api/github/callback'
@@ -306,6 +326,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
   ApiGithubCallbackRoute: ApiGithubCallbackRoute,
+  ApiGithubConnectRoute: ApiGithubConnectRoute,
   ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
   ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
   ApiPublicRecoverDeviceRoute: ApiPublicRecoverDeviceRoute,
@@ -319,13 +340,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
