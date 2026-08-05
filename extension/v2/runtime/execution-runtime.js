@@ -1,3 +1,4 @@
+import './supabase-runtime.js';
 import { TaskOrchestrator } from '../core/task-orchestrator.js';
 import { getProjectContext } from '../core/project-context.js';
 import { getTask, listTasks } from '../core/task-store.js';
