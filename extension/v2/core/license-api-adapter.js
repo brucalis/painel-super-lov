@@ -5,6 +5,8 @@
  * pode ser alterado pelo painel administrativo sem republicar a extensão.
  */
 
+import { simulateLicenseRequest } from './license-simulator.js';
+
 const SETTINGS_KEY = 'slv2_license_api_settings';
 const DEFAULT_SETTINGS = Object.freeze({
   baseUrl: 'https://painel-super-lov.lovable.app',
@@ -67,6 +69,9 @@ export async function saveLicenseApiSettings(input = {}) {
 }
 
 async function request(pathName, payload) {
+  const simulated = await simulateLicenseRequest(payload);
+  if (simulated) return normalizeLicenseResponse(simulated);
+
   const settings = await getLicenseApiSettings();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), settings.timeoutMs);
