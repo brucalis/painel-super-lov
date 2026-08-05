@@ -1,3 +1,4 @@
+import './access-control-runtime.js';
 import './preview-diff-runtime.js';
 import { sanitizeVisualSelection, visualSelectionSummary } from '../core/visual-editor-selection.js';
 const $=s=>document.querySelector(s);let selection=null;
