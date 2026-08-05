@@ -1,0 +1,69 @@
+html, body {
+  width: 780px;
+  max-width: 780px;
+  min-width: 0 !important;
+  min-height: 600px;
+}
+
+.app-shell {
+  width: 780px !important;
+  max-width: 780px;
+  grid-template-columns: 72px minmax(0, 1fr) !important;
+}
+
+.sidebar {
+  padding-inline: 8px !important;
+}
+
+.brand-block {
+  justify-content: center;
+  padding-inline: 0 !important;
+}
+
+.brand-copy,
+.nav-item > span:nth-child(2),
+.nav-badge,
+.connection-card div {
+  display: none !important;
+}
+
+.nav-item {
+  grid-template-columns: 1fr !important;
+  place-items: center;
+  padding-inline: 0 !important;
+}
+
+.connection-card {
+  grid-template-columns: 1fr !important;
+  place-items: center;
+}
+
+.workspace {
+  padding: 20px 22px 28px !important;
+}
+
+body[data-access-role="user"] #externalIntegrationsMount,
+body[data-access-role="user"] .integration-card:nth-of-type(n+3) {
+  display: none !important;
+}
+
+body[data-access-role="user"] .integration-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.project-advanced-toggle {
+  margin-top: 14px;
+  width: 100%;
+  text-align: center;
+}
+
+#projectMemoryMount[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 780px) {
+  html, body, .app-shell {
+    width: 100vw !important;
+    max-width: 100vw;
+  }
+}
