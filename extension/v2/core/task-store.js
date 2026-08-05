@@ -37,6 +37,12 @@ export async function listTasks() {
   return state.tasks;
 }
 
+export async function getTask(id) {
+  if (!id) return null;
+  const state = await getTaskState();
+  return state.tasks.find((item) => item.id === id) || null;
+}
+
 export async function saveTask(task) {
   const state = await getTaskState();
   const index = state.tasks.findIndex((item) => item.id === task.id);
