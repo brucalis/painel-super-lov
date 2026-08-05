@@ -9,6 +9,47 @@ import {
 } from '../core/supabase-api-adapter.js';
 
 const $ = (selector) => document.querySelector(selector);
+
+function injectSupabaseUi() {
+  if (!document.querySelector('link[href="supabase.css"]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'supabase.css';
+    document.head.appendChild(link);
+  }
+
+  const integrations = document.querySelector('[data-panel="integrations"] .integration-grid');
+  if (!integrations || $('#supabaseAction')) return;
+
+  const oldCard = [...integrations.querySelectorAll('.integration-card')].find((card) => card.textContent.includes('Supabase'));
+  if (oldCard) oldCard.remove();
+
+  integrations.insertAdjacentHTML('beforeend', `
+    <article class="integration-card" id="supabaseCard">
+      <div><span class="service-icon">SB</span><div><h2>Supabase</h2><p id="supabaseStatusText">Não conectado</p></div></div>
+      <button class="primary-action" id="supabaseAction">Conectar Supabase</button>
+      <button class="quiet-action danger-text" id="disconnectSupabase" hidden>Desconectar</button>
+    </article>
+    <section class="supabase-workspace" id="supabaseWorkspace" hidden>
+      <div class="section-heading"><div><p class="eyebrow">BACKEND</p><h2>Projeto Supabase</h2></div></div>
+      <div class="supabase-toolbar">
+        <label class="field-label">Projeto<select id="supabaseProjectSelect"><option value="">Selecione um projeto</option></select></label>
+        <button class="quiet-action" data-supabase-action="inspect">Inspecionar</button>
+      </div>
+      <div class="supabase-actions">
+        <button data-supabase-action="prepare_migration"><strong>Migrations</strong><small>Preparar alterações de banco</small></button>
+        <button data-supabase-action="update_rls"><strong>Políticas RLS</strong><small>Revisar e aplicar acesso seguro</small></button>
+        <button data-supabase-action="configure_auth"><strong>Autenticação</strong><small>Login, cadastro e provedores</small></button>
+        <button data-supabase-action="configure_storage"><strong>Storage</strong><small>Buckets e regras de arquivos</small></button>
+        <button data-supabase-action="deploy_function"><strong>Edge Functions</strong><small>Endpoints e webhooks</small></button>
+        <button data-supabase-action="save_secret"><strong>Secrets</strong><small>Credenciais fora do código</small></button>
+      </div>
+      <p class="supabase-feedback" id="supabaseFeedback" role="status"></p>
+      <section class="supabase-result" id="supabaseResult" hidden></section>
+    </section>`);
+}
+
+injectSupabaseUi();
 let connection = await getSupabaseConnection();
 
 function renderProjects() {
@@ -31,6 +72,7 @@ function renderConnection() {
   $('#supabaseAction').textContent = connected ? 'Atualizar projetos' : 'Conectar Supabase';
   $('#disconnectSupabase').hidden = !connected;
   $('#supabaseWorkspace').hidden = !connected;
+  $('#supabaseCard').classList.toggle('supabase-connected', connected);
   renderProjects();
 }
 
@@ -63,10 +105,8 @@ async function connectOrRefresh() {
         return;
       }
       connection = await saveSupabaseConnection({
-        status: response.status || 'connected',
-        accountEmail: response.accountEmail || null,
-        connectedAt: new Date().toISOString(),
-        source: response.simulated ? 'simulator' : 'backend'
+        status: response.status || 'connected', accountEmail: response.accountEmail || null,
+        connectedAt: new Date().toISOString(), source: response.simulated ? 'simulator' : 'backend'
       });
     }
     const response = await fetchSupabaseProjects();
@@ -97,10 +137,7 @@ async function runAction(action) {
 }
 
 $('#supabaseAction')?.addEventListener('click', connectOrRefresh);
-$('#disconnectSupabase')?.addEventListener('click', async () => {
-  connection = await disconnectSupabase();
-  renderConnection();
-});
+$('#disconnectSupabase')?.addEventListener('click', async () => { connection = await disconnectSupabase(); renderConnection(); });
 $('#supabaseProjectSelect')?.addEventListener('change', async (event) => {
   const project = connection.projects.find((item) => item.ref === event.target.value) || null;
   connection = await saveSupabaseConnection({ selectedProject: project });
