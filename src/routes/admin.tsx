@@ -7,6 +7,7 @@ import { LicensesTab } from "@/components/admin/licenses-tab";
 import { CustomersTab } from "@/components/admin/customers-tab";
 import { WebhooksTab } from "@/components/admin/webhooks-tab";
 import { EnsinaflixTab } from "@/components/admin/ensinaflix-tab";
+import { EXTENSION_RELEASE } from "@/lib/extension-release";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -29,10 +30,6 @@ export const Route = createFileRoute("/admin")({
   }),
   component: AdminPage,
 });
-
-// Atualize junto com o pacote da extensão (horário de Brasília).
-const EXTENSION_VERSION = "1.7.0";
-const EXTENSION_UPDATED_AT = "04/08/2026 às 18:56 (horário de Brasília)";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -84,7 +81,7 @@ function AdminPage() {
   }
 
   const downloadAdminExtension = () => {
-    fetch("/super-lovable.zip")
+    fetch(EXTENSION_RELEASE.downloadPath, { cache: "no-store" })
       .then((res) => {
         if (!res.ok) throw new Error(`Download falhou: ${res.status}`);
         return res.blob();
@@ -92,7 +89,7 @@ function AdminPage() {
       .then((blob) => {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "super-lovable-admin.zip";
+        a.download = EXTENSION_RELEASE.downloadName.replace(".zip", "-admin.zip");
         a.click();
         URL.revokeObjectURL(a.href);
       })
@@ -122,7 +119,7 @@ function AdminPage() {
           <div>
             <h2 className="font-medium">Extensão do administrador</h2>
             <p className="text-sm text-muted-foreground">
-              Versão {EXTENSION_VERSION} · atualizada em {EXTENSION_UPDATED_AT}. Chaves com nível
+              Versão {EXTENSION_RELEASE.version} · atualizada em {EXTENSION_RELEASE.updatedAt}. Chaves com nível
               administrador liberam servidor de licenças e endpoints; chaves comuns não veem esses
               campos.
             </p>

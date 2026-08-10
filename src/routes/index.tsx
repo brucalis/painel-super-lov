@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { EXTENSION_RELEASE } from "@/lib/extension-release";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -22,10 +23,6 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-// Atualize sempre que o super-lovable.zip for regerado (horário de Brasília).
-const EXTENSION_VERSION = "1.7.0";
-const EXTENSION_UPDATED_AT = "04/08/2026 às 18:56 (horário de Brasília)";
-
 const steps = [
   "Descompacte o arquivo baixado.",
   "Abra chrome://extensions no Chrome (ou outro navegador Chromium).",
@@ -45,7 +42,7 @@ const features = [
 
 function Index() {
   const download = () => {
-    fetch("/super-lovable.zip")
+    fetch(EXTENSION_RELEASE.downloadPath, { cache: "no-store" })
       .then((res) => {
         if (!res.ok) throw new Error(`Download falhou: ${res.status}`);
         return res.blob();
@@ -53,7 +50,7 @@ function Index() {
       .then((blob) => {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "super-lovable.zip";
+        a.download = EXTENSION_RELEASE.downloadName;
         a.click();
         URL.revokeObjectURL(a.href);
       })
@@ -107,7 +104,7 @@ function Index() {
           Baixar extensão (.zip)
         </button>
         <p className="mt-3 text-sm text-slate-400">
-          Versão {EXTENSION_VERSION} · atualizada em {EXTENSION_UPDATED_AT}
+          Versão {EXTENSION_RELEASE.version} · atualizada em {EXTENSION_RELEASE.updatedAt}
         </p>
 
         <h2 className="mt-14 text-xl font-semibold">Como instalar</h2>
