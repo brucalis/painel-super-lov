@@ -8,13 +8,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Baixe a SUPER LOVABLE: fila de comandos, gravação de voz, histórico, atalhos e painel dentro do Lovable.dev, com anexos íntegros.",
+          "Baixe a SUPER LOVABLE e use o chat próprio da extensão para enviar comandos, anexar arquivos, ditar por voz e trabalhar no seu projeto Lovable.",
       },
       { property: "og:title", content: "SUPER LOVABLE — Extensão Chrome premium para Lovable.dev" },
       {
         property: "og:description",
         content:
-          "Baixe a SUPER LOVABLE: fila de comandos, gravação de voz, histórico, atalhos e painel dentro do Lovable.dev, com anexos íntegros.",
+          "Use o chat próprio da SUPER LOVABLE para enviar comandos, anexar arquivos, ditar por voz e trabalhar no seu projeto Lovable.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -28,16 +28,20 @@ const steps = [
   "Abra chrome://extensions no Chrome (ou outro navegador Chromium).",
   "Ative o Modo do desenvolvedor no canto superior direito.",
   "Clique em Carregar sem compactação e selecione a pasta descompactada.",
-  "Abra um projeto em lovable.dev e clique no ícone da SUPER LOVABLE.",
+  "Abra um projeto em lovable.dev e clique no ícone de raio da Super Lovable.",
+  "Na tela de ativação, informe sua chave de licença e clique para validar.",
+  "Pronto: use sempre o chat da Super Lovable para enviar os comandos ao seu projeto.",
 ];
 
 const features = [
-  "Fila de comandos com envio sequencial e detecção de conclusão",
-  "Gravação de voz com pausa, retomada e envio como anexo",
-  "Histórico completo com busca, favoritos e reenvio",
-  "9 atalhos rápidos para correções, SEO, segurança e responsividade",
-  "Barra e mini painel injetados no próprio chat do Lovable",
-  "Modo Escudo contra envios acidentais e projeto trocado",
+  "Chat próprio da Super Lovable para enviar comandos ao projeto",
+  "Envio de imagens e arquivos junto com seus prompts",
+  "Ditado por voz direto no campo de comando",
+  "Melhoria de prompts com inteligência artificial antes do envio",
+  "Histórico dos comandos enviados para consultar e reutilizar",
+  "Skills e prompts reutilizáveis para tarefas frequentes",
+  "Download dos arquivos do projeto em formato ZIP",
+  "Ferramenta para remover a marca d’água do projeto",
 ];
 
 function Index() {
@@ -108,7 +112,7 @@ function Index() {
               Crie sem interrupções com a <span className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-violet-400 bg-clip-text text-transparent">Super Lovable.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-              Envie comandos, grave sua voz, organize uma fila automática e acompanhe todo o histórico sem sair do projeto.
+              Use o chat próprio da extensão para enviar comandos, anexar arquivos, ditar por voz e trabalhar no seu projeto sem depender do chat nativo da Lovable.
             </p>
 
             <button
@@ -131,6 +135,9 @@ function Index() {
         <div className="mt-20 grid gap-6 lg:grid-cols-2">
           <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-7 backdrop-blur">
             <h2 className="text-xl font-semibold">Como instalar</h2>
+            <div className="mt-4 rounded-2xl border border-fuchsia-400/25 bg-fuchsia-400/10 px-4 py-3 text-sm leading-6 text-fuchsia-100">
+              Importante: depois da ativação, envie seus comandos pelo chat da <strong>Super Lovable</strong>, e não pelo chat nativo da Lovable.
+            </div>
             <ol className="mt-6 space-y-4 text-slate-300">
               {steps.map((s, i) => (
                 <li key={s} className="flex gap-4">
