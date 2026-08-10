@@ -58,7 +58,7 @@ function Index() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0B1020] text-slate-100">
+    <main className="relative min-h-screen overflow-hidden bg-[#050817] text-slate-100">
       <style>{`
         @keyframes downloadPulse {
           0%, 100% {
@@ -88,46 +88,71 @@ function Index() {
         }
       `}</style>
 
-      <section className="mx-auto max-w-3xl px-6 py-20">
-        <h1 className="mt-3 bg-gradient-to-r from-sky-400 via-violet-500 to-fuchsia-500 bg-clip-text text-5xl font-bold text-transparent">
-          SUPER LOVABLE
-        </h1>
-        <p className="mt-4 text-lg text-slate-300">
-          Painel premium para a plataforma Lovable.dev: envie comandos, grave sua voz,
-          organize uma fila automática e acompanhe todo o histórico — sem sair do projeto.
-        </p>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_12%,rgba(236,72,153,0.18),transparent_32%),radial-gradient(circle_at_15%_42%,rgba(139,92,246,0.14),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/70 to-transparent" />
 
-        <button
-          onClick={download}
-          className="download-pulse mt-8 rounded-xl bg-gradient-to-r from-sky-500 via-violet-600 to-fuchsia-600 px-6 py-3 font-medium text-white transition hover:opacity-95"
-        >
-          Baixar extensão (.zip)
-        </button>
-        <p className="mt-3 text-sm text-slate-400">
-          Versão {EXTENSION_RELEASE.version} · atualizada em {EXTENSION_RELEASE.updatedAt}
-        </p>
+      <section className="relative mx-auto max-w-5xl px-6 py-16 sm:py-24">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-fuchsia-400/25 bg-white/[0.04] shadow-[0_0_35px_rgba(217,70,239,0.18)]">
+            <img src="/favicon.png" alt="" className="h-8 w-8" />
+          </div>
+          <span className="text-sm font-semibold tracking-[0.22em] text-white/80">SUPER LOVABLE</span>
+        </div>
 
-        <h2 className="mt-14 text-xl font-semibold">Como instalar</h2>
-        <ol className="mt-4 space-y-2 text-slate-300">
-          {steps.map((s, i) => (
-            <li key={s} className="flex gap-3">
-              <span className="font-mono text-sm text-fuchsia-400">{i + 1}.</span>
-              <span>{s}</span>
-            </li>
-          ))}
-        </ol>
+        <div className="mt-12 grid items-start gap-12 lg:grid-cols-[1.15fr_0.85fr]">
+          <div>
+            <div className="inline-flex rounded-full border border-fuchsia-400/25 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-fuchsia-300">
+              Extensão premium para Lovable.dev
+            </div>
+            <h1 className="mt-6 max-w-3xl text-5xl font-bold leading-[1.02] tracking-tight sm:text-6xl">
+              Crie sem interrupções com a <span className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-violet-400 bg-clip-text text-transparent">Super Lovable.</span>
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
+              Envie comandos, grave sua voz, organize uma fila automática e acompanhe todo o histórico sem sair do projeto.
+            </p>
 
-        <h2 className="mt-12 text-xl font-semibold">O que está incluído</h2>
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {features.map((f) => (
-            <li
-              key={f}
-              className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-200 backdrop-blur"
+            <button
+              onClick={download}
+              className="download-pulse mt-9 rounded-2xl bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-600 px-7 py-4 font-semibold text-white transition hover:brightness-110"
             >
-              {f}
-            </li>
-          ))}
-        </ul>
+              Baixar extensão (.zip)
+            </button>
+            <p className="mt-4 text-sm text-slate-400">
+              Versão {EXTENSION_RELEASE.version} · atualizada em {EXTENSION_RELEASE.updatedAt}
+            </p>
+          </div>
+
+          <div className="relative rounded-[2rem] border border-white/10 bg-white/[0.045] p-3 shadow-[0_30px_90px_rgba(76,29,149,0.28)] backdrop-blur-xl">
+            <div className="absolute -inset-px -z-10 rounded-[2rem] bg-gradient-to-br from-fuchsia-500/20 via-transparent to-violet-500/20 blur-xl" />
+            <img src="/extension-banner.png" alt="Super Lovable — recursos da extensão" className="w-full rounded-[1.35rem]" />
+          </div>
+        </div>
+
+        <div className="mt-20 grid gap-6 lg:grid-cols-2">
+          <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-7 backdrop-blur">
+            <h2 className="text-xl font-semibold">Como instalar</h2>
+            <ol className="mt-6 space-y-4 text-slate-300">
+              {steps.map((s, i) => (
+                <li key={s} className="flex gap-4">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-xs font-bold text-fuchsia-300">{i + 1}</span>
+                  <span className="pt-0.5 text-sm leading-6">{s}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-7 backdrop-blur">
+            <h2 className="text-xl font-semibold">O que está incluído</h2>
+            <ul className="mt-6 space-y-3">
+              {features.map((f) => (
+                <li key={f} className="flex gap-3 text-sm leading-6 text-slate-300">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gradient-to-r from-pink-400 to-violet-400 shadow-[0_0_10px_rgba(244,114,182,0.8)]" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
       </section>
     </main>
   );
