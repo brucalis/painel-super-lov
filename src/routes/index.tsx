@@ -124,6 +124,37 @@ function Index() {
             <p className="mt-4 text-sm text-slate-400">
               Versão {EXTENSION_RELEASE.version} · atualizada em {EXTENSION_RELEASE.updatedAt}
             </p>
+            <details className="group mt-4 max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] text-left backdrop-blur">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-fuchsia-200 transition hover:bg-white/[0.04] [&::-webkit-details-marker]:hidden">
+                <span>Ver logs</span>
+                <span className="text-lg leading-none text-fuchsia-300 transition-transform duration-200 group-open:rotate-180">⌄</span>
+              </summary>
+              <div className="max-h-80 overflow-y-auto border-t border-white/10 px-5 py-1">
+                {EXTENSION_RELEASE.changelog.map((release, index) => (
+                  <article key={release.version} className="border-b border-white/[0.07] py-4 last:border-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-fuchsia-500/15 px-2.5 py-1 text-xs font-bold text-fuchsia-300">
+                        Versão {release.version}
+                      </span>
+                      {index === 0 && (
+                        <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-300">
+                          Atual
+                        </span>
+                      )}
+                      <time className="text-xs text-slate-500">{release.date}</time>
+                    </div>
+                    <ul className="mt-3 space-y-2">
+                      {release.changes.map((change) => (
+                        <li key={change} className="flex gap-2 text-xs leading-5 text-slate-300">
+                          <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-fuchsia-400" />
+                          {change}
+                        </li>
+                      ))}
+                    </ul>
+                  </article>
+                ))}
+              </div>
+            </details>
           </div>
 
           <div className="relative rounded-[2rem] border border-white/10 bg-white/[0.045] p-3 shadow-[0_30px_90px_rgba(76,29,149,0.28)] backdrop-blur-xl">
