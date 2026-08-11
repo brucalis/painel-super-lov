@@ -23,4 +23,6 @@ O ZIP não deve incluir `.git`, arquivos temporários ou código que não esteja
 
 ## Lovable AI
 
-O botão **Otimizar** chama `/api/public/optimize-prompt`. Essa rota pertence ao backend deste projeto, valida a licença e usa a `LOVABLE_API_KEY` apenas no servidor. A extensão nunca deve receber essa chave nem usar o token ou os créditos do projeto Lovable aberto pelo cliente.
+O botão **Otimizar** chama primeiro a Edge Function `optimize-prompt` deste projeto Supabase e usa `/api/public/optimize-prompt` apenas como contingência. As duas rotas validam a licença e usam a `LOVABLE_API_KEY` somente no servidor. A extensão nunca deve receber essa chave nem usar o token, o chat ou os créditos do projeto Lovable aberto pelo cliente.
+
+Antes de publicar a extensão, confirme que `supabase/functions/optimize-prompt-health` responde com `ok: true`. Se `ai_configured` estiver falso, configure `LOVABLE_API_KEY` nos segredos das Edge Functions do projeto principal.

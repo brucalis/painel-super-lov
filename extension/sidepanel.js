@@ -7,7 +7,11 @@
 
   const SUPABASE_URL = "https://hyjsaialebpskwfvinig.supabase.co";
   // Validação de key: ver fnx-license.js (lvbValidate)
-  const OPTIMIZE_URL = "https://painel-super-lov.lovable.app/api/public/optimize-prompt";
+  // A IA pertence ao back-end da Superlovable e é independente do projeto do cliente.
+  const OPTIMIZE_URLS = [
+    "https://vlayhykonzabepbsckhx.supabase.co/functions/v1/optimize-prompt",
+    "https://painel-super-lov.lovable.app/api/public/optimize-prompt"
+  ];
   // Remote notifications & version/update feeds removed (previous owner's server).
   const USER_ROLES_URL = SUPABASE_URL + "/rest/v1/user_roles?select=role";
   const PROXY_COMMAND_URL = SUPABASE_URL + "/functions/v1/proxy-command";
@@ -2303,10 +2307,11 @@ licenseKey = key;
       const sd = await new Promise(r => chrome.storage.local.get(["ql_session_id"], r));
       if (!sd.ql_session_id) throw new Error("Sessão da licença não encontrada. Valide sua chave novamente.");
       const requestOptions = { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + sd.ql_session_id }, body: JSON.stringify({ prompt: textarea.value.trim() }) };
-      let result = await bgFetchRaw(OPTIMIZE_URL, requestOptions);
-      if (result && result.status === 404) {
-        await new Promise(resolve => setTimeout(resolve, 700));
-        result = await bgFetchRaw(OPTIMIZE_URL + "?retry=" + Date.now(), requestOptions);
+      let result = null;
+      for (let i = 0; i < OPTIMIZE_URLS.length; i++) {
+        result = await bgFetchRaw(OPTIMIZE_URLS[i], requestOptions);
+        if (result && result.ok === true) break;
+        if (result && ![0, 404, 502, 503, 504].includes(result.status)) break;
       }
       const data = result && result.data && typeof result.data === "object" ? result.data : {};
       if (!result || result.ok !== true) throw new Error(data.error || "O otimizador não respondeu (status " + (result && result.status || 0) + ").");

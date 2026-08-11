@@ -1,7 +1,12 @@
 
 
 // Validação de key: ver fnx-license.js (lvbValidate)
-const OPTIMIZE_URL = "https://painel-super-lov.lovable.app/api/public/optimize-prompt";
+// A otimização usa exclusivamente o back-end da Superlovable. Ela não lê nem
+// envia tokens, mensagens ou créditos do projeto Lovable aberto pelo cliente.
+const OPTIMIZE_URLS = [
+  "https://vlayhykonzabepbsckhx.supabase.co/functions/v1/optimize-prompt",
+  "https://painel-super-lov.lovable.app/api/public/optimize-prompt"
+];
 // Remote notifications feed removed (previous owner's server).
 const PACKAGES_URL = "https://hyjsaialebpskwfvinig.supabase.co/rest/v1/packages?select=*&is_active=eq.true&order=sort_order.asc";
 const EXT_PAYMENT_URL = "https://hyjsaialebpskwfvinig.supabase.co/functions/v1/process-extension-payment";
@@ -854,10 +859,13 @@ function setupOptimize(){
         },
         body: JSON.stringify({ prompt: original })
       };
-      let result = await bgFetchRaw(OPTIMIZE_URL, requestOptions);
-      if (result && result.status === 404) {
-        await new Promise(resolve => setTimeout(resolve, 700));
-        result = await bgFetchRaw(OPTIMIZE_URL + "?retry=" + Date.now(), requestOptions);
+      let result = null;
+      for (let i = 0; i < OPTIMIZE_URLS.length; i++) {
+        result = await bgFetchRaw(OPTIMIZE_URLS[i], requestOptions);
+        if (result && result.ok === true) break;
+        // Só muda de infraestrutura quando a rota não existe ou está fora do ar.
+        // Erros de licença, limite ou créditos devem ser mostrados ao usuário.
+        if (result && ![0, 404, 502, 503, 504].includes(result.status)) break;
       }
       const data = result && result.data && typeof result.data === "object" ? result.data : {};
       if (!result || result.ok !== true) throw new Error(data.error || "O otimizador não respondeu (status " + (result && result.status || 0) + ").");

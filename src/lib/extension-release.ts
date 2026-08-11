@@ -4,11 +4,19 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.13",
-  updatedAt: "11/08/2026 às 17:55 (horário de Brasília)",
+  version: "32.0.14",
+  updatedAt: "11/08/2026 às 18:30 (horário de Brasília)",
   downloadPath: "/super-lovable.zip",
-  downloadName: "superlovable-v32.0.13.zip",
+  downloadName: "superlovable-v32.0.14.zip",
   changelog: [
+    {
+      version: "32.0.14",
+      date: "11/08/2026",
+      changes: [
+        "Otimização de prompts isolada do chat e do projeto Lovable do usuário.",
+        "Maior disponibilidade e estabilidade da função Otimizar.",
+      ],
+    },
     {
       version: "32.0.13",
       date: "11/08/2026",
