@@ -2302,7 +2302,12 @@ licenseKey = key;
     try {
       const sd = await new Promise(r => chrome.storage.local.get(["ql_session_id"], r));
       if (!sd.ql_session_id) throw new Error("Sessão da licença não encontrada. Valide sua chave novamente.");
-      const result = await bgFetchRaw(OPTIMIZE_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + sd.ql_session_id }, body: JSON.stringify({ prompt: textarea.value.trim() }) });
+      const requestOptions = { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + sd.ql_session_id }, body: JSON.stringify({ prompt: textarea.value.trim() }) };
+      let result = await bgFetchRaw(OPTIMIZE_URL, requestOptions);
+      if (result && result.status === 404) {
+        await new Promise(resolve => setTimeout(resolve, 700));
+        result = await bgFetchRaw(OPTIMIZE_URL + "?retry=" + Date.now(), requestOptions);
+      }
       const data = result && result.data && typeof result.data === "object" ? result.data : {};
       if (!result || result.ok !== true) throw new Error(data.error || "O otimizador não respondeu (status " + (result && result.status || 0) + ").");
       const optimized = String(data.optimized_prompt || "").trim();

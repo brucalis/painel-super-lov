@@ -2,11 +2,20 @@
 // Em toda nova versão, atualize version, updatedAt, downloadName, o ZIP e
 // adicione a nova entrada no início de changelog.
 export const EXTENSION_RELEASE = {
-  version: "32.0.11",
-  updatedAt: "11/08/2026 às 17:10 (horário de Brasília)",
+  version: "32.0.12",
+  updatedAt: "11/08/2026 às 17:42 (horário de Brasília)",
   downloadPath: "/super-lovable.zip",
-  downloadName: "superlovable-v32.0.11.zip",
+  downloadName: "superlovable-v32.0.12.zip",
   changelog: [
+    {
+      version: "32.0.12",
+      date: "11/08/2026",
+      changes: [
+        "Corrigida a falha 404 observada ao usar o botão Otimizar.",
+        "Adicionada nova tentativa automática quando a rota estiver em sincronização.",
+        "Adicionado modelo alternativo no Lovable AI quando o modelo principal não estiver disponível.",
+      ],
+    },
     {
       version: "32.0.11",
       date: "11/08/2026",
