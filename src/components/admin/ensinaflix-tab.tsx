@@ -64,6 +64,9 @@ export function EnsinaflixTab() {
   const [events, setEvents] = useState<WebhookEvent[]>([]);
   const [maps, setMaps] = useState<Mapping[]>([]);
   const [viewing, setViewing] = useState<WebhookEvent | null>(null);
+  const [eventSearch, setEventSearch] = useState("");
+  const [eventStatus, setEventStatus] = useState("all");
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [form, setForm] = useState({
     ensinaflix_product_id: "",
     ensinaflix_offer_public_id: "",
@@ -76,7 +79,8 @@ export function EnsinaflixTab() {
   const baseUrl = typeof window === "undefined" ? "" : window.location.origin;
   const endpoint = `${baseUrl}/api/public/webhooks/ensinaflix`;
 
-  async function load() {
+  async function load(silent = false) {
+    if (!silent) setEventsLoading(true);
     const [{ data: ev }, { data: mp }] = await Promise.all([
       supabase
         .from("webhook_events")
@@ -92,10 +96,13 @@ export function EnsinaflixTab() {
     const email = await getEmailSettings({});
     setEmailConfigured(email.key_hint);
     setEmailForm((current) => ({ ...current, from_email: email.from_email, from_name: email.from_name, reply_to: email.reply_to, enabled: email.enabled }));
+    if (!silent) setEventsLoading(false);
   }
 
   useEffect(() => {
     load();
+    const timer = window.setInterval(() => load(true), 15000);
+    return () => window.clearInterval(timer);
   }, []);
 
   function copy(text: string) {
@@ -109,6 +116,27 @@ export function EnsinaflixTab() {
     failed: events.filter((e) => e.processing_status === "failed").length,
   };
   const last = events[0];
+  const eventIds = (event: WebhookEvent) => {
+    const root = (event.payload && typeof event.payload === "object" ? event.payload : {}) as Record<string, any>;
+    const payload = (root.payload ?? {}) as Record<string, any>;
+    return {
+      productId: payload.product?.id ? String(payload.product.id) : null,
+      productName: payload.product?.name ? String(payload.product.name) : null,
+      checkoutSlug: payload.product?.checkout_slug ? String(payload.product.checkout_slug) : null,
+      offerId: payload.offer?.id ?? payload.order?.product_offer_id ?? null,
+      offerPublicId: payload.offer?.public_id ? String(payload.offer.public_id) : null,
+      offerName: payload.offer?.name ? String(payload.offer.name) : null,
+    };
+  };
+  const filteredEvents = events.filter((event) => {
+    if (eventStatus !== "all" && event.processing_status !== eventStatus) return false;
+    const ids = eventIds(event);
+    const haystack = [
+      event.event_type, event.order_id, event.customer_email, event.processing_error,
+      ids.productId, ids.productName, ids.checkoutSlug, ids.offerId, ids.offerPublicId, ids.offerName,
+    ].filter(Boolean).join(" ").toLowerCase();
+    return haystack.includes(eventSearch.trim().toLowerCase());
+  });
 
   async function addMapping() {
     if (!form.ensinaflix_product_id && !form.ensinaflix_offer_public_id)
@@ -334,9 +362,34 @@ export function EnsinaflixTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Eventos recebidos</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Logs dos webhooks recebidos</CardTitle>
+              <CardDescription>
+                Os 50 eventos mais recentes são atualizados automaticamente a cada 15 segundos. Clique em Ver payload para abrir o JSON completo.
+              </CardDescription>
+            </div>
+            <Button variant="outline" disabled={eventsLoading} onClick={() => load()}>
+              {eventsLoading ? "Atualizando…" : "Atualizar agora"}
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="space-y-4 p-0">
+          <div className="grid gap-2 px-4 md:grid-cols-[1fr_220px]">
+            <Input
+              placeholder="Buscar por pedido, cliente, produto, oferta ou checkout…"
+              value={eventSearch}
+              onChange={(event) => setEventSearch(event.target.value)}
+            />
+            <select className="rounded-md border bg-background px-3 text-sm" value={eventStatus} onChange={(event) => setEventStatus(event.target.value)}>
+              <option value="all">Todas as situações</option>
+              <option value="processed">Processados</option>
+              <option value="ignored">Ignorados</option>
+              <option value="failed">Falhas</option>
+              <option value="duplicate">Duplicados</option>
+              <option value="processing">Processando</option>
+            </select>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -344,26 +397,36 @@ export function EnsinaflixTab() {
                 <TableHead>Evento</TableHead>
                 <TableHead>Pedido</TableHead>
                 <TableHead>Cliente</TableHead>
+                <TableHead>Produto / oferta</TableHead>
                 <TableHead>Situação</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!events.length && (
+              {!filteredEvents.length && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Nenhum evento recebido ainda.
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                    {events.length ? "Nenhum evento corresponde aos filtros." : "Nenhum evento recebido ainda."}
                   </TableCell>
                 </TableRow>
               )}
-              {events.map((e) => (
-                <TableRow key={e.id}>
+              {filteredEvents.map((e) => {
+                const ids = eventIds(e);
+                return <TableRow key={e.id}>
                   <TableCell className="text-xs">{fmt(e.received_at)}</TableCell>
                   <TableCell className="text-xs">
                     {e.event_type} {e.is_test && <Badge variant="outline">teste</Badge>}
                   </TableCell>
                   <TableCell className="text-xs">{e.order_id ?? "—"}</TableCell>
                   <TableCell className="text-xs">{e.customer_email ?? "—"}</TableCell>
+                  <TableCell className="max-w-64 text-xs">
+                    <div className="font-medium">{ids.productName ?? ids.productId ?? "Não identificado"}</div>
+                    <div className="font-mono text-[11px] text-muted-foreground">
+                      {ids.productId && `product: ${ids.productId}`}
+                      {ids.offerPublicId && ` · offer: ${ids.offerPublicId}`}
+                      {!ids.offerPublicId && ids.offerId !== null && ` · offer.id: ${ids.offerId}`}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={e.processing_status === "failed" ? "destructive" : "default"}>
                       {STATUS_LABEL[e.processing_status] ?? e.processing_status}
@@ -375,18 +438,23 @@ export function EnsinaflixTab() {
                       Ver payload
                     </Button>
                   </TableCell>
-                </TableRow>
-              ))}
+                </TableRow>;
+              })}
             </TableBody>
           </Table>
           {viewing && (
             <div className="border-t p-4">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-medium">Payload · {viewing.event_type}</p>
-                <Button size="sm" variant="ghost" onClick={() => setViewing(null)}>
-                  Fechar
-                </Button>
+                <div>
+                  <p className="text-sm font-medium">Payload completo · {viewing.event_type}</p>
+                  <p className="text-xs text-muted-foreground">Recebido em {fmt(viewing.received_at)} · pedido {viewing.order_id ?? "não identificado"}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => copy(JSON.stringify(viewing.payload, null, 2))}>Copiar JSON</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setViewing(null)}>Fechar</Button>
+                </div>
               </div>
+              {viewing.processing_error && <p className="mb-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">Erro: {viewing.processing_error}</p>}
               <pre className="max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs">
                 {JSON.stringify(viewing.payload, null, 2)}
               </pre>
