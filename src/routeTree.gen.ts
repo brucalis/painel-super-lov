@@ -9,29 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as ApiGithubCallbackRouteImport } from './routes/api/github/callback'
-import { Route as ApiGithubConnectRouteImport } from './routes/api/github/connect'
-import { Route as ApiGithubDisconnectRouteImport } from './routes/api/github/disconnect'
-import { Route as ApiGithubRepositoriesRouteImport } from './routes/api/github/repositories'
-import { Route as ApiGithubStatusRouteImport } from './routes/api/github/status'
-import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
-import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
-import { Route as ApiPublicOptimizePromptRouteImport } from './routes/api/public/optimize-prompt'
-import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
-import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/transcribe'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/public/validate-license'
-import { Route as ApiPublicGithubCallbackRouteImport } from './routes/api/public/github/callback'
-import { Route as ApiPublicProjectsRemoveWatermarkRouteImport } from './routes/api/public/projects/remove-watermark'
-import { Route as ApiPublicProjectsWatermarkStatusRouteImport } from './routes/api/public/projects/watermark-status'
-import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
+import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/transcribe'
+import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
+import { Route as ApiPublicOptimizePromptRouteImport } from './routes/api/public/optimize-prompt'
+import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
+import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
+import { Route as ApiGithubStatusRouteImport } from './routes/api/github/status'
+import { Route as ApiGithubRepositoriesRouteImport } from './routes/api/github/repositories'
+import { Route as ApiGithubDisconnectRouteImport } from './routes/api/github/disconnect'
+import { Route as ApiGithubConnectRouteImport } from './routes/api/github/connect'
+import { Route as ApiGithubCallbackRouteImport } from './routes/api/github/callback'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
+import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
+import { Route as ApiPublicProjectsWatermarkStatusRouteImport } from './routes/api/public/projects/watermark-status'
+import { Route as ApiPublicProjectsRemoveWatermarkRouteImport } from './routes/api/public/projects/remove-watermark'
+import { Route as ApiPublicGithubCallbackRouteImport } from './routes/api/public/github/callback'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -39,61 +39,9 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiGithubCallbackRoute = ApiGithubCallbackRouteImport.update({
-  id: '/api/github/callback',
-  path: '/api/github/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiGithubConnectRoute = ApiGithubConnectRouteImport.update({
-  id: '/api/github/connect',
-  path: '/api/github/connect',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiGithubDisconnectRoute = ApiGithubDisconnectRouteImport.update({
-  id: '/api/github/disconnect',
-  path: '/api/github/disconnect',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiGithubRepositoriesRoute = ApiGithubRepositoriesRouteImport.update({
-  id: '/api/github/repositories',
-  path: '/api/github/repositories',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiGithubStatusRoute = ApiGithubStatusRouteImport.update({
-  id: '/api/github/status',
-  path: '/api/github/status',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicActivateLicenseRoute =
-  ApiPublicActivateLicenseRouteImport.update({
-    id: '/api/public/activate-license',
-    path: '/api/public/activate-license',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicDeactivateDeviceRoute =
-  ApiPublicDeactivateDeviceRouteImport.update({
-    id: '/api/public/deactivate-device',
-    path: '/api/public/deactivate-device',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicOptimizePromptRoute = ApiPublicOptimizePromptRouteImport.update({
-  id: '/api/public/optimize-prompt',
-  path: '/api/public/optimize-prompt',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicRecoverDeviceRoute = ApiPublicRecoverDeviceRouteImport.update({
-  id: '/api/public/recover-device',
-  path: '/api/public/recover-device',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicTranscribeRoute = ApiPublicTranscribeRouteImport.update({
-  id: '/api/public/transcribe',
-  path: '/api/public/transcribe',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicValidateLicenseRoute =
@@ -102,15 +50,67 @@ const ApiPublicValidateLicenseRoute =
     path: '/api/public/validate-license',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicGithubCallbackRoute = ApiPublicGithubCallbackRouteImport.update({
-  id: '/api/public/github/callback',
-  path: '/api/public/github/callback',
+const ApiPublicTranscribeRoute = ApiPublicTranscribeRouteImport.update({
+  id: '/api/public/transcribe',
+  path: '/api/public/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicProjectsRemoveWatermarkRoute =
-  ApiPublicProjectsRemoveWatermarkRouteImport.update({
-    id: '/api/public/projects/remove-watermark',
-    path: '/api/public/projects/remove-watermark',
+const ApiPublicRecoverDeviceRoute = ApiPublicRecoverDeviceRouteImport.update({
+  id: '/api/public/recover-device',
+  path: '/api/public/recover-device',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicOptimizePromptRoute = ApiPublicOptimizePromptRouteImport.update({
+  id: '/api/public/optimize-prompt',
+  path: '/api/public/optimize-prompt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicDeactivateDeviceRoute =
+  ApiPublicDeactivateDeviceRouteImport.update({
+    id: '/api/public/deactivate-device',
+    path: '/api/public/deactivate-device',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicActivateLicenseRoute =
+  ApiPublicActivateLicenseRouteImport.update({
+    id: '/api/public/activate-license',
+    path: '/api/public/activate-license',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiGithubStatusRoute = ApiGithubStatusRouteImport.update({
+  id: '/api/github/status',
+  path: '/api/github/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubRepositoriesRoute = ApiGithubRepositoriesRouteImport.update({
+  id: '/api/github/repositories',
+  path: '/api/github/repositories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubDisconnectRoute = ApiGithubDisconnectRouteImport.update({
+  id: '/api/github/disconnect',
+  path: '/api/github/disconnect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubConnectRoute = ApiGithubConnectRouteImport.update({
+  id: '/api/github/connect',
+  path: '/api/github/connect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubCallbackRoute = ApiGithubCallbackRouteImport.update({
+  id: '/api/github/callback',
+  path: '/api/github/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
+  id: '/api/public/webhooks/sales',
+  path: '/api/public/webhooks/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWebhooksEnsinaflixRoute =
+  ApiPublicWebhooksEnsinaflixRouteImport.update({
+    id: '/api/public/webhooks/ensinaflix',
+    path: '/api/public/webhooks/ensinaflix',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicProjectsWatermarkStatusRoute =
@@ -119,15 +119,15 @@ const ApiPublicProjectsWatermarkStatusRoute =
     path: '/api/public/projects/watermark-status',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicWebhooksEnsinaflixRoute =
-  ApiPublicWebhooksEnsinaflixRouteImport.update({
-    id: '/api/public/webhooks/ensinaflix',
-    path: '/api/public/webhooks/ensinaflix',
+const ApiPublicProjectsRemoveWatermarkRoute =
+  ApiPublicProjectsRemoveWatermarkRouteImport.update({
+    id: '/api/public/projects/remove-watermark',
+    path: '/api/public/projects/remove-watermark',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
-  id: '/api/public/webhooks/sales',
-  path: '/api/public/webhooks/sales',
+const ApiPublicGithubCallbackRoute = ApiPublicGithubCallbackRouteImport.update({
+  id: '/api/public/github/callback',
+  path: '/api/public/github/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -285,11 +285,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -299,81 +299,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/github/callback': {
-      id: '/api/github/callback'
-      path: '/api/github/callback'
-      fullPath: '/api/github/callback'
-      preLoaderRoute: typeof ApiGithubCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/github/connect': {
-      id: '/api/github/connect'
-      path: '/api/github/connect'
-      fullPath: '/api/github/connect'
-      preLoaderRoute: typeof ApiGithubConnectRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/github/disconnect': {
-      id: '/api/github/disconnect'
-      path: '/api/github/disconnect'
-      fullPath: '/api/github/disconnect'
-      preLoaderRoute: typeof ApiGithubDisconnectRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/github/repositories': {
-      id: '/api/github/repositories'
-      path: '/api/github/repositories'
-      fullPath: '/api/github/repositories'
-      preLoaderRoute: typeof ApiGithubRepositoriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/github/status': {
-      id: '/api/github/status'
-      path: '/api/github/status'
-      fullPath: '/api/github/status'
-      preLoaderRoute: typeof ApiGithubStatusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/activate-license': {
-      id: '/api/public/activate-license'
-      path: '/api/public/activate-license'
-      fullPath: '/api/public/activate-license'
-      preLoaderRoute: typeof ApiPublicActivateLicenseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/deactivate-device': {
-      id: '/api/public/deactivate-device'
-      path: '/api/public/deactivate-device'
-      fullPath: '/api/public/deactivate-device'
-      preLoaderRoute: typeof ApiPublicDeactivateDeviceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/optimize-prompt': {
-      id: '/api/public/optimize-prompt'
-      path: '/api/public/optimize-prompt'
-      fullPath: '/api/public/optimize-prompt'
-      preLoaderRoute: typeof ApiPublicOptimizePromptRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/recover-device': {
-      id: '/api/public/recover-device'
-      path: '/api/public/recover-device'
-      fullPath: '/api/public/recover-device'
-      preLoaderRoute: typeof ApiPublicRecoverDeviceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/transcribe': {
-      id: '/api/public/transcribe'
-      path: '/api/public/transcribe'
-      fullPath: '/api/public/transcribe'
-      preLoaderRoute: typeof ApiPublicTranscribeRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/validate-license': {
@@ -383,25 +313,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicValidateLicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/github/callback': {
-      id: '/api/public/github/callback'
-      path: '/api/public/github/callback'
-      fullPath: '/api/public/github/callback'
-      preLoaderRoute: typeof ApiPublicGithubCallbackRouteImport
+    '/api/public/transcribe': {
+      id: '/api/public/transcribe'
+      path: '/api/public/transcribe'
+      fullPath: '/api/public/transcribe'
+      preLoaderRoute: typeof ApiPublicTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/projects/remove-watermark': {
-      id: '/api/public/projects/remove-watermark'
-      path: '/api/public/projects/remove-watermark'
-      fullPath: '/api/public/projects/remove-watermark'
-      preLoaderRoute: typeof ApiPublicProjectsRemoveWatermarkRouteImport
+    '/api/public/recover-device': {
+      id: '/api/public/recover-device'
+      path: '/api/public/recover-device'
+      fullPath: '/api/public/recover-device'
+      preLoaderRoute: typeof ApiPublicRecoverDeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/projects/watermark-status': {
-      id: '/api/public/projects/watermark-status'
-      path: '/api/public/projects/watermark-status'
-      fullPath: '/api/public/projects/watermark-status'
-      preLoaderRoute: typeof ApiPublicProjectsWatermarkStatusRouteImport
+    '/api/public/optimize-prompt': {
+      id: '/api/public/optimize-prompt'
+      path: '/api/public/optimize-prompt'
+      fullPath: '/api/public/optimize-prompt'
+      preLoaderRoute: typeof ApiPublicOptimizePromptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/deactivate-device': {
+      id: '/api/public/deactivate-device'
+      path: '/api/public/deactivate-device'
+      fullPath: '/api/public/deactivate-device'
+      preLoaderRoute: typeof ApiPublicDeactivateDeviceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/activate-license': {
+      id: '/api/public/activate-license'
+      path: '/api/public/activate-license'
+      fullPath: '/api/public/activate-license'
+      preLoaderRoute: typeof ApiPublicActivateLicenseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/status': {
+      id: '/api/github/status'
+      path: '/api/github/status'
+      fullPath: '/api/github/status'
+      preLoaderRoute: typeof ApiGithubStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/repositories': {
+      id: '/api/github/repositories'
+      path: '/api/github/repositories'
+      fullPath: '/api/github/repositories'
+      preLoaderRoute: typeof ApiGithubRepositoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/disconnect': {
+      id: '/api/github/disconnect'
+      path: '/api/github/disconnect'
+      fullPath: '/api/github/disconnect'
+      preLoaderRoute: typeof ApiGithubDisconnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/connect': {
+      id: '/api/github/connect'
+      path: '/api/github/connect'
+      fullPath: '/api/github/connect'
+      preLoaderRoute: typeof ApiGithubConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/callback': {
+      id: '/api/github/callback'
+      path: '/api/github/callback'
+      fullPath: '/api/github/callback'
+      preLoaderRoute: typeof ApiGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/sales': {
+      id: '/api/public/webhooks/sales'
+      path: '/api/public/webhooks/sales'
+      fullPath: '/api/public/webhooks/sales'
+      preLoaderRoute: typeof ApiPublicWebhooksSalesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/webhooks/ensinaflix': {
@@ -411,11 +397,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksEnsinaflixRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/webhooks/sales': {
-      id: '/api/public/webhooks/sales'
-      path: '/api/public/webhooks/sales'
-      fullPath: '/api/public/webhooks/sales'
-      preLoaderRoute: typeof ApiPublicWebhooksSalesRouteImport
+    '/api/public/projects/watermark-status': {
+      id: '/api/public/projects/watermark-status'
+      path: '/api/public/projects/watermark-status'
+      fullPath: '/api/public/projects/watermark-status'
+      preLoaderRoute: typeof ApiPublicProjectsWatermarkStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/projects/remove-watermark': {
+      id: '/api/public/projects/remove-watermark'
+      path: '/api/public/projects/remove-watermark'
+      fullPath: '/api/public/projects/remove-watermark'
+      preLoaderRoute: typeof ApiPublicProjectsRemoveWatermarkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/github/callback': {
+      id: '/api/public/github/callback'
+      path: '/api/public/github/callback'
+      fullPath: '/api/public/github/callback'
+      preLoaderRoute: typeof ApiPublicGithubCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
