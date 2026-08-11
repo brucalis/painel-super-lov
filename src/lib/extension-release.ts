@@ -4,11 +4,19 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.12",
-  updatedAt: "11/08/2026 às 17:42 (horário de Brasília)",
+  version: "32.0.13",
+  updatedAt: "11/08/2026 às 17:55 (horário de Brasília)",
   downloadPath: "/super-lovable.zip",
-  downloadName: "superlovable-v32.0.12.zip",
+  downloadName: "superlovable-v32.0.13.zip",
   changelog: [
+    {
+      version: "32.0.13",
+      date: "11/08/2026",
+      changes: [
+        "Melhorias de estabilidade na otimização de prompts.",
+        "Removidos avisos indevidos relacionados às notificações sonoras.",
+      ],
+    },
     {
       version: "32.0.12",
       date: "11/08/2026",

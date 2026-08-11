@@ -2826,11 +2826,11 @@ function setupCreateProject() {
         var audio = new Audio(url);
         audio.volume = (typeof volume === "number") ? volume : 0.8;
         var p = audio.play();
-        if (p && p.catch) p.catch(function(err){
-          console.warn("[Superlovable] Falha ao reproduzir som:", err);
-        });
-      } catch(err){
-        console.warn("[Superlovable] Falha ao reproduzir som:", err);
+        // O Chrome pode bloquear áudio iniciado sem interação direta do usuário.
+        // Esse comportamento é esperado e não deve aparecer como erro da extensão.
+        if (p && p.catch) p.catch(function(){});
+      } catch(_err){
+        // Notificações sonoras são opcionais; a extensão continua normalmente.
       }
     }
 
