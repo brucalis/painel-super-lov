@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ChevronDown, Download } from "lucide-react";
 import { toast } from "sonner";
 
 type WebhookEvent = {
@@ -108,6 +110,38 @@ export function EnsinaflixTab() {
   function copy(text: string) {
     navigator.clipboard?.writeText(text);
     toast.success("Copiado.");
+  }
+
+  function downloadPayload(event: WebhookEvent, format: "json" | "txt") {
+    const clean = (value: string | null) => String(value || "sem-id").replace(/[^a-zA-Z0-9_-]+/g, "-");
+    const stamp = new Date(event.received_at).toISOString().replace(/[:.]/g, "-");
+    const filename = `webhook-${clean(event.event_type)}-pedido-${clean(event.order_id)}-${stamp}.${format}`;
+    const json = JSON.stringify(event.payload, null, 2);
+    const content = format === "json"
+      ? json
+      : [
+          "LOG DE WEBHOOK — ENSINAFLIX",
+          `Evento: ${event.event_type || "não informado"}`,
+          `Pedido: ${event.order_id || "não informado"}`,
+          `Cliente: ${event.customer_email || "não informado"}`,
+          `Recebido em: ${event.received_at}`,
+          `Situação: ${STATUS_LABEL[event.processing_status] || event.processing_status}`,
+          `HTTP: ${event.http_status ?? "não informado"}`,
+          event.processing_error ? `Erro: ${event.processing_error}` : "",
+          "",
+          "PAYLOAD COMPLETO",
+          json,
+        ].filter((line) => line !== "").join("\n");
+    const blob = new Blob([content], { type: format === "json" ? "application/json;charset=utf-8" : "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`Payload baixado em ${format.toUpperCase()}.`);
   }
 
   const counts = {
@@ -434,9 +468,21 @@ export function EnsinaflixTab() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setViewing(e)}>
-                      Ver payload
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setViewing(e)}>Ver payload</Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-8 w-8" title="Baixar payload" aria-label="Opções para baixar payload">
+                            <Download className="h-4 w-4" />
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => downloadPayload(e, "json")}>Baixar JSON</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => downloadPayload(e, "txt")}>Baixar TXT</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>;
               })}
