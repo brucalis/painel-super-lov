@@ -2,15 +2,25 @@
 // Em toda nova versão, atualize version, updatedAt, downloadName, o ZIP e
 // adicione a nova entrada no início de changelog.
 export const EXTENSION_RELEASE = {
-  version: "32.0.8",
-  updatedAt: "10/08/2026 às 19:25 (horário de Brasília)",
+  version: "32.0.9",
+  updatedAt: "11/08/2026 às 16:11 (horário de Brasília)",
   downloadPath: "/super-lovable.zip",
-  downloadName: "superlovable-v32.0.8.zip",
+  downloadName: "superlovable-v32.0.9.zip",
   changelog: [
+    {
+      version: "32.0.9",
+      date: "11/08/2026",
+      changes: [
+        "Base funcional da versão 32.0.7 restaurada para o envio e a sincronização.",
+        "Paleta roxa aplicada exclusivamente nos arquivos visuais, sem alterar a lógica da extensão.",
+        "Corrigida a falha de inicialização do service worker presente na versão 32.0.8.",
+      ],
+    },
     {
       version: "32.0.8",
       date: "10/08/2026",
       changes: [
+        "Versão substituída pela 32.0.9 devido a uma falha no carregamento do service worker.",
         "Nova identidade visual com fundo azul-marinho e superfícies em roxo-escuro.",
         "Botões e destaques atualizados com o gradiente rosa, fúcsia e violeta da marca.",
         "Pacote de download da home substituído pela nova versão e otimizado.",
