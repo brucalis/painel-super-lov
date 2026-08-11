@@ -217,6 +217,8 @@ export async function createLicenseRecord(input: {
   expires_at?: string | null;
   device_limit?: number;
   order_id?: string | null;
+  external_product_id?: string | null;
+  external_subscription_id?: string | null;
   source?: string;
   notes?: string | null;
   minimum_version?: string | null;
@@ -289,6 +291,8 @@ export async function createLicenseRecord(input: {
       device_limit: input.device_limit ?? 1,
       minimum_version: input.minimum_version ?? null,
       order_id: input.order_id ?? null,
+      external_product_id: input.external_product_id ?? null,
+      external_subscription_id: input.external_subscription_id ?? null,
       source: input.source ?? "manual",
       notes: input.notes ?? null,
     })
@@ -311,8 +315,11 @@ export async function getSetting(key: string): Promise<string | null> {
 }
 
 /** Envia a chave diretamente pelo SendGrid configurado no painel. */
-export async function sendLicenseEmail(licenseId: string): Promise<{ sent: boolean; reason?: string }> {
-  const [{ data: license }, enabled, storedKey, fromEmail, fromName, replyTo] = await Promise.all([
+export async function sendLicenseEmail(
+  licenseId: string,
+  context: { product_name?: string | null; subscription_interval?: string | null } = {},
+): Promise<{ sent: boolean; reason?: string }> {
+  const [{ data: license }, enabled, storedKey, fromEmail, fromName, replyTo, subjectTemplate, bodyTemplate, downloadUrl] = await Promise.all([
     supabaseAdmin
       .from("licenses")
       .select("*, customers(email, full_name)")
@@ -323,6 +330,9 @@ export async function sendLicenseEmail(licenseId: string): Promise<{ sent: boole
     getSetting("sendgrid_from_email"),
     getSetting("sendgrid_from_name"),
     getSetting("sendgrid_reply_to"),
+    getSetting("sendgrid_subject_template"),
+    getSetting("sendgrid_body_template"),
+    getSetting("sendgrid_download_url"),
   ]);
   if (enabled !== "true") return { sent: false, reason: "disabled" };
   const apiKey = process.env.SENDGRID_API_KEY || storedKey || "";
@@ -337,10 +347,21 @@ export async function sendLicenseEmail(licenseId: string): Promise<{ sent: boole
         dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo"
       }).format(new Date(license.expires_at))}`
     : "Validade não informada";
-  const subject = "Sua chave de acesso à Superlovable";
   const safeName = customer.full_name || "Cliente";
-  const text = `Olá, ${safeName}!\n\nSeu pagamento foi confirmado.\n\nChave: ${license.license_key}\nPlano: ${license.plan_name}\n${validity}\n\nAcesse a página de download e instale a extensão. Cada chave permite um navegador/dispositivo por vez.`;
-  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#171126"><h2>Seu acesso à Superlovable está liberado</h2><p>Olá, ${escapeHtml(safeName)}!</p><p>Seu pagamento foi confirmado. Use a chave abaixo para ativar a extensão:</p><div style="padding:18px;border-radius:10px;background:#171126;color:#fff;font-size:20px;font-weight:bold;letter-spacing:1px;text-align:center">${escapeHtml(license.license_key)}</div><p><strong>Plano:</strong> ${escapeHtml(license.plan_name)}<br><strong>Validade:</strong> ${escapeHtml(validity)}</p><p style="color:#6b6475">Cada chave permite um navegador/dispositivo por vez.</p></div>`;
+  const variables: Record<string, string> = {
+    nome: safeName,
+    email: customer.email,
+    produto: context.product_name || license.plan_name,
+    plano: license.plan_name,
+    tipo_assinatura: context.subscription_interval || (license.is_lifetime ? "vitalício" : license.plan),
+    licenca: license.license_key,
+    validade: validity,
+    link_download: downloadUrl || "https://painel-super-lov.lovable.app/",
+  };
+  const render = (template: string) => template.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_, key) => variables[key] ?? "");
+  const subject = render(subjectTemplate || "Bem-vindo(a) à Superlovable — sua licença está pronta");
+  const text = render(bodyTemplate || `Olá, {{nome}}!\n\nSeja muito bem-vindo(a) à Superlovable. Seu pagamento foi confirmado e seu acesso já está liberado.\n\nProduto: {{produto}}\nPlano: {{plano}}\nLicença: {{licenca}}\nValidade: {{validade}}\n\nBaixe a extensão e consulte as instruções aqui:\n{{link_download}}\n\nCada licença pode ser utilizada em um navegador/dispositivo por vez. Se tiver qualquer dúvida, responda a este e-mail e nossa equipe ajudará você.`);
+  const html = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#171126"><div style="padding:28px;border-radius:14px;background:#f8f5ff"><div style="white-space:pre-wrap;line-height:1.6">${escapeHtml(text)}</div></div></div>`;
   const payload: Record<string, unknown> = {
     personalizations: [{ to: [{ email: customer.email, name: safeName }], subject }],
     from: { email: fromEmail, name: fromName || "Superlovable" },

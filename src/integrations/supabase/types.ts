@@ -271,6 +271,8 @@ export type Database = {
           customer_id: string | null
           device_limit: number
           expires_at: string | null
+          external_product_id: string | null
+          external_subscription_id: string | null
           id: string
           is_lifetime: boolean
           key_hint: string
@@ -292,6 +294,8 @@ export type Database = {
           customer_id?: string | null
           device_limit?: number
           expires_at?: string | null
+          external_product_id?: string | null
+          external_subscription_id?: string | null
           id?: string
           is_lifetime?: boolean
           key_hint: string
@@ -313,6 +317,8 @@ export type Database = {
           customer_id?: string | null
           device_limit?: number
           expires_at?: string | null
+          external_product_id?: string | null
+          external_subscription_id?: string | null
           id?: string
           is_lifetime?: boolean
           key_hint?: string

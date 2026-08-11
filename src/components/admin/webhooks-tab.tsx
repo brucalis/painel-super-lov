@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { WebhookEventsLog } from "./webhook-events-log";
 
 type Outbound = {
   id: string;
@@ -172,46 +173,7 @@ export function WebhooksTab() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recebimentos recentes</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Quando</TableHead>
-                <TableHead>Plataforma</TableHead>
-                <TableHead>Evento</TableHead>
-                <TableHead>Pedido</TableHead>
-                <TableHead>Situação</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!events.length && (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                    Nenhuma chamada recebida ainda.
-                  </TableCell>
-                </TableRow>
-              )}
-              {events.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell className="text-xs">{fmt(e.created_at)}</TableCell>
-                  <TableCell className="text-xs">{e.provider}</TableCell>
-                  <TableCell className="text-xs">{e.event_type ?? "—"}</TableCell>
-                  <TableCell className="text-xs">{e.external_id ?? "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant={e.processed ? "default" : "destructive"}>
-                      {e.processed ? "Processado" : (e.error ?? "Ignorado")}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <WebhookEventsLog />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { fmt } from "@/lib/licenses-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -75,7 +76,11 @@ export function EnsinaflixTab() {
     period: "monthly",
     device_limit: "1",
   });
-  const [emailForm, setEmailForm] = useState({ api_key: "", from_email: "", from_name: "Superlovable", reply_to: "", enabled: false });
+  const [emailForm, setEmailForm] = useState({
+    api_key: "", from_email: "", from_name: "Superlovable", reply_to: "", enabled: false,
+    subject_template: "Bem-vindo(a) à Superlovable — sua licença está pronta",
+    body_template: "", download_url: "https://painel-super-lov.lovable.app/",
+  });
   const [emailConfigured, setEmailConfigured] = useState<string | null>(null);
 
   const baseUrl = typeof window === "undefined" ? "" : window.location.origin;
@@ -97,7 +102,11 @@ export function EnsinaflixTab() {
     setSecret(await status({}));
     const email = await getEmailSettings({});
     setEmailConfigured(email.key_hint);
-    setEmailForm((current) => ({ ...current, from_email: email.from_email, from_name: email.from_name, reply_to: email.reply_to, enabled: email.enabled }));
+    setEmailForm((current) => ({
+      ...current, from_email: email.from_email, from_name: email.from_name, reply_to: email.reply_to,
+      enabled: email.enabled, subject_template: email.subject_template,
+      body_template: email.body_template, download_url: email.download_url,
+    }));
     if (!silent) setEventsLoading(false);
   }
 
@@ -305,6 +314,13 @@ export function EnsinaflixTab() {
             <div><Label>E-mail remetente verificado</Label><Input type="email" value={emailForm.from_email} onChange={(e) => setEmailForm({ ...emailForm, from_email: e.target.value })} /></div>
             <div><Label>Nome do remetente</Label><Input value={emailForm.from_name} onChange={(e) => setEmailForm({ ...emailForm, from_name: e.target.value })} /></div>
             <div><Label>Responder para (opcional)</Label><Input type="email" value={emailForm.reply_to} onChange={(e) => setEmailForm({ ...emailForm, reply_to: e.target.value })} /></div>
+            <div className="md:col-span-2"><Label>Link de download e instruções</Label><Input type="url" value={emailForm.download_url} onChange={(e) => setEmailForm({ ...emailForm, download_url: e.target.value })} /></div>
+            <div className="md:col-span-2"><Label>Assunto do e-mail</Label><Input value={emailForm.subject_template} onChange={(e) => setEmailForm({ ...emailForm, subject_template: e.target.value })} /></div>
+            <div className="md:col-span-2">
+              <Label>Mensagem enviada ao cliente</Label>
+              <Textarea className="min-h-72 font-mono text-sm" value={emailForm.body_template} onChange={(e) => setEmailForm({ ...emailForm, body_template: e.target.value })} />
+              <p className="mt-2 text-xs text-muted-foreground">Variáveis disponíveis: <code>{"{{nome}}"}</code>, <code>{"{{email}}"}</code>, <code>{"{{produto}}"}</code>, <code>{"{{plano}}"}</code>, <code>{"{{tipo_assinatura}}"}</code>, <code>{"{{licenca}}"}</code>, <code>{"{{validade}}"}</code> e <code>{"{{link_download}}"}</code>.</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button onClick={async () => {
@@ -394,7 +410,7 @@ export function EnsinaflixTab() {
         </CardContent>
       </Card>
 
-      <Card>
+      {false && viewing && <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -492,22 +508,22 @@ export function EnsinaflixTab() {
             <div className="border-t p-4">
               <div className="mb-2 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Payload completo · {viewing.event_type}</p>
-                  <p className="text-xs text-muted-foreground">Recebido em {fmt(viewing.received_at)} · pedido {viewing.order_id ?? "não identificado"}</p>
+                  <p className="text-sm font-medium">Payload completo · {viewing!.event_type}</p>
+                  <p className="text-xs text-muted-foreground">Recebido em {fmt(viewing!.received_at)} · pedido {viewing!.order_id ?? "não identificado"}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => copy(JSON.stringify(viewing.payload, null, 2))}>Copiar JSON</Button>
+                  <Button size="sm" variant="outline" onClick={() => copy(JSON.stringify(viewing!.payload, null, 2))}>Copiar JSON</Button>
                   <Button size="sm" variant="ghost" onClick={() => setViewing(null)}>Fechar</Button>
                 </div>
               </div>
-              {viewing.processing_error && <p className="mb-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">Erro: {viewing.processing_error}</p>}
+              {viewing!.processing_error && <p className="mb-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">Erro: {viewing!.processing_error}</p>}
               <pre className="max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs">
-                {JSON.stringify(viewing.payload, null, 2)}
+                {JSON.stringify(viewing!.payload, null, 2)}
               </pre>
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }

@@ -37,6 +37,8 @@ export function normalizeEnsinaflixWebhook(body: Record<string, any>) {
   const product = (p.product ?? {}) as Record<string, any>;
   const offer = (p.offer ?? {}) as Record<string, any>;
   const payment = (p.payment ?? {}) as Record<string, any>;
+  const subscription = (p.subscription ?? {}) as Record<string, any>;
+  const subscriptionPlan = (p.subscription_plan ?? {}) as Record<string, any>;
 
   const str = (v: unknown) => (v === undefined || v === null || v === "" ? null : String(v));
 
@@ -45,17 +47,23 @@ export function normalizeEnsinaflixWebhook(body: Record<string, any>) {
     eventLabel: str(body?.event_label),
     isTest: p.test === true,
     orderId: str(order.id),
-    orderStatus: String(order.status ?? p.status ?? "").toLowerCase().trim(),
-    isRenewal: order.is_renewal === true,
+    orderStatus: String(order.status ?? p.status ?? subscription.effective_status ?? subscription.status ?? "").toLowerCase().trim(),
+    isRenewal: order.is_renewal === true || String(body?.event ?? "").toLowerCase() === "assinatura_renovada",
     customerName: str(customer.name),
     customerEmail: String(customer.email ?? "").trim().toLowerCase() || null,
     customerPhone: str(customer.phone),
     customerDocument: str(customer.docNumber ?? customer.document),
     productId: str(product.id),
     productName: str(product.name),
-    offerId: str(offer.id ?? order.product_offer_id),
-    offerPublicId: str(offer.public_id),
-    offerName: str(offer.name),
+    offerId: str(offer.id ?? order.product_offer_id ?? subscriptionPlan.id),
+    offerPublicId: str(offer.public_id ?? subscriptionPlan.public_id),
+    offerName: str(offer.name ?? subscriptionPlan.name),
+    subscriptionId: str(subscription.id),
+    subscriptionStatus: String(subscription.effective_status ?? subscription.status ?? "").toLowerCase().trim(),
+    subscriptionInterval: str(subscriptionPlan.interval),
+    periodStart: str(subscription.current_period_start ?? order.period_start),
+    periodEnd: str(subscription.current_period_end ?? order.period_end),
+    billingType: str(product.billing_type),
     amount: p.amount ?? order.amount ?? offer.price ?? null,
     currency: str(p.currency ?? order.currency ?? offer.currency),
     paymentMethod: str(payment.method ?? p.paymentMethod),
@@ -72,6 +80,8 @@ export function eventKeyFor(n: NormalizedEvent, raw: string): string {
   if (n.gatewayTransactionId)
     return `ensinaflix:${n.gatewayTransactionId}:${n.eventType}:${n.orderStatus || "na"}`;
   if (n.orderId) return `ensinaflix:${n.orderId}:${n.eventType}:${n.timestamp ?? "na"}`;
+  if (n.subscriptionId)
+    return `ensinaflix:subscription:${n.subscriptionId}:${n.eventType}:${n.periodEnd ?? n.timestamp ?? "na"}`;
   return `ensinaflix:hash:${createHash("sha256").update(raw).digest("hex").slice(0, 32)}`;
 }
 
@@ -101,6 +111,8 @@ export const ENSINAFLIX_EVENT_MAP: Record<string, LicenseAction> = {
   assinatura_renovada: "RENEW_LICENSE",
   subscription_renewed: "RENEW_LICENSE",
   assinatura_ativa: "KEEP_ACTIVE",
+  assinatura_criada: "MARK_PENDING",
+  assinatura_em_atraso: "MARK_PENDING",
   assinatura_expirada: "EXPIRE_LICENSE",
   subscription_expired: "EXPIRE_LICENSE",
   assinatura_cancelada: "CANCEL_LICENSE",
@@ -133,6 +145,10 @@ export function resolveLicenseAction(input: {
 }): LicenseAction {
   const event = (input.event || "").toLowerCase();
   const status = (input.orderStatus || "").toLowerCase();
+
+  // A Ensinaflix envia a renovação com status externo ainda marcado como
+  // pending; o próprio evento assinatura_renovada é a confirmação da cobrança.
+  if (event === "assinatura_renovada" || event === "subscription_renewed") return "RENEW_LICENSE";
 
   if (CHARGEBACK_STATUS.includes(status) || event.includes("chargeback")) return "REVOKE_LICENSE";
   if (REFUND_STATUS.includes(status) || event.includes("reembol") || event.includes("refund"))
@@ -187,6 +203,16 @@ export async function findMapping(n: NormalizedEvent): Promise<Mapping | null> {
 }
 
 async function findLicense(n: NormalizedEvent) {
+  if (n.subscriptionId) {
+    const { data } = await supabaseAdmin
+      .from("licenses")
+      .select("*")
+      .eq("external_subscription_id", n.subscriptionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) return data;
+  }
   if (n.orderId) {
     const { data } = await supabaseAdmin
       .from("licenses")
@@ -206,6 +232,7 @@ async function findLicense(n: NormalizedEvent) {
         .from("licenses")
         .select("*")
         .eq("customer_id", cust.id)
+        .eq("external_product_id", n.productId ?? "")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -238,49 +265,19 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
     if (!mapping)
       return { processed: false, reason: "UNKNOWN_PRODUCT_MAPPING", action, licenseId: null };
 
-    const existing = await findLicense(n);
-    if (existing) {
-      // Renovação ou reenvio do mesmo pedido: estende, nunca gera segunda chave.
-      const base =
-        existing.expires_at && Date.parse(existing.expires_at) > Date.now()
-          ? Date.parse(existing.expires_at)
-          : Date.now();
-      const durationMs = mapping.duration_minutes
-        ? mapping.duration_minutes * 60000
-        : mapping.duration_days
-          ? mapping.duration_days * 86400000
-          : 0;
-      const expires = mapping.is_lifetime || !durationMs ? null : new Date(base + durationMs).toISOString();
-      await supabaseAdmin
-        .from("licenses")
-        .update({ status: "active", expires_at: expires, is_lifetime: mapping.is_lifetime })
-        .eq("id", existing.id);
-      await logEvent(existing.id, "license.renewed", `Renovada pela Ensinaflix (${n.eventType}).`, {
-        order_id: n.orderId,
-      });
-      await dispatchOutbound("license.updated", existing.id);
-      return {
-        processed: true,
-        action: "RENEW_LICENSE",
-        licenseId: existing.id,
-        license: {
-          id: existing.id,
-          license_key: existing.license_key,
-          key_hint: existing.key_hint,
-          expires_at: expires,
-          is_lifetime: mapping.is_lifetime,
-        },
-      };
-    }
-
+    // Cada pagamento/renovação confirmado recebe uma nova chave. A
+    // idempotência do webhook impede duplicidade para o mesmo evento.
     const license = await createLicenseRecord({
       plan: mapping.plan_code,
       plan_name: mapping.plan_name,
       is_lifetime: mapping.is_lifetime,
       duration_days: mapping.duration_days,
       duration_minutes: mapping.duration_minutes,
+      expires_at: mapping.is_lifetime ? null : n.periodEnd,
       device_limit: mapping.device_limit,
       order_id: n.orderId,
+      external_product_id: n.productId,
+      external_subscription_id: n.subscriptionId,
       source: "ensinaflix",
       customer: n.customerEmail
         ? {
@@ -292,7 +289,10 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
         : null,
     });
     const { sendLicenseEmail } = await import("./license.server");
-    await sendLicenseEmail(license.id);
+    await sendLicenseEmail(license.id, {
+      product_name: n.productName,
+      subscription_interval: n.subscriptionInterval,
+    });
     return {
       processed: true,
       action: "CREATE_LICENSE",

@@ -106,11 +106,10 @@ export const Route = createFileRoute("/api/public/webhooks/ensinaflix")({
         }
 
         // ---- validação mínima -----------------------------------------------
-        if (!body.event || !body.payload || !n.orderId || !n.customerEmail) {
+        if (!body.event || !body.payload || !n.customerEmail) {
           const faltando = [
             !body.event && "event",
             !body.payload && "payload",
-            !n.orderId && "payload.order.id",
             !n.customerEmail && "payload.customer.email",
           ].filter(Boolean);
           await logRejected(`INVALID_PAYLOAD: ${faltando.join(", ")}`, 400);
