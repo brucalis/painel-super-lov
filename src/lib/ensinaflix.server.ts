@@ -53,7 +53,7 @@ export function normalizeEnsinaflixWebhook(body: Record<string, any>) {
     customerDocument: str(customer.docNumber ?? customer.document),
     productId: str(product.id),
     productName: str(product.name),
-    offerId: str(offer.id),
+    offerId: str(offer.id ?? order.product_offer_id),
     offerPublicId: str(offer.public_id),
     offerName: str(offer.name),
     amount: p.amount ?? order.amount ?? offer.price ?? null,
@@ -154,6 +154,7 @@ export type Mapping = {
   plan_code: string;
   plan_name: string;
   duration_days: number | null;
+  duration_minutes?: number | null;
   is_lifetime: boolean;
   device_limit: number;
 };
@@ -244,10 +245,12 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
         existing.expires_at && Date.parse(existing.expires_at) > Date.now()
           ? Date.parse(existing.expires_at)
           : Date.now();
-      const expires =
-        mapping.is_lifetime || !mapping.duration_days
-          ? null
-          : new Date(base + mapping.duration_days * 86400000).toISOString();
+      const durationMs = mapping.duration_minutes
+        ? mapping.duration_minutes * 60000
+        : mapping.duration_days
+          ? mapping.duration_days * 86400000
+          : 0;
+      const expires = mapping.is_lifetime || !durationMs ? null : new Date(base + durationMs).toISOString();
       await supabaseAdmin
         .from("licenses")
         .update({ status: "active", expires_at: expires, is_lifetime: mapping.is_lifetime })
@@ -275,6 +278,7 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
       plan_name: mapping.plan_name,
       is_lifetime: mapping.is_lifetime,
       duration_days: mapping.duration_days,
+      duration_minutes: mapping.duration_minutes,
       device_limit: mapping.device_limit,
       order_id: n.orderId,
       source: "ensinaflix",
@@ -287,6 +291,8 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
           }
         : null,
     });
+    const { sendLicenseEmail } = await import("./license.server");
+    await sendLicenseEmail(license.id);
     return {
       processed: true,
       action: "CREATE_LICENSE",

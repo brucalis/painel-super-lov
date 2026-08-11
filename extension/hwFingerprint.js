@@ -140,29 +140,87 @@ async function generateHardwareFingerprint() {
 // Cache the fingerprint to avoid recalculation
 let _cachedFingerprint = null;
 
+function qlStorageGet(area, keys) {
+  return new Promise((resolve) => {
+    try { area.get(keys, (value) => resolve(value || {})); }
+    catch (_) { resolve({}); }
+  });
+}
+
+function qlStorageSet(area, value) {
+  return new Promise((resolve) => {
+    try { area.set(value, () => resolve()); }
+    catch (_) { resolve(); }
+  });
+}
+
+function qlPageBindingGet() {
+  try {
+    const raw = window.localStorage.getItem("superlovable_browser_binding_v2");
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
+
+function qlPageBindingSet(binding) {
+  try { window.localStorage.setItem("superlovable_browser_binding_v2", JSON.stringify(binding)); }
+  catch (_) {}
+}
+
+async function qlHash(value) {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function getHardwareFingerprint() {
   if (_cachedFingerprint) return _cachedFingerprint;
 
-  // Check storage first
-  return new Promise(async (resolve) => {
-    chrome.storage.local.get(["ql_hw_fingerprint"], async (res) => {
-      if (res.ql_hw_fingerprint) {
-        _cachedFingerprint = res.ql_hw_fingerprint;
-        resolve(_cachedFingerprint);
-      } else {
-        try {
-          const fp = await generateHardwareFingerprint();
-          _cachedFingerprint = fp;
-          chrome.storage.local.set({ ql_hw_fingerprint: fp });
-          resolve(fp);
-        } catch(e) {
-          // Fallback to random UUID if fingerprint fails completely
-          const fallback = crypto.randomUUID();
-          _cachedFingerprint = fallback;
-          chrome.storage.local.set({ ql_hw_fingerprint: fallback });
-          resolve(fallback);
-        }
-      }
-    });
-  });
+  const local = await qlStorageGet(chrome.storage.local, [
+    "ql_hw_fingerprint", "ql_bound_device_id", "ql_session_id"
+  ]);
+  let hardwareId = local.ql_hw_fingerprint;
+  if (!hardwareId) {
+    try { hardwareId = await generateHardwareFingerprint(); }
+    catch (_) { hardwareId = crypto.randomUUID(); }
+    await qlStorageSet(chrome.storage.local, { ql_hw_fingerprint: hardwareId });
+  }
+
+  const syncArea = chrome.storage.sync || chrome.storage.local;
+  const synced = await qlStorageGet(syncArea, ["ql_browser_binding"]);
+  // O vínculo no domínio da Lovable sobrevive à remoção/reinstalação da
+  // extensão, inclusive quando o ID da extensão descompactada muda.
+  const pageBinding = qlPageBindingGet();
+  const binding = pageBinding || synced.ql_browser_binding || null;
+
+  // Compatibilidade: instalações que já estavam licenciadas mantêm o ID antigo
+  // e o registram no Chrome Sync antes de qualquer mudança de algoritmo.
+  if (local.ql_session_id && !local.ql_bound_device_id && !binding) {
+    const legacy = String(hardwareId);
+    const legacyBinding = { hardware_id: hardwareId, device_id: legacy, version: 1 };
+    await qlStorageSet(chrome.storage.local, { ql_bound_device_id: legacy });
+    await qlStorageSet(syncArea, { ql_browser_binding: legacyBinding });
+    qlPageBindingSet(legacyBinding);
+    _cachedFingerprint = legacy;
+    return legacy;
+  }
+
+  // Reinstalação/atualização no mesmo perfil e computador recupera o
+  // mesmo ID. Em outro computador, o hardware não confere; em outro perfil do
+  // Chrome, o espaço de chrome.storage.sync é diferente.
+  if (binding && binding.hardware_id === hardwareId && binding.device_id) {
+    _cachedFingerprint = String(binding.device_id);
+    await qlStorageSet(chrome.storage.local, { ql_bound_device_id: _cachedFingerprint });
+    await qlStorageSet(syncArea, { ql_browser_binding: binding });
+    qlPageBindingSet(binding);
+    return _cachedFingerprint;
+  }
+
+  const profileId = crypto.randomUUID();
+  const deviceId = await qlHash("superlovable|" + hardwareId + "|" + profileId);
+  const newBinding = { hardware_id: hardwareId, profile_id: profileId, device_id: deviceId, version: 2 };
+  await qlStorageSet(chrome.storage.local, { ql_bound_device_id: deviceId });
+  await qlStorageSet(syncArea, { ql_browser_binding: newBinding });
+  qlPageBindingSet(newBinding);
+  _cachedFingerprint = deviceId;
+  return deviceId;
 }

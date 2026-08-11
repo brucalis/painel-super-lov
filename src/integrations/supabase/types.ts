@@ -218,6 +218,7 @@ export type Database = {
           created_at: string
           device_limit: number
           duration_days: number | null
+          duration_minutes: number | null
           ensinaflix_offer_id: string | null
           ensinaflix_offer_public_id: string | null
           ensinaflix_product_id: string | null
@@ -233,6 +234,7 @@ export type Database = {
           created_at?: string
           device_limit?: number
           duration_days?: number | null
+          duration_minutes?: number | null
           ensinaflix_offer_id?: string | null
           ensinaflix_offer_public_id?: string | null
           ensinaflix_product_id?: string | null
@@ -248,6 +250,7 @@ export type Database = {
           created_at?: string
           device_limit?: number
           duration_days?: number | null
+          duration_minutes?: number | null
           ensinaflix_offer_id?: string | null
           ensinaflix_offer_public_id?: string | null
           ensinaflix_product_id?: string | null

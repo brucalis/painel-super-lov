@@ -213,6 +213,7 @@ export async function createLicenseRecord(input: {
   plan_name?: string;
   is_lifetime?: boolean;
   duration_days?: number | null;
+  duration_minutes?: number | null;
   expires_at?: string | null;
   device_limit?: number;
   order_id?: string | null;
@@ -267,6 +268,8 @@ export async function createLicenseRecord(input: {
   let expiresAt: string | null = null;
   if (!isLifetime) {
     if (input.expires_at) expiresAt = new Date(input.expires_at).toISOString();
+    else if (input.duration_minutes)
+      expiresAt = new Date(Date.now() + input.duration_minutes * 60000).toISOString();
     else if (input.duration_days)
       expiresAt = new Date(Date.now() + input.duration_days * 86400000).toISOString();
   }
@@ -305,4 +308,67 @@ export async function getSetting(key: string): Promise<string | null> {
     .eq("key", key)
     .maybeSingle();
   return data?.value ?? null;
+}
+
+/** Envia a chave diretamente pelo SendGrid configurado no painel. */
+export async function sendLicenseEmail(licenseId: string): Promise<{ sent: boolean; reason?: string }> {
+  const [{ data: license }, enabled, storedKey, fromEmail, fromName, replyTo] = await Promise.all([
+    supabaseAdmin
+      .from("licenses")
+      .select("*, customers(email, full_name)")
+      .eq("id", licenseId)
+      .maybeSingle(),
+    getSetting("sendgrid_enabled"),
+    getSetting("sendgrid_api_key"),
+    getSetting("sendgrid_from_email"),
+    getSetting("sendgrid_from_name"),
+    getSetting("sendgrid_reply_to"),
+  ]);
+  if (enabled !== "true") return { sent: false, reason: "disabled" };
+  const apiKey = process.env.SENDGRID_API_KEY || storedKey || "";
+  const customer = license?.customers as { email?: string; full_name?: string | null } | null;
+  if (!license || !customer?.email) return { sent: false, reason: "customer_email_missing" };
+  if (!apiKey || !fromEmail) return { sent: false, reason: "sendgrid_not_configured" };
+
+  const validity = license.is_lifetime
+    ? "Acesso vitalício"
+    : license.expires_at
+    ? `Válida até ${new Intl.DateTimeFormat("pt-BR", {
+        dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo"
+      }).format(new Date(license.expires_at))}`
+    : "Validade não informada";
+  const subject = "Sua chave de acesso à Superlovable";
+  const safeName = customer.full_name || "Cliente";
+  const text = `Olá, ${safeName}!\n\nSeu pagamento foi confirmado.\n\nChave: ${license.license_key}\nPlano: ${license.plan_name}\n${validity}\n\nAcesse a página de download e instale a extensão. Cada chave permite um navegador/dispositivo por vez.`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#171126"><h2>Seu acesso à Superlovable está liberado</h2><p>Olá, ${escapeHtml(safeName)}!</p><p>Seu pagamento foi confirmado. Use a chave abaixo para ativar a extensão:</p><div style="padding:18px;border-radius:10px;background:#171126;color:#fff;font-size:20px;font-weight:bold;letter-spacing:1px;text-align:center">${escapeHtml(license.license_key)}</div><p><strong>Plano:</strong> ${escapeHtml(license.plan_name)}<br><strong>Validade:</strong> ${escapeHtml(validity)}</p><p style="color:#6b6475">Cada chave permite um navegador/dispositivo por vez.</p></div>`;
+  const payload: Record<string, unknown> = {
+    personalizations: [{ to: [{ email: customer.email, name: safeName }], subject }],
+    from: { email: fromEmail, name: fromName || "Superlovable" },
+    content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
+  };
+  if (replyTo) payload.reply_to = { email: replyTo };
+  let response: Response;
+  try {
+    response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    await logEvent(licenseId, "email.failed", "SendGrid indisponível; a licença foi gerada normalmente.", {
+      detail: error instanceof Error ? error.message : "network_error",
+    });
+    return { sent: false, reason: "sendgrid_unavailable" };
+  }
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 300);
+    await logEvent(licenseId, "email.failed", "Falha ao enviar e-mail da licença.", { status: response.status, detail });
+    return { sent: false, reason: `sendgrid_${response.status}` };
+  }
+  await logEvent(licenseId, "email.sent", `Chave enviada para ${customer.email}.`);
+  return { sent: true };
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char] || char);
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { getEnsinaflixSecretStatus, rotateEnsinaflixSecret } from "@/lib/licenses.functions";
+import { getEnsinaflixSecretStatus, rotateEnsinaflixSecret, getSendGridSettings, saveSendGridSettings } from "@/lib/licenses.functions";
 import { fmt } from "@/lib/licenses-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ type Mapping = {
   plan_code: string;
   plan_name: string;
   duration_days: number | null;
+  duration_minutes: number | null;
   is_lifetime: boolean;
   device_limit: number;
   is_active: boolean;
@@ -52,6 +53,8 @@ const STATUS_LABEL: Record<string, string> = {
 export function EnsinaflixTab() {
   const rotate = useServerFn(rotateEnsinaflixSecret);
   const status = useServerFn(getEnsinaflixSecretStatus);
+  const getEmailSettings = useServerFn(getSendGridSettings);
+  const saveEmailSettings = useServerFn(saveSendGridSettings);
   const [secret, setSecret] = useState<{ configured: boolean; hint: string | null; full: string | null; source: string | null }>({
     configured: false,
     hint: null,
@@ -64,12 +67,11 @@ export function EnsinaflixTab() {
   const [form, setForm] = useState({
     ensinaflix_product_id: "",
     ensinaflix_offer_public_id: "",
-    plan_code: "twelve_months",
-    plan_name: "Plano Anual",
-    duration_days: "365",
-    is_lifetime: false,
+    period: "monthly",
     device_limit: "1",
   });
+  const [emailForm, setEmailForm] = useState({ api_key: "", from_email: "", from_name: "Superlovable", reply_to: "", enabled: false });
+  const [emailConfigured, setEmailConfigured] = useState<string | null>(null);
 
   const baseUrl = typeof window === "undefined" ? "" : window.location.origin;
   const endpoint = `${baseUrl}/api/public/webhooks/ensinaflix`;
@@ -87,6 +89,9 @@ export function EnsinaflixTab() {
     setEvents((ev ?? []) as WebhookEvent[]);
     setMaps((mp ?? []) as Mapping[]);
     setSecret(await status({}));
+    const email = await getEmailSettings({});
+    setEmailConfigured(email.key_hint);
+    setEmailForm((current) => ({ ...current, from_email: email.from_email, from_name: email.from_name, reply_to: email.reply_to, enabled: email.enabled }));
   }
 
   useEffect(() => {
@@ -108,15 +113,24 @@ export function EnsinaflixTab() {
   async function addMapping() {
     if (!form.ensinaflix_product_id && !form.ensinaflix_offer_public_id)
       return toast.error("Informe o ID do produto ou o ID público da oferta.");
+    const periods: Record<string, { code: string; name: string; days?: number; minutes?: number; lifetime?: boolean }> = {
+      test: { code: "test_30m", name: "Teste · 30 minutos", minutes: 30 },
+      weekly: { code: "weekly", name: "Semanal · 7 dias", days: 7 },
+      monthly: { code: "monthly", name: "Mensal · 30 dias", days: 30 },
+      annual: { code: "annual", name: "Anual · 12 meses", days: 365 },
+      lifetime: { code: "lifetime", name: "Vitalícia", lifetime: true },
+    };
+    const selected = periods[form.period] || periods.monthly;
     const { error } = await supabase.from("license_product_mappings").insert({
       provider: "ensinaflix",
       ensinaflix_product_id: form.ensinaflix_product_id || null,
       ensinaflix_offer_public_id: form.ensinaflix_offer_public_id || null,
-      plan_code: form.plan_code,
-      plan_name: form.plan_name,
-      duration_days: form.is_lifetime ? null : Number(form.duration_days) || null,
-      is_lifetime: form.is_lifetime,
-      device_limit: Number(form.device_limit) || 1,
+      plan_code: selected.code,
+      plan_name: selected.name,
+      duration_days: selected.days ?? null,
+      duration_minutes: selected.minutes ?? null,
+      is_lifetime: !!selected.lifetime,
+      device_limit: 1,
     });
     if (error) return toast.error(error.message);
     toast.success("Mapeamento cadastrado.");
@@ -219,6 +233,38 @@ export function EnsinaflixTab() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Envio de licenças pelo SendGrid</CardTitle>
+          <CardDescription>A chave é enviada automaticamente ao e-mail do comprador depois da confirmação do pagamento.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Badge variant={emailConfigured ? "default" : "destructive"}>API: {emailConfigured || "não configurada"}</Badge>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div><Label>API Key do SendGrid</Label><Input type="password" placeholder={emailConfigured ? "Deixe vazio para manter a atual" : "SG..."} value={emailForm.api_key} onChange={(e) => setEmailForm({ ...emailForm, api_key: e.target.value })} /></div>
+            <div><Label>E-mail remetente verificado</Label><Input type="email" value={emailForm.from_email} onChange={(e) => setEmailForm({ ...emailForm, from_email: e.target.value })} /></div>
+            <div><Label>Nome do remetente</Label><Input value={emailForm.from_name} onChange={(e) => setEmailForm({ ...emailForm, from_name: e.target.value })} /></div>
+            <div><Label>Responder para (opcional)</Label><Input type="email" value={emailForm.reply_to} onChange={(e) => setEmailForm({ ...emailForm, reply_to: e.target.value })} /></div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={async () => {
+              const activeForm = { ...emailForm, enabled: true };
+              await saveEmailSettings({ data: activeForm });
+              toast.success("SendGrid salvo e envio automático ativado.");
+              setEmailForm({ ...activeForm, api_key: "" });
+              load();
+            }}>Salvar e ativar</Button>
+            {emailForm.enabled && <Button variant="outline" onClick={async () => {
+              const disabledForm = { ...emailForm, enabled: false };
+              await saveEmailSettings({ data: disabledForm });
+              setEmailForm({ ...disabledForm, api_key: "" });
+              toast.success("Envio automático desativado.");
+              load();
+            }}>Desativar envio automático</Button>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Mapeamento de produtos e ofertas</CardTitle>
           <CardDescription>Define o plano e a validade gerada para cada produto/oferta.</CardDescription>
         </CardHeader>
@@ -234,23 +280,9 @@ export function EnsinaflixTab() {
               value={form.ensinaflix_offer_public_id}
               onChange={(e) => setForm({ ...form, ensinaflix_offer_public_id: e.target.value })}
             />
-            <Input
-              placeholder="plan_code"
-              value={form.plan_code}
-              onChange={(e) => setForm({ ...form, plan_code: e.target.value })}
-            />
-            <Input
-              placeholder="Nome do plano"
-              value={form.plan_name}
-              onChange={(e) => setForm({ ...form, plan_name: e.target.value })}
-            />
-            <Input
-              placeholder="Dias (vazio = vitalícia)"
-              value={form.duration_days}
-              onChange={(e) =>
-                setForm({ ...form, duration_days: e.target.value, is_lifetime: !e.target.value })
-              }
-            />
+            <select className="rounded-md border bg-background px-3 text-sm" value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })}>
+              <option value="test">Teste · 30 minutos</option><option value="weekly">Semanal · 7 dias</option><option value="monthly">Mensal · 30 dias</option><option value="annual">Anual · 12 meses</option><option value="lifetime">Vitalícia</option>
+            </select>
             <Button onClick={addMapping}>Adicionar</Button>
           </div>
           <Table>
@@ -279,7 +311,7 @@ export function EnsinaflixTab() {
                     {m.plan_name} <span className="text-muted-foreground">({m.plan_code})</span>
                   </TableCell>
                   <TableCell className="text-xs">
-                    {m.is_lifetime ? "Vitalícia" : `${m.duration_days} dias`}
+                    {m.is_lifetime ? "Vitalícia" : m.duration_minutes ? `${m.duration_minutes} minutos` : `${m.duration_days} dias`}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button

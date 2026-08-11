@@ -224,10 +224,7 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
-    plan_name: "Plano Pro",
-    plan: "pro",
-    lifetime: false,
-    duration: "365",
+    period: "monthly",
     device_limit: "1",
     email: "",
     name: "",
@@ -239,12 +236,21 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
   async function submit() {
     setBusy(true);
     try {
+      const periods: Record<string, { plan: string; name: string; days?: number; minutes?: number; lifetime?: boolean }> = {
+        test: { plan: "test_30m", name: "Teste · 30 minutos", minutes: 30 },
+        weekly: { plan: "weekly", name: "Semanal · 7 dias", days: 7 },
+        monthly: { plan: "monthly", name: "Mensal · 30 dias", days: 30 },
+        annual: { plan: "annual", name: "Anual · 12 meses", days: 365 },
+        lifetime: { plan: "lifetime", name: "Vitalícia", lifetime: true },
+      };
+      const selected = periods[form.period] || periods.monthly;
       const created = await create({
         data: {
-          plan: form.plan || "pro",
-          plan_name: form.plan_name || "Plano Pro",
-          is_lifetime: form.lifetime,
-          duration_days: form.lifetime ? null : Number(form.duration) || 365,
+          plan: selected.plan,
+          plan_name: selected.name,
+          is_lifetime: !!selected.lifetime,
+          duration_days: selected.days ?? null,
+          duration_minutes: selected.minutes ?? null,
           device_limit: Number(form.device_limit) || 1,
           order_id: form.order_id || null,
           notes: form.notes || null,
@@ -275,39 +281,28 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
           <DialogDescription>A chave é criada no formato LVA-XXXX-XXXX-XXXX-XXXX.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Nome do plano</Label>
-            <Input value={form.plan_name} onChange={(e) => setForm({ ...form, plan_name: e.target.value })} />
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Tipo e período da licença</Label>
+            <Select value={form.period} onValueChange={(period) => setForm({ ...form, period })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="test">Teste · 30 minutos</SelectItem>
+                <SelectItem value="weekly">Semanal · 7 dias</SelectItem>
+                <SelectItem value="monthly">Mensal · 30 dias</SelectItem>
+                <SelectItem value="annual">Anual · 12 meses</SelectItem>
+                <SelectItem value="lifetime">Vitalícia</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">A validade começa na criação da licença e nunca reinicia ao atualizar ou reinstalar a extensão.</p>
           </div>
           <div className="space-y-2">
-            <Label>Código do plano</Label>
-            <Input value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value })} />
-          </div>
-          <div className="flex items-center justify-between rounded-md border p-3 sm:col-span-2">
-            <div>
-              <Label>Acesso vitalício</Label>
-              <p className="text-xs text-muted-foreground">Sem data de expiração.</p>
-            </div>
-            <Switch checked={form.lifetime} onCheckedChange={(v) => setForm({ ...form, lifetime: v })} />
-          </div>
-          {!form.lifetime && (
-            <div className="space-y-2">
-              <Label>Duração (dias)</Label>
-              <Input
-                type="number"
-                min={1}
-                value={form.duration}
-                onChange={(e) => setForm({ ...form, duration: e.target.value })}
-              />
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label>Limite de dispositivos</Label>
+              <Label>Limite de navegadores/dispositivos</Label>
             <Input
               type="number"
               min={1}
               value={form.device_limit}
               onChange={(e) => setForm({ ...form, device_limit: e.target.value })}
+              disabled
             />
           </div>
           <div className="space-y-2">
@@ -513,7 +508,7 @@ function LicenseDetailDialog({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Dispositivos ({devices.filter((d) => d.active).length}/{license.device_limit})</CardTitle>
+            <CardTitle className="text-sm">Navegadores/dispositivos ({devices.filter((d) => d.active).length}/{license.device_limit})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {!devices.length && <p className="text-sm text-muted-foreground">Nenhum dispositivo ativado.</p>}
