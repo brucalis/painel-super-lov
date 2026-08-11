@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const MAX_PROMPT_LENGTH = 8_000;
 const REQUESTS_PER_MINUTE = 12;
+const AI_MODEL = "google/gemini-2.5-flash";
 
 export const Route = createFileRoute("/api/public/optimize-prompt")({
   server: {
@@ -65,14 +66,14 @@ export const Route = createFileRoute("/api/public/optimize-prompt")({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
+            model: AI_MODEL,
             temperature: 0.3,
             max_tokens: 2_000,
             messages: [
               {
                 role: "system",
                 content:
-                  "Você é o otimizador de prompts da Super Lovable. Reescreva o pedido do usuário para ficar claro, específico e executável por uma IA que cria e edita aplicações. Preserve integralmente a intenção, os requisitos, nomes, números, URLs e restrições. Organize contexto, objetivo, requisitos e critérios de aceite quando isso melhorar a execução. Não responda ao pedido e não explique o que fez. Retorne somente o prompt otimizado, no mesmo idioma do texto original.",
+                  "Você é o otimizador de prompts da Super Lovable. Reescreva o pedido do usuário para ficar claro, específico e executável por uma IA que cria e edita aplicações. Preserve integralmente a intenção, os requisitos, nomes, números, URLs e restrições. Sempre produza uma versão materialmente aprimorada, mesmo quando o texto original já for curto ou claro: acrescente contexto útil, organize objetivo, requisitos e critérios de aceite, sem inventar fatos. Nunca devolva o texto original sem alteração. Não responda ao pedido e não explique o que fez. Retorne somente o prompt otimizado, no mesmo idioma do texto original.",
               },
               { role: "user", content: prompt },
             ],
@@ -109,7 +110,7 @@ export const Route = createFileRoute("/api/public/optimize-prompt")({
         await logEvent(device.licenses.id, "prompt.optimized", "Prompt otimizado pelo Lovable AI.", {
           input_length: prompt.length,
           output_length: optimized.length,
-          model: "google/gemini-2.5-flash",
+          model: AI_MODEL,
           usage,
         });
 

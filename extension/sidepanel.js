@@ -2302,9 +2302,16 @@ licenseKey = key;
     try {
       const sd = await new Promise(r => chrome.storage.local.get(["ql_session_id"], r));
       if (!sd.ql_session_id) throw new Error("Sessão da licença não encontrada. Valide sua chave novamente.");
-      const data = await bgFetch(OPTIMIZE_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + sd.ql_session_id }, body: JSON.stringify({ prompt: textarea.value.trim() }) });
-      if(data.optimized_prompt) { textarea.value = data.optimized_prompt; showAlert('Prompt Otimizado!', 'Seu prompt foi aprimorado com IA.'); }
-      else if(data.error) showAlert('Erro', data.error);
+      const result = await bgFetchRaw(OPTIMIZE_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + sd.ql_session_id }, body: JSON.stringify({ prompt: textarea.value.trim() }) });
+      const data = result && result.data && typeof result.data === "object" ? result.data : {};
+      if (!result || result.ok !== true) throw new Error(data.error || "O otimizador não respondeu (status " + (result && result.status || 0) + ").");
+      const optimized = String(data.optimized_prompt || "").trim();
+      if (!optimized) throw new Error(data.error || "O Lovable AI retornou uma resposta vazia.");
+      textarea.value = optimized;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.dispatchEvent(new Event('change', { bubbles: true }));
+      textarea.focus();
+      showAlert('Prompt Otimizado!', 'Seu prompt foi aprimorado com IA e está pronto para envio.');
     } catch(err) { showAlert('Erro', 'Falha ao otimizar: ' + (err.message || '')); }
     finally { btn.classList.remove('sp-tool-loading'); btn.disabled = false; }
   }

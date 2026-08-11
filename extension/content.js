@@ -845,7 +845,8 @@ function setupOptimize(){
     const licenseToken = storageData.ql_session_id || "";
 
     try {
-      const data = await bgFetch(OPTIMIZE_URL, {
+      if (!licenseToken) throw new Error("Sessão da licença não encontrada. Valide sua chave novamente.");
+      const result = await bgFetchRaw(OPTIMIZE_URL, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json", 
@@ -853,12 +854,15 @@ function setupOptimize(){
         },
         body: JSON.stringify({ prompt: original })
       });
-      if(data.optimized_prompt) {
-        textarea.value = data.optimized_prompt;
-        showCustomAlert("Prompt Otimizado!", "Seu prompt foi aprimorado com IA e está pronto para envio.");
-      } else if(data.error) {
-        showCustomAlert("Erro", data.error);
-      }
+      const data = result && result.data && typeof result.data === "object" ? result.data : {};
+      if (!result || result.ok !== true) throw new Error(data.error || "O otimizador não respondeu (status " + (result && result.status || 0) + ").");
+      const optimized = String(data.optimized_prompt || "").trim();
+      if (!optimized) throw new Error(data.error || "O Lovable AI retornou uma resposta vazia.");
+      textarea.value = optimized;
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      textarea.dispatchEvent(new Event("change", { bubbles: true }));
+      textarea.focus();
+      showCustomAlert("Prompt Otimizado!", "Seu prompt foi aprimorado com IA e está pronto para envio.");
     } catch(err) {
       console.error("[Optimize] erro:", err);
       showCustomAlert("Erro", "Falha ao conectar com o otimizador: " + (err.message || ""));
