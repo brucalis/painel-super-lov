@@ -98,7 +98,8 @@ export function EnsinaflixTab() {
       supabase.from("license_product_mappings").select("*").order("created_at", { ascending: false }),
     ]);
     setEvents((ev ?? []) as WebhookEvent[]);
-    setMaps((mp ?? []) as Mapping[]);
+    setMaps((mp ?? []) as unknown as Mapping[]);
+
     setSecret(await status({}));
     const email = await getEmailSettings({});
     setEmailConfigured(email.key_hint);
@@ -202,7 +203,8 @@ export function EnsinaflixTab() {
       duration_minutes: selected.minutes ?? null,
       is_lifetime: !!selected.lifetime,
       device_limit: 1,
-    });
+    } as any);
+
     if (error) return toast.error(error.message);
     toast.success("Mapeamento cadastrado.");
     setForm({ ...form, ensinaflix_product_id: "", ensinaflix_offer_public_id: "" });

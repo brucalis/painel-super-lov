@@ -294,6 +294,7 @@ export async function createLicenseRecord(input: {
       external_product_id: input.external_product_id ?? null,
       external_subscription_id: input.external_subscription_id ?? null,
       source: input.source ?? "manual",
+
       notes: input.notes ?? null,
     })
     .select("*")

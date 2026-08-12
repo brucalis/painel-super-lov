@@ -207,12 +207,13 @@ async function findLicense(n: NormalizedEvent) {
     const { data } = await supabaseAdmin
       .from("licenses")
       .select("*")
-      .eq("external_subscription_id", n.subscriptionId)
+      .eq("external_subscription_id" as any, n.subscriptionId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (data) return data;
   }
+
   if (n.orderId) {
     const { data } = await supabaseAdmin
       .from("licenses")
@@ -232,12 +233,13 @@ async function findLicense(n: NormalizedEvent) {
         .from("licenses")
         .select("*")
         .eq("customer_id", cust.id)
-        .eq("external_product_id", n.productId ?? "")
+        .eq("external_product_id" as any, n.productId ?? "")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (data) return data;
     }
+
   }
   return null;
 }
