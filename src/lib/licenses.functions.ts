@@ -168,3 +168,53 @@ export const sendSendGridTest = createServerFn({ method: "POST" })
     const { sendSendGridTestEmail } = await import("./license.server");
     return sendSendGridTestEmail(data.email);
   });
+
+export const reprocessEnsinaflixWebhook = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((data: unknown) => z.object({ event_id: z.string().uuid() }).parse(data))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { normalizeEnsinaflixWebhook, processEnsinaflixEvent } = await import("./ensinaflix.server");
+    const { data: event, error } = await supabaseAdmin
+      .from("webhook_events")
+      .select("id, provider, payload, is_test")
+      .eq("id", data.event_id)
+      .eq("provider", "ensinaflix")
+      .single();
+    if (error || !event) throw new Error("Evento da Ensinaflix não encontrado.");
+
+    const normalized = normalizeEnsinaflixWebhook(event.payload as Record<string, unknown>);
+    if (normalized.isTest || event.is_test) {
+      throw new Error("Eventos de teste não geram licenças.");
+    }
+
+    await supabaseAdmin.from("webhook_events").update({
+      processing_status: "processing",
+      processing_error: null,
+      processed_at: null,
+    }).eq("id", event.id);
+
+    try {
+      const result = await processEnsinaflixEvent(normalized);
+      const status = result.processed
+        ? "processed"
+        : result.reason === "EVENT_IGNORED" ? "ignored" : "failed";
+      await supabaseAdmin.from("webhook_events").update({
+        processing_status: status,
+        processing_error: result.reason ?? null,
+        license_id: result.licenseId ?? null,
+        http_status: result.processed ? 200 : 422,
+        processed_at: new Date().toISOString(),
+      }).eq("id", event.id);
+      return { ok: result.processed, status, reason: result.reason ?? null, license_id: result.licenseId ?? null };
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Falha desconhecida no reprocessamento.";
+      await supabaseAdmin.from("webhook_events").update({
+        processing_status: "failed",
+        processing_error: message,
+        http_status: 500,
+        processed_at: new Date().toISOString(),
+      }).eq("id", event.id);
+      throw caught;
+    }
+  });
