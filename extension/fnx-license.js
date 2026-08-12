@@ -6,17 +6,18 @@
   const ACTIVATE_URL = API_BASE + "/activate-license";
   const VALIDATE_URL = API_BASE + "/validate-license";
   const RESET_PAGE = "https://painel-super-lov.lovable.app";
+  const SALES_PAGE = "https://superlovable-lp.lovable.app/";
   const REQUEST_TIMEOUT_MS = 15000;
 
   const MESSAGES = Object.freeze({
     ok: "Licença validada com sucesso.",
-    invalid: "Esta chave não foi reconhecida. Confira os caracteres e tente novamente.",
-    expired: "Seu acesso expirou. Renove para continuar.",
+    invalid: "Essa licença é inválida. Acesse a ferramenta e desbloqueie a Lovable Ilimitada agora mesmo.",
+    expired: "O tempo da sua licença expirou. Continue usando a Lovable Ilimitada sem interrupções. Adquira agora a sua licença.",
     canceled: "Esta licença foi cancelada.",
     refunded: "Esta licença foi reembolsada e não está mais ativa.",
     revoked: "Esta licença foi revogada.",
-    device_limit: "Esta licença já está ativa em outro navegador ou dispositivo. Para trocar, solicite a liberação do acesso anterior.",
-    device_not_authorized: "Esta licença está vinculada a outro navegador ou dispositivo.",
+    device_limit: "Essa licença já está ativa em outro dispositivo e atingiu o número de dispositivos permitidos. Adquira novas licenças e continue usando a Lovable Ilimitada.",
+    device_not_authorized: "Essa licença já está ativa em outro navegador ou dispositivo.",
     version_too_old: "Atualize a extensão para continuar.",
     offline: "Sem conexão com o servidor de licenças.",
     server_error: "O servidor de licenças está indisponível. Tente novamente.",
@@ -165,6 +166,7 @@
     const activation = await request(ACTIVATE_URL, {
       license_key: key,
       device_id: String(deviceId),
+      installation_id: typeof getBrowserInstallationId === "function" ? await getBrowserInstallationId() : null,
       device_name: deviceName(),
       extension_version: extensionVersion(),
     });
@@ -179,5 +181,6 @@
   root.LVB_API_BASES = [API_BASE];
   root.LVB_VALIDATE_URL = VALIDATE_URL;
   root.LVB_RESET_PAGE = RESET_PAGE;
+  root.LVB_SALES_PAGE = SALES_PAGE;
   root.lvbValidate = lvbValidate;
 })();

@@ -32,13 +32,21 @@ export const Route = createFileRoute("/api/public/validate-license")({
           .maybeSingle();
 
         if (!device || !device.active || !device.licenses) {
-          return json({ status: "device_not_authorized", message: "Dispositivo não autorizado." }, 403);
+          return json({
+            status: "device_not_authorized",
+            message: "Essa licença já está ativa em outro navegador ou dispositivo.",
+          }, 403);
         }
 
         const license = device.licenses;
         const status = effectiveStatus(license);
         if (status !== "active") {
-          return json({ status, message: "Licença indisponível." }, status === "expired" ? 402 : 403);
+          return json({
+            status,
+            message: status === "expired"
+              ? "O tempo da sua licença expirou. Continue usando a Lovable Ilimitada sem interrupções. Adquira agora a sua licença."
+              : "Essa licença não está disponível para uso.",
+          }, status === "expired" ? 402 : 403);
         }
         if (license.minimum_version && versionLt(version, license.minimum_version)) {
           return json({ status: "version_too_old", minimum_version: license.minimum_version }, 426);

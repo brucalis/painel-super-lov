@@ -29,6 +29,7 @@
   let spChatHistory = [];
   let licenseKey = null;
   let licenseType = null;
+  let licensePlan = null;
   let licenseLifetime = false;
   const SP_MAX_FILES = 15;
   const SP_MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -871,7 +872,9 @@ if (notifClose) {
   async function validateLicense() {
     const input = document.getElementById('sp-license-input');
     const log = document.getElementById('sp-license-log');
+    const cta = document.getElementById('sp-license-cta');
     const key = input ? input.value.trim() : '';
+    if (cta) cta.style.display = 'none';
     if(!key) { log.className = 'sp-log sp-log-error'; log.textContent = 'Insira uma chave'; return; }
     log.className = 'sp-log sp-log-info'; log.textContent = 'Validando...';
     try {
@@ -882,13 +885,15 @@ if (notifClose) {
         licenseStatus = data.status;
 licenseType = data.license_type || 'paid';
 licenseLifetime = data.lifetime || false;
+licensePlan = data.plan || null;
 licenseKey = key;
-        chrome.storage.local.set({ ql_license_valid: true, ql_license_key: key, ql_session_id: data.session_id, ql_user_name: data.user_name || null, ql_expires_at: data.expires_at || null, ql_activated_at: data.activated_at || null, ql_license_status: data.status || null, ql_license_lifetime: licenseLifetime, ql_license_type: data.license_type || 'paid', }, () => {
+        chrome.storage.local.set({ ql_license_valid: true, ql_license_key: key, ql_session_id: data.session_id, ql_user_name: data.user_name || null, ql_expires_at: data.expires_at || null, ql_activated_at: data.activated_at || null, ql_license_status: data.status || null, ql_license_lifetime: licenseLifetime, ql_license_type: data.license_type || 'paid', ql_license_plan: licensePlan }, () => {
           log.className = 'sp-log sp-log-success'; log.textContent = '' + data.message;
           setTimeout(() => { showMainUI(); startHeartbeat(key); }, 800);
         });
       } else {
         log.className = 'sp-log sp-log-error'; log.textContent = '' + data.message;
+        if (cta && ['invalid','expired','device_limit','device_not_authorized'].includes(data.reason)) cta.style.display = 'block';
       }
     } catch(err) { log.className = 'sp-log sp-log-error'; log.textContent = 'Erro de conexão'; }
   }
@@ -1272,11 +1277,25 @@ licenseKey = key;
     }
   }
 
+  function getRenewalNoticeHtml() {
+    if (!expiresAt || licenseLifetime) return '';
+    const renewablePlans = ['weekly', 'monthly', 'annual'];
+    if (!renewablePlans.includes(String(licensePlan || '').toLowerCase())) return '';
+    const remainingMs = Date.parse(expiresAt) - Date.now();
+    const remainingDays = Math.ceil(remainingMs / 86400000);
+    if (remainingMs <= 0 || remainingDays > 3) return '';
+    const label = remainingDays === 1 ? '1 dia' : remainingDays + ' dias';
+    return '<div class="sp-renewal-alert"><strong>Sua assinatura vai expirar em ' + label + '.</strong>' +
+      'Não esqueça de renovar para continuar usando a Lovable Ilimitada sem interrupções.' +
+      '<a class="sp-renewal-btn" href="https://superlovable-lp.lovable.app/" target="_blank" rel="noopener noreferrer">Renovar licença</a></div>';
+  }
+
   // --- Main UI ---
   function showMainUI() {
   const greeting = spEscapeHtml(userName || 'User');
   const statusBadge = spTemplateStatusBadge(licenseStatus);
   const body = document.getElementById('sp-body');
+  const renewalHtml = getRenewalNoticeHtml();
 
   loadChatHistory(function() {
     body.innerHTML = '<div id="sp-update-banner" style="display:none"></div>' +
@@ -1363,7 +1382,7 @@ licenseKey = key;
 
         '<div class="sp-sync-status" id="sp-sync"><span style="vertical-align:middle;display:inline-flex">' + SP_SVG.clock + '</span> Aguardando sincronização...</div>' +
         '<div class="sp-trial-countdown" id="sp-countdown" style="display:none"></div>' +
-      '</div>' +
+      '</div>' + renewalHtml +
 
       '<div id="sp-reseller-btn" style="display:none;margin-bottom:14px">' +
         '<a href="https://extensaosorax.lovable.app/painelrevenda" target="_blank" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(var(--ts-brand-primary-rgb),0.3);background:rgba(var(--ts-brand-primary-rgb),0.06);color:var(--ql-accent);text-decoration:none;font-size:12px;font-weight:700;transition:all 0.2s">' +
@@ -2575,11 +2594,12 @@ licenseKey = key;
       document.body.classList.toggle('sp-light', !savedDark);
       syncThemeButton();
     });
-    chrome.storage.local.get(["ql_license_valid","ql_license_key","ql_user_name","ql_expires_at","ql_activated_at","ql_license_status","ql_license_type","ql_license_lifetime","ql_session_id"], async (res) => {
+    chrome.storage.local.get(["ql_license_valid","ql_license_key","ql_user_name","ql_expires_at","ql_activated_at","ql_license_status","ql_license_type","ql_license_lifetime","ql_license_plan","ql_session_id"], async (res) => {
       if(res.ql_license_valid) {
         licenseKey = res.ql_license_key || null;
         licenseType = res.ql_license_type || 'paid';
         licenseLifetime = res.ql_license_lifetime || false;
+        licensePlan = res.ql_license_plan || null;
         userName = res.ql_user_name || null;
         expiresAt = res.ql_expires_at || null;
         licenseStatus = res.ql_license_status || null;
@@ -2594,6 +2614,7 @@ expiresAt = data.expires_at || expiresAt;
 licenseStatus = data.status || licenseStatus;
 licenseType = data.license_type || licenseType || 'paid';
 licenseLifetime = data.lifetime || licenseLifetime || false;
+licensePlan = data.plan || licensePlan || null;
 licenseKey = res.ql_license_key || licenseKey;
 sessionId = data.session_id || sessionId;
               chrome.storage.local.set({
@@ -2602,14 +2623,20 @@ sessionId = data.session_id || sessionId;
   ql_license_status: licenseStatus,
   ql_license_type: licenseType,
   ql_license_lifetime: licenseLifetime,
+  ql_license_plan: licensePlan,
   ql_session_id: sessionId
 });
               const nameEl = document.getElementById('sp-name'); if(nameEl) nameEl.textContent = userName || 'User';
               // updateCountdown();
             } else {
-              chrome.storage.local.remove(["ql_license_valid","ql_license_key","ql_session_id","ql_user_name","ql_expires_at","ql_activated_at","ql_license_status"]);
+              chrome.storage.local.remove(["ql_license_valid","ql_session_id","ql_user_name","ql_expires_at","ql_activated_at","ql_license_status"]);
               showLicenseGate();
-              if(data.reason === 'device_conflict') setTimeout(() => showAlert('Acesso Negado', data.message), 500);
+              setTimeout(() => {
+                const log = document.getElementById('sp-license-log');
+                const cta = document.getElementById('sp-license-cta');
+                if (log) { log.className = 'sp-log sp-log-error'; log.textContent = data.message || 'Não foi possível validar a licença.'; }
+                if (cta && ['invalid','expired','device_limit','device_not_authorized'].includes(data.reason)) cta.style.display = 'block';
+              }, 100);
             }
           } catch(e) {}
         } else {

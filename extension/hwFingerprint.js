@@ -139,6 +139,47 @@ async function generateHardwareFingerprint() {
 
 // Cache the fingerprint to avoid recalculation
 let _cachedFingerprint = null;
+let _cachedInstallationId = null;
+
+function qlCookieGet(details) {
+  return new Promise((resolve) => {
+    try { chrome.cookies.get(details, (cookie) => resolve(cookie || null)); }
+    catch (_) { resolve(null); }
+  });
+}
+
+function qlCookieSet(details) {
+  return new Promise((resolve) => {
+    try { chrome.cookies.set(details, (cookie) => resolve(cookie || null)); }
+    catch (_) { resolve(null); }
+  });
+}
+
+// Persiste fora do armazenamento da extensão. O cookie pertence ao perfil do
+// navegador e sobrevive à remoção/reinstalação, mas não é compartilhado com
+// outro perfil do Chrome nem com outro computador.
+async function getBrowserInstallationId() {
+  if (_cachedInstallationId) return _cachedInstallationId;
+  const cookieName = "superlovable_browser_id";
+  const existing = await qlCookieGet({ url: "https://lovable.dev/", name: cookieName });
+  if (existing && existing.value) {
+    _cachedInstallationId = existing.value;
+    return _cachedInstallationId;
+  }
+  const value = crypto.randomUUID();
+  const saved = await qlCookieSet({
+    url: "https://lovable.dev/",
+    name: cookieName,
+    value,
+    path: "/",
+    secure: true,
+    httpOnly: true,
+    sameSite: "lax",
+    expirationDate: Math.floor(Date.now() / 1000) + (400 * 24 * 60 * 60),
+  });
+  _cachedInstallationId = (saved && saved.value) || value;
+  return _cachedInstallationId;
+}
 
 function qlStorageGet(area, keys) {
   return new Promise((resolve) => {
@@ -174,6 +215,15 @@ async function qlHash(value) {
 
 async function getHardwareFingerprint() {
   if (_cachedFingerprint) return _cachedFingerprint;
+
+  // A identidade primária é o perfil persistente do navegador. Ela resolve o
+  // caso de atualização/reinstalação sem misturar perfis diferentes.
+  const installationId = await getBrowserInstallationId();
+  if (installationId) {
+    _cachedFingerprint = await qlHash("superlovable-browser|" + installationId);
+    await qlStorageSet(chrome.storage.local, { ql_bound_device_id: _cachedFingerprint });
+    return _cachedFingerprint;
+  }
 
   const local = await qlStorageGet(chrome.storage.local, [
     "ql_hw_fingerprint", "ql_bound_device_id", "ql_session_id"

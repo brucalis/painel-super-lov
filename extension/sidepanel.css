@@ -130,6 +130,11 @@ body { animation: sp-fade-in 0.4s ease-out; }
 .sp-log-success { color: var(--ql-success); }
 .sp-log-error { color: var(--ql-danger); }
 .sp-log-info { color: var(--ql-accent); }
+.sp-license-cta { width:100%; margin-top:10px; padding:11px 14px; border-radius:10px; text-align:center; text-decoration:none; color:#fff; font-size:13px; font-weight:800; background:linear-gradient(135deg,#ff2ca8,#8f35ff); box-shadow:0 8px 22px rgba(187,45,255,.24); }
+.sp-license-cta:hover { transform:translateY(-1px); filter:brightness(1.08); }
+.sp-renewal-alert { margin:0 0 14px; padding:12px 14px; border-radius:12px; border:1px solid rgba(251,191,36,.35); background:linear-gradient(135deg,rgba(251,191,36,.12),rgba(236,72,153,.08)); color:#f8e7a1; font-size:12px; line-height:1.5; }
+.sp-renewal-alert strong { display:block; color:#fff; margin-bottom:3px; }
+.sp-renewal-btn { display:inline-flex; margin-top:8px; padding:7px 12px; border-radius:8px; text-decoration:none; color:#fff; font-weight:800; background:linear-gradient(135deg,#ff2ca8,#8f35ff); }
 
 .sp-profile-card { background: var(--ql-bg-surface); border: 1px solid var(--ql-border); border-radius: var(--ql-radius); padding: 14px; margin-bottom: 14px; transition: border-color var(--ql-transition); }
 .sp-profile-card:hover { border-color: var(--ql-border-hover); }

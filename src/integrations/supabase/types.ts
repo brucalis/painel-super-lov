@@ -142,6 +142,7 @@ export type Database = {
           extension_version: string | null
           first_seen_at: string
           id: string
+          installation_id: string | null
           last_seen_at: string
           license_id: string
           token_hash: string
@@ -153,6 +154,7 @@ export type Database = {
           extension_version?: string | null
           first_seen_at?: string
           id?: string
+          installation_id?: string | null
           last_seen_at?: string
           license_id: string
           token_hash: string
@@ -164,6 +166,7 @@ export type Database = {
           extension_version?: string | null
           first_seen_at?: string
           id?: string
+          installation_id?: string | null
           last_seen_at?: string
           license_id?: string
           token_hash?: string
