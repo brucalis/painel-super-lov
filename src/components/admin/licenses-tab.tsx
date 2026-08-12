@@ -259,8 +259,12 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
           customer_phone: form.phone || null,
         },
       });
-      await navigator.clipboard?.writeText(created.license_key).catch(() => {});
-      toast.success(`Licença criada: ${created.license_key} (copiada)`);
+      await navigator.clipboard?.writeText(created.license.license_key).catch(() => {});
+      if (form.email && !created.email.sent) {
+        toast.warning(`Licença criada, mas o e-mail não foi enviado (${created.email.reason || "motivo não informado"}).`);
+      } else {
+        toast.success(`Licença criada: ${created.license.license_key}${form.email ? " e enviada por e-mail" : " (copiada)"}.`);
+      }
       setOpen(false);
       onCreated();
     } catch (e) {

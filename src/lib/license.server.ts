@@ -277,31 +277,35 @@ export async function createLicenseRecord(input: {
   }
 
   const key = generateLicenseKey();
-  const { data, error } = await supabaseAdmin
-    .from("licenses")
-    .insert({
+  const baseInsert = {
       license_key: key,
       key_hint: keyHint(key),
       customer_id: customerId,
       plan: input.plan ?? "pro",
       plan_name: input.plan_name ?? "Plano Pro",
-      status: "active",
+      status: "active" as const,
       is_lifetime: isLifetime,
       expires_at: expiresAt,
       device_limit: input.device_limit ?? 1,
       minimum_version: input.minimum_version ?? null,
       order_id: input.order_id ?? null,
-      external_product_id: input.external_product_id ?? null,
-      external_subscription_id: input.external_subscription_id ?? null,
       source: input.source ?? "manual",
-
-
-
       notes: input.notes ?? null,
-    })
-    .select("*")
-    .single();
+  };
+  // As colunas externas foram adicionadas depois do cadastro manual. Alguns
+  // projetos publicados ainda estão com o cache do schema anterior; nesse
+  // cenário a licença precisa continuar sendo criada normalmente.
+  const withExternalReferences = {
+    ...baseInsert,
+    external_product_id: input.external_product_id ?? null,
+    external_subscription_id: input.external_subscription_id ?? null,
+  };
+  let { data, error } = await supabaseAdmin.from("licenses").insert(withExternalReferences as never).select("*").single();
+  if (error && /external_(product|subscription)_id|schema cache/i.test(error.message)) {
+    ({ data, error } = await supabaseAdmin.from("licenses").insert(baseInsert).select("*").single());
+  }
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("A licença não foi criada.");
 
   await logEvent(data.id, "license.created", `Licença criada (${input.source ?? "manual"}).`);
   await dispatchOutbound("license.created", data.id);

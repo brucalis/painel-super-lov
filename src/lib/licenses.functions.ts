@@ -21,8 +21,8 @@ export const createLicense = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((data: unknown) => createSchema.parse(data))
   .handler(async ({ data }) => {
-    const { createLicenseRecord } = await import("./license.server");
-    return createLicenseRecord({
+    const { createLicenseRecord, sendLicenseEmail } = await import("./license.server");
+    const license = await createLicenseRecord({
       plan: data.plan,
       plan_name: data.plan_name,
       is_lifetime: data.is_lifetime,
@@ -41,6 +41,13 @@ export const createLicense = createServerFn({ method: "POST" })
           }
         : null,
     });
+    const email = data.customer_email
+      ? await sendLicenseEmail(license.id, {
+          product_name: data.plan_name,
+          order_id: data.order_id ?? null,
+        })
+      : { sent: false, reason: "customer_email_missing" };
+    return { license, email };
   });
 
 export const resendLicenseWebhook = createServerFn({ method: "POST" })

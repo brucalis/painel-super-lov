@@ -73,13 +73,17 @@ export const Route = createFileRoute("/api/public/activate-license")({
         // O identificador do perfil do navegador sobrevive à reinstalação. Se
         // o fingerprint local mudar, recuperamos o mesmo registro e a mesma
         // vaga de dispositivo em vez de consumir uma nova.
+        let installationColumnAvailable = true;
         if (!existing && installationId) {
-          const { data: byInstallation } = await supabaseAdmin
+          const { data: byInstallation, error: installationError } = await supabaseAdmin
             .from("license_devices")
             .select("*")
             .eq("license_id", license.id)
             .eq("installation_id", installationId)
             .maybeSingle();
+          if (installationError && /installation_id|schema cache/i.test(installationError.message)) {
+            installationColumnAvailable = false;
+          }
           existing = byInstallation;
         }
 
@@ -87,7 +91,7 @@ export const Route = createFileRoute("/api/public/activate-license")({
         // licença permitia apenas um dispositivo e existe exatamente um vínculo
         // antigo sem installation_id, associamos esse vínculo ao perfil atual.
         let claimedLegacyDevice = false;
-        if (!existing && installationId && license.device_limit === 1) {
+        if (!existing && installationId && license.device_limit === 1 && installationColumnAvailable) {
           const { data: legacyDevices } = await supabaseAdmin
             .from("license_devices")
             .select("*")
@@ -98,6 +102,21 @@ export const Route = createFileRoute("/api/public/activate-license")({
           if (legacyDevices?.length) {
             existing = legacyDevices[0];
             claimedLegacyDevice = true;
+          }
+        }
+
+        // Compatibilidade temporária para bancos que ainda não receberam a
+        // coluna installation_id: permite recuperar somente o único vínculo
+        // da licença e somente quando o navegador/SO informado é o mesmo.
+        if (!existing && !installationColumnAvailable && license.device_limit === 1) {
+          const { data: legacyDevices } = await supabaseAdmin
+            .from("license_devices")
+            .select("*")
+            .eq("license_id", license.id)
+            .eq("active", true)
+            .order("last_seen_at", { ascending: false });
+          if (legacyDevices?.length === 1 && legacyDevices[0].device_name === deviceName) {
+            existing = legacyDevices[0];
           }
         }
 
@@ -133,27 +152,29 @@ export const Route = createFileRoute("/api/public/activate-license")({
 
         const { token, hash } = newToken();
         if (existing) {
-          await supabaseAdmin
-            .from("license_devices")
-            .update({
+          const devicePatch: Record<string, unknown> = {
               token_hash: hash,
               device_id: deviceId,
-              installation_id: installationId,
               active: true,
               device_name: deviceName,
               extension_version: version,
               last_seen_at: new Date().toISOString(),
-            })
+          };
+          if (installationColumnAvailable) devicePatch.installation_id = installationId;
+          await supabaseAdmin
+            .from("license_devices")
+            .update(devicePatch as never)
             .eq("id", existing.id);
         } else {
-          await supabaseAdmin.from("license_devices").insert({
+          const newDevice: Record<string, unknown> = {
             license_id: license.id,
             device_id: deviceId,
-            installation_id: installationId,
             device_name: deviceName,
             extension_version: version,
             token_hash: hash,
-          });
+          };
+          if (installationColumnAvailable) newDevice.installation_id = installationId;
+          await supabaseAdmin.from("license_devices").insert(newDevice as never);
         }
 
         await supabaseAdmin
