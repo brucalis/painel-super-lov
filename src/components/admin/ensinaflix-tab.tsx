@@ -103,15 +103,19 @@ export function EnsinaflixTab() {
     setEvents((ev ?? []) as WebhookEvent[]);
     setMaps((mp ?? []) as unknown as Mapping[]);
 
-    setSecret(await status({}));
-    const email = await getEmailSettings({});
-    setEmailConfigured(email.key_hint);
-    setEmailForm((current) => ({
-      ...current, from_email: email.from_email, from_name: email.from_name, reply_to: email.reply_to,
-      enabled: email.enabled, subject_template: email.subject_template,
-      body_template: email.body_template, download_url: email.download_url,
-    }));
-    if (!silent) setEventsLoading(false);
+    // A atualização automática dos logs não pode sobrescrever um texto de
+    // e-mail que o administrador ainda está editando.
+    if (!silent) {
+      setSecret(await status({}));
+      const email = await getEmailSettings({});
+      setEmailConfigured(email.key_hint);
+      setEmailForm((current) => ({
+        ...current, from_email: email.from_email, from_name: email.from_name, reply_to: email.reply_to,
+        enabled: email.enabled, subject_template: email.subject_template,
+        body_template: email.body_template, download_url: email.download_url,
+      }));
+      setEventsLoading(false);
+    }
   }
 
   useEffect(() => {
