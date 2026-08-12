@@ -443,6 +443,90 @@ export async function sendLicenseEmail(
   return { sent: true };
 }
 
+/** Envia um e-mail de demonstração sem criar pedido, cliente ou licença. */
+export async function sendSendGridTestEmail(
+  toEmail: string,
+): Promise<{ sent: boolean; reason?: string; detail?: string }> {
+  const [storedKey, fromEmail, fromName, replyTo, subjectTemplate, bodyTemplate, downloadUrl] = await Promise.all([
+    getSetting("sendgrid_api_key"),
+    getSetting("sendgrid_from_email"),
+    getSetting("sendgrid_from_name"),
+    getSetting("sendgrid_reply_to"),
+    getSetting("sendgrid_subject_template"),
+    getSetting("sendgrid_body_template"),
+    getSetting("sendgrid_download_url"),
+  ]);
+  const apiKey = process.env.SENDGRID_API_KEY || storedKey || "";
+  if (!apiKey || !fromEmail)
+    return { sent: false, reason: "sendgrid_not_configured", detail: "Configure a API Key e o remetente verificado." };
+
+  const downloadLink = downloadUrl || "https://painel-super-lov.lovable.app/";
+  const variables: Record<string, string> = {
+    nome: "Cliente de teste",
+    email: toEmail,
+    produto: "Superlovable",
+    plano: "Plano de demonstração",
+    tipo_assinatura: "teste de integração",
+    licenca: "LVA-TEST-TEST-TEST-TEST",
+    validade: "E-mail de teste — nenhuma licença foi criada",
+    link_download: downloadLink,
+    pedido: "TESTE-SENDGRID",
+    oferta: "Teste de envio",
+    valor: "R$ 0,00",
+    metodo_pagamento: "Teste administrativo",
+    data_pagamento: new Intl.DateTimeFormat("pt-BR", {
+      dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo",
+    }).format(new Date()),
+  };
+  variables["payload.customer.name"] = variables.nome;
+  variables["payload.customer.email"] = variables.email;
+  variables["payload.product.name"] = variables.produto;
+  variables["payload.offer.name"] = variables.oferta;
+  variables["payload.order.id"] = variables.pedido;
+  variables["payload.amount"] = variables.valor;
+  variables["payload.paymentMethod"] = variables.metodo_pagamento;
+  variables["payload.paidAt"] = variables.data_pagamento;
+
+  const render = (template: string) => template.replace(/\{\{\s*([a-z0-9_.]+)\s*\}\}/gi, (_, key) => variables[key] ?? "");
+  const subject = `[TESTE] ${render(subjectTemplate || "Bem-vindo(a) à Superlovable — sua licença está pronta")}`;
+  const text = render(bodyTemplate || "Olá, {{nome}}!\n\nEste é um teste da integração da Superlovable com o SendGrid. Se você recebeu esta mensagem, a API, o remetente e o layout estão funcionando corretamente.");
+  const html = buildLicenseEmailHtml({
+    name: variables.nome,
+    message: text,
+    product: variables.produto,
+    plan: variables.plano,
+    licenseKey: variables.licenca,
+    validity: variables.validade,
+    orderId: variables.pedido,
+    downloadLink,
+  });
+  const payload: Record<string, unknown> = {
+    personalizations: [{ to: [{ email: toEmail, name: "Cliente de teste" }], subject }],
+    from: { email: fromEmail, name: fromName || "Superlovable" },
+    content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
+  };
+  if (replyTo) payload.reply_to = { email: replyTo };
+
+  try {
+    const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 500);
+      return { sent: false, reason: `sendgrid_${response.status}`, detail: detail || `HTTP ${response.status}` };
+    }
+    return { sent: true };
+  } catch (error) {
+    return {
+      sent: false,
+      reason: "sendgrid_unavailable",
+      detail: error instanceof Error ? error.message : "Não foi possível acessar o SendGrid.",
+    };
+  }
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char] || char);
 }
