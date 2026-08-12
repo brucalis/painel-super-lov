@@ -316,7 +316,7 @@ export function EnsinaflixTab() {
           <Badge variant={emailConfigured ? "default" : "destructive"}>API: {emailConfigured || "não configurada"}</Badge>
           <div className="grid gap-3 md:grid-cols-2">
             <div><Label>API Key do SendGrid</Label><Input type="password" placeholder={emailConfigured ? "Deixe vazio para manter a atual" : "SG..."} value={emailForm.api_key} onChange={(e) => setEmailForm({ ...emailForm, api_key: e.target.value })} /></div>
-            <div><Label>E-mail remetente verificado</Label><Input type="email" value={emailForm.from_email} onChange={(e) => setEmailForm({ ...emailForm, from_email: e.target.value })} /></div>
+            <div><Label>E-mail remetente verificado</Label><Input type="email" value={emailForm.from_email} onChange={(e) => setEmailForm({ ...emailForm, from_email: e.target.value })} /><p className="mt-1 text-xs text-muted-foreground">Para chegar à caixa principal, use um endereço do seu próprio domínio autenticado no SendGrid. Evite Gmail, Outlook ou apenas “Single Sender Verification”.</p></div>
             <div><Label>Nome do remetente</Label><Input value={emailForm.from_name} onChange={(e) => setEmailForm({ ...emailForm, from_name: e.target.value })} /></div>
             <div><Label>Responder para (opcional)</Label><Input type="email" value={emailForm.reply_to} onChange={(e) => setEmailForm({ ...emailForm, reply_to: e.target.value })} /></div>
             <div className="md:col-span-2"><Label>Link de download e instruções</Label><Input type="url" value={emailForm.download_url} onChange={(e) => setEmailForm({ ...emailForm, download_url: e.target.value })} /></div>

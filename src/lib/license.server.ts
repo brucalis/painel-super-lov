@@ -420,9 +420,20 @@ export async function sendLicenseEmail(
     downloadLink,
   });
   const payload: Record<string, unknown> = {
-    personalizations: [{ to: [{ email: customer.email, name: safeName }], subject }],
+    personalizations: [{
+      to: [{ email: customer.email, name: safeName }],
+      subject,
+      headers: { "X-Entity-Ref-ID": `superlovable-license-${license.id}` },
+      custom_args: { message_type: "license_delivery", order_id: String(orderId) },
+    }],
     from: { email: fromEmail, name: fromName || "Superlovable" },
     content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
+    categories: ["transactional", "license-delivery"],
+    tracking_settings: {
+      click_tracking: { enable: false, enable_text: false },
+      open_tracking: { enable: false },
+      subscription_tracking: { enable: false },
+    },
   };
   if (replyTo) payload.reply_to = { email: replyTo };
   let response: Response;
@@ -566,37 +577,34 @@ function buildLicenseEmailHtml(input: {
   orderId: string;
   downloadLink: string;
 }): string {
-  const messageHtml = escapeHtml(input.message).replace(/\r?\n/g, "<br>");
   const safeLink = escapeHtml(input.downloadLink);
   return `<!doctype html>
 <html lang="pt-BR">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#080816;font-family:Inter,Segoe UI,Arial,sans-serif;color:#f8f7ff">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#080816;padding:32px 12px">
+<body style="margin:0;padding:0;background:#f5f5f7;font-family:Arial,Helvetica,sans-serif;color:#202124">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f5f7;padding:24px 12px">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#151027;border:1px solid #34205e;border-radius:24px;overflow:hidden">
-        <tr><td style="height:8px;background:linear-gradient(90deg,#ff2ca8,#a93cff,#6d5cff)"></td></tr>
-        <tr><td align="center" style="padding:34px 32px 18px;background:#100b20">
-          <img src="https://painel-super-lov.lovable.app/favicon.png" width="72" height="72" alt="Superlovable" style="display:block;border:0;margin:0 auto 16px">
-          <div style="font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#c69cff;font-weight:700">Superlovable</div>
-          <h1 style="margin:12px 0 8px;font-size:30px;line-height:1.2;color:#ffffff">Bem-vindo(a) à Superlovable!</h1>
-          <p style="margin:0;color:#bdb5d5;font-size:16px">Seu pagamento foi confirmado e sua licença está pronta.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border:1px solid #e2e2e8;border-radius:16px;overflow:hidden">
+        <tr><td style="height:5px;background:#8f35ff"></td></tr>
+        <tr><td style="padding:28px 32px 12px">
+          <div style="font-size:13px;color:#6f42c1;font-weight:700">SUPERLOVABLE</div>
+          <h1 style="margin:10px 0 8px;font-size:25px;line-height:1.25;color:#202124">Sua licença está pronta</h1>
+          <p style="margin:0;color:#5f6368;font-size:15px;line-height:1.6">Olá, ${escapeHtml(input.name)}. Seu pagamento foi confirmado e seu acesso já foi liberado.</p>
         </td></tr>
-        <tr><td style="padding:28px 32px">
-          <div style="font-size:15px;line-height:1.75;color:#ded9eb">${messageHtml}</div>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:26px 0;background:#0d0a1b;border:1px solid #3d2867;border-radius:16px">
+        <tr><td style="padding:16px 32px 30px">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 22px;background:#faf8ff;border:1px solid #e4d9fb;border-radius:12px">
             <tr><td style="padding:22px">
-              <div style="font-size:12px;color:#a89dbf;text-transform:uppercase;letter-spacing:1px">Sua chave de licença</div>
-              <div style="margin:8px 0 18px;font-family:Consolas,Monaco,monospace;font-size:20px;font-weight:700;color:#ff5fc9;word-break:break-all">${escapeHtml(input.licenseKey)}</div>
-              <div style="font-size:14px;line-height:1.8;color:#d8d2e7"><strong style="color:#fff">Produto:</strong> ${escapeHtml(input.product)}<br><strong style="color:#fff">Plano:</strong> ${escapeHtml(input.plan)}<br><strong style="color:#fff">Validade:</strong> ${escapeHtml(input.validity)}<br><strong style="color:#fff">Pedido:</strong> ${escapeHtml(input.orderId)}</div>
+              <div style="font-size:12px;color:#6a6572;text-transform:uppercase;letter-spacing:.8px">Chave de licença</div>
+              <div style="margin:8px 0 18px;font-family:Consolas,Monaco,monospace;font-size:19px;font-weight:700;color:#5f259f;word-break:break-all">${escapeHtml(input.licenseKey)}</div>
+              <div style="font-size:14px;line-height:1.8;color:#4b4b52"><strong>Produto:</strong> ${escapeHtml(input.product)}<br><strong>Plano:</strong> ${escapeHtml(input.plan)}<br><strong>Validade:</strong> ${escapeHtml(input.validity)}<br><strong>Pedido:</strong> ${escapeHtml(input.orderId)}</div>
             </td></tr>
           </table>
-          <table role="presentation" cellspacing="0" cellpadding="0" align="center"><tr><td style="border-radius:12px;background:#d832ff;background-image:linear-gradient(90deg,#ff2ca8,#8f35ff)">
-            <a href="${safeLink}" style="display:inline-block;padding:16px 28px;color:#fff;text-decoration:none;font-weight:800;font-size:16px">Baixar extensão e ver instruções</a>
+          <table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border-radius:8px;background:#6f2dbd">
+            <a href="${safeLink}" style="display:inline-block;padding:13px 20px;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px">Acessar extensão e instruções</a>
           </td></tr></table>
-          <p style="margin:24px 0 0;text-align:center;color:#9187a8;font-size:13px;line-height:1.6">Use sua licença em um navegador/dispositivo por vez.<br>Se precisar de ajuda, basta responder a este e-mail.</p>
+          <p style="margin:22px 0 0;color:#5f6368;font-size:13px;line-height:1.6">Use a licença em um navegador ou dispositivo por vez. Se precisar de ajuda, responda a este e-mail.</p>
         </td></tr>
-        <tr><td style="padding:20px 32px;text-align:center;background:#0d0a1b;color:#716782;font-size:12px">Superlovable · Crie sem interrupções</td></tr>
+        <tr><td style="padding:18px 32px;background:#fafafa;color:#777;font-size:12px;border-top:1px solid #eeeeee">Mensagem transacional referente ao pedido ${escapeHtml(input.orderId)}.</td></tr>
       </table>
     </td></tr>
   </table>
