@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { fmt } from "@/lib/licenses-data";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, Download } from "lucide-react";
 import { toast } from "sonner";
+import { reprocessEnsinaflixWebhook } from "@/lib/licenses.functions";
 
 type EventRow = {
   id: string; event_type: string | null; order_id: string | null; customer_email: string | null;
@@ -24,6 +26,8 @@ export function WebhookEventsLog() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [loading, setLoading] = useState(false);
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
+  const reprocessWebhook = useServerFn(reprocessEnsinaflixWebhook);
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
@@ -57,6 +61,21 @@ export function WebhookEventsLog() {
     anchor.href = url; anchor.download = `webhook-${clean(event.event_type)}-pedido-${clean(event.order_id)}.${format}`;
     document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
   }
+  async function reprocess(event: EventRow) {
+    setReprocessingId(event.id);
+    try {
+      const result = await reprocessWebhook({ data: { event_id: event.id } }) as {
+        ok: boolean; reason: string | null;
+      };
+      if (result.ok) toast.success("Pedido reprocessado. A licença e o envio do e-mail foram acionados.");
+      else toast.error(`Não foi possível concluir: ${result.reason || "motivo não informado"}.`);
+      await load(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao reprocessar o pedido.");
+    } finally {
+      setReprocessingId(null);
+    }
+  }
 
   return <Card>
     <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Recebimentos recentes</CardTitle><CardDescription>Eventos da Ensinaflix atualizados automaticamente a cada 15 segundos.</CardDescription></div><Button variant="outline" disabled={loading} onClick={() => load()}>{loading ? "Atualizando…" : "Atualizar agora"}</Button></div></CardHeader>
@@ -64,7 +83,7 @@ export function WebhookEventsLog() {
       <div className="grid gap-2 px-4 md:grid-cols-[1fr_220px]"><Input placeholder="Buscar por pedido, cliente, produto ou oferta…" value={search} onChange={(e) => setSearch(e.target.value)} /><select className="rounded-md border bg-background px-3 text-sm" value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">Todas as situações</option><option value="processed">Processados</option><option value="ignored">Ignorados</option><option value="failed">Falhas</option><option value="duplicate">Duplicados</option><option value="processing">Processando</option></select></div>
       <Table><TableHeader><TableRow><TableHead>Quando</TableHead><TableHead>Evento</TableHead><TableHead>Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Produto / oferta</TableHead><TableHead>Situação</TableHead><TableHead /></TableRow></TableHeader><TableBody>
         {!rows.length && <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">{events.length ? "Nenhum evento corresponde aos filtros." : "Nenhum evento recebido ainda."}</TableCell></TableRow>}
-        {rows.map((event) => { const meta = info(event); return <TableRow key={event.id}><TableCell className="text-xs">{fmt(event.received_at)}</TableCell><TableCell className="text-xs">{event.event_type} {event.is_test && <Badge variant="outline">teste</Badge>}</TableCell><TableCell className="text-xs">{event.order_id ?? "—"}</TableCell><TableCell className="text-xs">{event.customer_email ?? "—"}</TableCell><TableCell className="max-w-64 text-xs"><div className="font-medium">{meta.name ?? "Não identificado"}</div><div className="font-mono text-[11px] text-muted-foreground">{meta.product && `product: ${meta.product}`}{meta.offer && ` · oferta/plano: ${meta.offer}`}</div></TableCell><TableCell><Badge variant={event.processing_status === "failed" ? "destructive" : "default"}>{LABELS[event.processing_status] ?? event.processing_status}{event.http_status ? ` · ${event.http_status}` : ""}</Badge></TableCell><TableCell className="text-right"><div className="flex items-center justify-end gap-1"><Button size="sm" variant="ghost" onClick={() => setViewing(event)}>Ver payload</Button><DropdownMenu><DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8" title="Baixar payload"><Download className="h-4 w-4" /><ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => download(event, "json")}>Baixar JSON</DropdownMenuItem><DropdownMenuItem onClick={() => download(event, "txt")}>Baixar TXT</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></TableCell></TableRow>; })}
+        {rows.map((event) => { const meta = info(event); const hasWarning = Boolean(event.processing_error); return <TableRow key={event.id}><TableCell className="text-xs">{fmt(event.received_at)}</TableCell><TableCell className="text-xs">{event.event_type} {event.is_test && <Badge variant="outline">teste</Badge>}</TableCell><TableCell className="text-xs">{event.order_id ?? "—"}</TableCell><TableCell className="text-xs">{event.customer_email ?? "—"}</TableCell><TableCell className="max-w-64 text-xs"><div className="font-medium">{meta.name ?? "Não identificado"}</div><div className="font-mono text-[11px] text-muted-foreground">{meta.product && `product: ${meta.product}`}{meta.offer && ` · oferta/plano: ${meta.offer}`}</div></TableCell><TableCell><Badge variant={event.processing_status === "failed" ? "destructive" : "default"}>{hasWarning && event.processing_status === "processed" ? "Processado com aviso" : LABELS[event.processing_status] ?? event.processing_status}{event.http_status ? ` · ${event.http_status}` : ""}</Badge>{event.processing_error && <div className="mt-1 max-w-48 break-words text-[11px] text-destructive">{event.processing_error}</div>}</TableCell><TableCell className="text-right"><div className="flex items-center justify-end gap-1">{event.processing_error && !event.is_test && <Button size="sm" variant="outline" disabled={reprocessingId === event.id} onClick={() => reprocess(event)}>{reprocessingId === event.id ? "Processando…" : "Reprocessar"}</Button>}<Button size="sm" variant="ghost" onClick={() => setViewing(event)}>Ver payload</Button><DropdownMenu><DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8" title="Baixar payload"><Download className="h-4 w-4" /><ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => download(event, "json")}>Baixar JSON</DropdownMenuItem><DropdownMenuItem onClick={() => download(event, "txt")}>Baixar TXT</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></TableCell></TableRow>; })}
       </TableBody></Table>
       {viewing && <div className="border-t p-4"><div className="mb-2 flex items-center justify-between gap-2"><div><p className="text-sm font-medium">Payload completo · {viewing.event_type}</p><p className="text-xs text-muted-foreground">Recebido em {fmt(viewing.received_at)}</p></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => copy(JSON.stringify(viewing.payload, null, 2))}>Copiar JSON</Button><Button size="sm" variant="ghost" onClick={() => setViewing(null)}>Fechar</Button></div></div>{viewing.processing_error && <p className="mb-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">Erro: {viewing.processing_error}</p>}<pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs">{JSON.stringify(viewing.payload, null, 2)}</pre></div>}
     </CardContent>
