@@ -175,6 +175,20 @@ export type Mapping = {
   device_limit: number;
 };
 
+// Catálogo oficial como fallback operacional. A tabela continua tendo
+// prioridade e pode sobrescrever essas regras pelo painel, mas uma migração
+// ainda não aplicada nunca deve impedir uma venda paga de gerar a licença.
+const DEFAULT_PRODUCT_MAPPINGS: Array<Mapping & {
+  product_id: string;
+  offer_public_id?: string | null;
+}> = [
+  { id: "default-test", product_id: "03c254c0-8ce0-4fe7-b378-ea8798e27be8", plan_code: "test_30m", plan_name: "Teste · 30 minutos", duration_days: null, duration_minutes: 30, is_lifetime: false, device_limit: 1 },
+  { id: "default-weekly", product_id: "e5f93c9a-015e-4e10-9c84-331290f21b2c", offer_public_id: "okfncdob1o", plan_code: "weekly", plan_name: "Semanal · 7 dias", duration_days: 7, duration_minutes: null, is_lifetime: false, device_limit: 1 },
+  { id: "default-monthly", product_id: "63428865-119f-4316-a9f1-7e24162ef258", offer_public_id: "fkt54kvcqq", plan_code: "monthly", plan_name: "Mensal · 30 dias", duration_days: 30, duration_minutes: null, is_lifetime: false, device_limit: 1 },
+  { id: "default-annual", product_id: "6aad4d1b-a84e-4ab2-a819-521452ca1e54", offer_public_id: "swh4m14h19", plan_code: "annual", plan_name: "Anual · 12 meses", duration_days: 365, duration_minutes: null, is_lifetime: false, device_limit: 1 },
+  { id: "default-lifetime", product_id: "b979f6cd-1a69-44d5-b20d-498a434823e2", plan_code: "lifetime", plan_name: "Vitalícia", duration_days: null, duration_minutes: null, is_lifetime: true, device_limit: 1 },
+];
+
 /** Prioridade: produto+oferta pública > oferta pública > produto > id da oferta. */
 export async function findMapping(n: NormalizedEvent): Promise<Mapping | null> {
   const { data } = await supabaseAdmin
@@ -183,8 +197,6 @@ export async function findMapping(n: NormalizedEvent): Promise<Mapping | null> {
     .eq("provider", "ensinaflix")
     .eq("is_active", true);
   const rows = (data ?? []) as any[];
-  if (!rows.length) return null;
-
   const tries: ((r: any) => boolean)[] = [
     (r) =>
       !!n.productId &&
@@ -199,7 +211,11 @@ export async function findMapping(n: NormalizedEvent): Promise<Mapping | null> {
     const hit = rows.find(test);
     if (hit) return hit as Mapping;
   }
-  return null;
+  const fallback = DEFAULT_PRODUCT_MAPPINGS.find((item) =>
+    item.product_id === n.productId &&
+    (!item.offer_public_id || !n.offerPublicId || item.offer_public_id === n.offerPublicId)
+  );
+  return fallback ?? null;
 }
 
 async function findLicense(n: NormalizedEvent) {
@@ -267,6 +283,28 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
     if (!mapping)
       return { processed: false, reason: "UNKNOWN_PRODUCT_MAPPING", action, licenseId: null };
 
+    // O número do pedido é a referência comum entre Ensinaflix e Mercado Pago.
+    // Se o mesmo pagamento for reprocessado, reutiliza a licença existente e
+    // tenta o e-mail novamente, sem criar outra chave.
+    const existingForOrder = n.orderId ? await findLicense(n) : null;
+    if (existingForOrder && existingForOrder.order_id === n.orderId) {
+      const { sendLicenseEmail } = await import("./license.server");
+      const email = await sendLicenseEmail(existingForOrder.id, {
+        product_name: n.productName, product_id: n.productId, billing_type: n.billingType,
+        offer_name: n.offerName, offer_id: n.offerId, offer_public_id: n.offerPublicId,
+        subscription_interval: n.subscriptionInterval, subscription_id: n.subscriptionId,
+        order_id: n.orderId, amount: n.amount, currency: n.currency,
+        payment_method: n.paymentMethod, paid_at: n.paidAt,
+      });
+      return {
+        processed: true,
+        reason: email.sent ? undefined : `EMAIL_NOT_SENT:${email.reason || "unknown"}`,
+        action,
+        licenseId: existingForOrder.id,
+        license: existingForOrder,
+      };
+    }
+
     // Cada pagamento/renovação confirmado recebe uma nova chave. A
     // idempotência do webhook impede duplicidade para o mesmo evento.
     const license = await createLicenseRecord({
@@ -293,7 +331,7 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
         : null,
     });
     const { sendLicenseEmail } = await import("./license.server");
-    await sendLicenseEmail(license.id, {
+    const email = await sendLicenseEmail(license.id, {
       product_name: n.productName,
       product_id: n.productId,
       billing_type: n.billingType,
@@ -310,6 +348,7 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
     });
     return {
       processed: true,
+      reason: email.sent ? undefined : `EMAIL_NOT_SENT:${email.reason || "unknown"}`,
       action: "CREATE_LICENSE",
       licenseId: license.id,
       license: {
