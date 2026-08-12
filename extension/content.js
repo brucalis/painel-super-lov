@@ -688,7 +688,7 @@ async function validateLicense(){
   const key = input ? input.value.trim() : "";
 
   if(!key){
-    if(log){ log.className = "ql-log-error"; log.innerText = "Insira uma chave"; }
+    if(log){ log.className = "ql-log-error"; log.innerText = "Insira sua chave ou o e-mail da compra"; }
     return;
   }
 
@@ -707,12 +707,13 @@ async function validateLicense(){
       qLicenseStatus = data.status;
       qLicenseType = data.license_type || 'paid';
       qLicenseLifetime = data.lifetime || false;
-      qLicenseKey = key;
+      const resolvedKey = data.license_key || key;
+      qLicenseKey = resolvedKey;
       qlOnlineCount = data.online_count || 0;
 
       chrome.storage.local.set({
   ql_license_valid: true,
-  ql_license_key: key,
+  ql_license_key: resolvedKey,
   ql_session_id: data.session_id,
   ql_user_name: data.user_name || null,
   ql_expires_at: data.expires_at || null,
@@ -725,7 +726,7 @@ async function validateLicense(){
         setTimeout(() => {
           const box = document.getElementById("ql-floating");
           if(box) showMainUI(box);
-          startHeartbeat(key);
+          startHeartbeat(resolvedKey);
         }, 800);
       });
     } else {

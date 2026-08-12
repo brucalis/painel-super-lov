@@ -26,21 +26,46 @@ export const Route = createFileRoute("/api/public/activate-license")({
           return json({ status: "invalid", message: "Requisição inválida." }, 400);
         }
 
-        const key = normalizeKey(String(body.license_key ?? ""));
+        const rawCredential = String(body.credential ?? body.license_key ?? "").trim();
+        const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawCredential)
+          ? rawCredential.toLowerCase()
+          : null;
+        const key = email ? "" : normalizeKey(rawCredential);
         const deviceId = String(body.device_id ?? "").trim();
         const installationId = String(body.installation_id ?? "").trim() || null;
         const deviceName = String(body.device_name ?? "").slice(0, 120) || null;
         const version = String(body.extension_version ?? "0.0.0");
 
-        if (!/^LVA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key) || !deviceId) {
-          return json({ status: "invalid", message: "Chave ou dispositivo inválido." }, 400);
+        if ((!email && !/^LVA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key)) || !deviceId) {
+          return json({ status: "invalid", message: "Chave, e-mail ou dispositivo inválido." }, 400);
         }
 
-        const { data: license } = await supabaseAdmin
-          .from("licenses")
-          .select("*")
-          .eq("license_key", key)
-          .maybeSingle();
+        let license = null;
+        if (email) {
+          const { data: customer } = await supabaseAdmin
+            .from("customers")
+            .select("id")
+            .ilike("email", email)
+            .limit(1)
+            .maybeSingle();
+          if (customer) {
+            const { data: customerLicenses } = await supabaseAdmin
+              .from("licenses")
+              .select("*")
+              .eq("customer_id", customer.id)
+              .order("created_at", { ascending: false });
+            license = customerLicenses?.find((item) => effectiveStatus(item) === "active")
+              ?? customerLicenses?.[0]
+              ?? null;
+          }
+        } else {
+          const result = await supabaseAdmin
+            .from("licenses")
+            .select("*")
+            .eq("license_key", key)
+            .maybeSingle();
+          license = result.data;
+        }
 
         if (!license)
           return json({

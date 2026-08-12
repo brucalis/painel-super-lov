@@ -29,7 +29,7 @@ const steps = [
   "Ative o Modo do desenvolvedor no canto superior direito.",
   "Clique em Carregar sem compactação e selecione a pasta descompactada.",
   "Abra um projeto em lovable.dev e clique no ícone de raio da Super Lovable.",
-  "Na tela de ativação, informe sua chave de licença e clique para validar.",
+  "Na tela de ativação, informe sua chave de licença ou o mesmo e-mail usado na compra e clique para validar.",
   "Pronto: use sempre o chat da Super Lovable para enviar os comandos ao seu projeto.",
 ];
 
@@ -116,9 +116,9 @@ function Index() {
             </p>
 
             <div className="mt-8 max-w-xl rounded-2xl border border-fuchsia-400/25 bg-fuchsia-400/[0.08] px-5 py-4 shadow-[0_0_35px_rgba(217,70,239,0.08)]">
-              <p className="font-semibold text-fuchsia-100">Sua chave de ativação foi enviada para o seu e-mail.</p>
+              <p className="font-semibold text-fuchsia-100">Ative com sua chave ou com o e-mail usado na compra.</p>
               <p className="mt-1.5 text-sm leading-6 text-slate-300">
-                Confira a caixa de entrada, a aba de promoções e o spam. No e-mail você também encontrará sua licença e as orientações de acesso.
+                Sua chave foi enviada por e-mail — confira a caixa de entrada, a aba de promoções e o spam. Se não localizar a mensagem, use o mesmo e-mail informado no checkout para ativar a extensão imediatamente.
               </p>
             </div>
 

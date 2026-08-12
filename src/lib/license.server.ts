@@ -135,6 +135,7 @@ export async function licenseResponse(license: LicenseRow, token: string | null,
   return {
     status: effectiveStatus(license),
     license_token: token,
+    license_key: license.license_key,
     access_role: license.access_role === "admin" ? "admin" : "user",
     plan: license.plan,
     plan_name: license.plan_name,

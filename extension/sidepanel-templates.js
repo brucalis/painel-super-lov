@@ -183,8 +183,8 @@ function spTemplateLicenseGate() {
   return '<div class="sp-license-gate">' +
     '<img class="sp-login-logo" src="/icons/icon128.png" alt="' + ((window.tsBrandName && window.tsBrandName()) || 'Superlovable') + '">' +
     '<p class="sp-gate-title">Bem vindo a <span data-ts-brand="name">' + ((window.tsBrandName && window.tsBrandName()) || 'Superlovable') + '</span></p>' +
-    '<p class="sp-gate-desc">Insira sua chave de licença para desbloquear.</p>' +
-    '<input class="sp-input" id="sp-license-input" placeholder="LVA-XXXX-XXXX-XXXX-XXXX" spellcheck="false">' +
+    '<p class="sp-gate-desc">Use sua chave de licença ou o e-mail informado na compra.</p>' +
+    '<input class="sp-input" id="sp-license-input" placeholder="Chave de licença ou e-mail" spellcheck="false">' +
     '<button class="sp-btn-primary" id="sp-validate-btn">Validar Licença</button>' +
 
     '<div class="sp-gate-actions">' +

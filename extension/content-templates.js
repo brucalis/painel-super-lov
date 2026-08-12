@@ -74,9 +74,9 @@ function templateLicenseGate(minimized) {
     '<div class="ql-license-gate">' +
       '<div class="ql-lock-icon">' + SVG_ICONS.lock + '</div>' +
       '<p class="ql-gate-title">Ativar Licen\u00e7a</p>' +
-      '<p class="ql-gate-desc">Insira sua chave de licen\u00e7a para desbloquear.</p>' +
+      '<p class="ql-gate-desc">Use sua chave de licen\u00e7a ou o e-mail informado na compra.</p>' +
       '<div class="ql-field">' +
-        '<input id="ql-license-input" placeholder="Digite sua chave de licença" spellcheck="false" autocomplete="off">' +
+        '<input id="ql-license-input" placeholder="Chave de licença ou e-mail da compra" spellcheck="false" autocomplete="off">' +
       '</div>' +
       '<button id="ql-validate-btn">Validar Licen\u00e7a</button>' +
       '<div id="ql-license-log"></div>' +

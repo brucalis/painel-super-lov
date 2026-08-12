@@ -875,7 +875,7 @@ if (notifClose) {
     const cta = document.getElementById('sp-license-cta');
     const key = input ? input.value.trim() : '';
     if (cta) cta.style.display = 'none';
-    if(!key) { log.className = 'sp-log sp-log-error'; log.textContent = 'Insira uma chave'; return; }
+    if(!key) { log.className = 'sp-log sp-log-error'; log.textContent = 'Insira sua chave ou o e-mail da compra'; return; }
     log.className = 'sp-log sp-log-info'; log.textContent = 'Validando...';
     try {
       if(!deviceId) deviceId = await getDeviceId();
@@ -886,10 +886,11 @@ if (notifClose) {
 licenseType = data.license_type || 'paid';
 licenseLifetime = data.lifetime || false;
 licensePlan = data.plan || null;
-licenseKey = key;
-        chrome.storage.local.set({ ql_license_valid: true, ql_license_key: key, ql_session_id: data.session_id, ql_user_name: data.user_name || null, ql_expires_at: data.expires_at || null, ql_activated_at: data.activated_at || null, ql_license_status: data.status || null, ql_license_lifetime: licenseLifetime, ql_license_type: data.license_type || 'paid', ql_license_plan: licensePlan }, () => {
+const resolvedKey = data.license_key || key;
+licenseKey = resolvedKey;
+        chrome.storage.local.set({ ql_license_valid: true, ql_license_key: resolvedKey, ql_session_id: data.session_id, ql_user_name: data.user_name || null, ql_expires_at: data.expires_at || null, ql_activated_at: data.activated_at || null, ql_license_status: data.status || null, ql_license_lifetime: licenseLifetime, ql_license_type: data.license_type || 'paid', ql_license_plan: licensePlan }, () => {
           log.className = 'sp-log sp-log-success'; log.textContent = '' + data.message;
-          setTimeout(() => { showMainUI(); startHeartbeat(key); }, 800);
+          setTimeout(() => { showMainUI(); startHeartbeat(resolvedKey); }, 800);
         });
       } else {
         log.className = 'sp-log sp-log-error'; log.textContent = '' + data.message;

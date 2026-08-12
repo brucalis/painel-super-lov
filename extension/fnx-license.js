@@ -21,7 +21,7 @@
     version_too_old: "Atualize a extensão para continuar.",
     offline: "Sem conexão com o servidor de licenças.",
     server_error: "O servidor de licenças está indisponível. Tente novamente.",
-    empty: "Digite sua chave de licença para continuar.",
+    empty: "Digite sua chave de licença ou o e-mail usado na compra.",
   });
 
   function storageGet(keys) {
@@ -43,6 +43,15 @@
 
   function isCompleteKey(value) {
     return /^LVA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(value);
+  }
+
+  function isEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ""));
+  }
+
+  function normalizeCredential(raw) {
+    const value = String(raw || "").trim();
+    return isEmail(value) ? value.toLowerCase() : formatKey(value);
   }
 
   function invalidResponse(reason, message) {
@@ -83,6 +92,7 @@
       plan_name: data.plan_name || null,
       device_limit: Number(data.device_limit) || 1,
       access_role: data.access_role === "admin" ? "admin" : "user",
+      license_key: data.license_key || null,
     };
   }
 
@@ -142,12 +152,12 @@
    * Qualquer falha mantém a extensão bloqueada.
    */
   async function lvbValidate(_legacyFetcher, rawKey, deviceId) {
-    const key = formatKey(rawKey);
-    if (!isCompleteKey(key)) return invalidResponse("invalid", MESSAGES.empty);
+    const key = normalizeCredential(rawKey);
+    if (!isCompleteKey(key) && !isEmail(key)) return invalidResponse("invalid", MESSAGES.empty);
     if (!deviceId) return invalidResponse("invalid", "Identificação do dispositivo indisponível.");
 
     const stored = await storageGet(["ql_session_id", "ql_license_key"]);
-    const sameLicense = formatKey(stored.ql_license_key || "") === key;
+    const sameLicense = normalizeCredential(stored.ql_license_key || "") === key;
     const existingToken = sameLicense ? String(stored.ql_session_id || "").trim() : "";
 
     if (existingToken) {
@@ -161,7 +171,7 @@
       // esta requisição estava em voo. Se o token compartilhado mudou, valide
       // o mais novo antes de considerar a sessão encerrada.
       const latest = await storageGet(["ql_session_id", "ql_license_key"]);
-      const latestToken = formatKey(latest.ql_license_key || "") === key
+      const latestToken = normalizeCredential(latest.ql_license_key || "") === key
         ? String(latest.ql_session_id || "").trim()
         : "";
       if (latestToken && latestToken !== existingToken) {
