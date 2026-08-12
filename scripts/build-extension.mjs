@@ -1,9 +1,8 @@
 import { createWriteStream } from "node:fs";
-import { access, cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import archiver from "archiver";
-import JavaScriptObfuscator from "javascript-obfuscator";
 
 const root = process.cwd();
 const sourceDir = path.join(root, "extension");
@@ -11,9 +10,10 @@ const buildRoot = path.join(root, ".extension-dist");
 const buildDir = path.join(buildRoot, "extension");
 const outputZip = path.join(root, "public", "super-lovable.zip");
 
-// Somente código próprio. A biblioteca JSZip já é distribuída minificada e
-// não deve ser reprocessada para evitar incompatibilidades.
-const protectedScripts = [
+// Arquivos críticos que precisam permanecer no pacote exatamente como foram
+// testados. Eles compartilham funções e mensagens entre contextos diferentes
+// do Chrome; reescrevê-los durante o build rompe essa comunicação.
+const requiredScripts = [
   "background.js",
   "branding.config.js",
   "castle-v2.js",
@@ -28,28 +28,6 @@ const protectedScripts = [
   "sidepanel.js",
   "update-check.js",
 ];
-
-const obfuscationOptions = {
-  seed: 320019,
-  compact: true,
-  simplify: true,
-  identifierNamesGenerator: "hexadecimal",
-  renameGlobals: false,
-  stringArray: true,
-  stringArrayEncoding: ["base64"],
-  stringArrayThreshold: 0.55,
-  rotateStringArray: true,
-  shuffleStringArray: true,
-  splitStrings: true,
-  splitStringsChunkLength: 12,
-  transformObjectKeys: false,
-  controlFlowFlattening: false,
-  deadCodeInjection: false,
-  debugProtection: false,
-  selfDefending: false,
-  sourceMap: false,
-  unicodeEscapeSequence: false,
-};
 
 async function exists(file) {
   try { await access(file); return true; } catch { return false; }
@@ -70,7 +48,7 @@ async function validatePackage() {
     if (!(await exists(path.join(buildDir, relative)))) throw new Error(`Arquivo obrigatório ausente: ${relative}`);
   }
 
-  for (const relative of protectedScripts) {
+  for (const relative of requiredScripts) {
     const code = await readFile(path.join(buildDir, relative), "utf8");
     if (code.includes("sourceMappingURL=")) throw new Error(`Source map detectado em ${relative}`);
     if (code.length < 80) throw new Error(`Saída inválida em ${relative}`);
@@ -96,15 +74,9 @@ await rm(buildRoot, { recursive: true, force: true });
 await mkdir(buildDir, { recursive: true });
 await cp(sourceDir, buildDir, { recursive: true });
 
-for (const relative of protectedScripts) {
-  const input = await readFile(path.join(sourceDir, relative), "utf8");
-  const result = JavaScriptObfuscator.obfuscate(input, obfuscationOptions).getObfuscatedCode();
-  await writeFile(path.join(buildDir, relative), `${result}\n`, "utf8");
-}
-
 await validatePackage();
 await zipDirectory();
 
 const zipSize = (await stat(outputZip)).size;
 const files = await readdir(buildDir);
-console.log(`Extensão protegida gerada: ${path.relative(root, outputZip)} (${zipSize} bytes, ${files.length} itens).`);
+console.log(`Extensão íntegra gerada: ${path.relative(root, outputZip)} (${zipSize} bytes, ${files.length} itens).`);

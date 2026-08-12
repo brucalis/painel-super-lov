@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.20",
-  updatedAt: "12/08/2026 às 01:05 (horário de Brasília)",
+  version: "32.0.21",
+  updatedAt: "12/08/2026 às 23:02 (horário de Brasília)",
   downloadPath: "/super-lovable.zip",
-  downloadName: "superlovable-v32.0.20.zip",
+  downloadName: "superlovable-v32.0.21.zip",
   changelog: [
+    {
+      version: "32.0.21",
+      date: "12/08/2026",
+      changes: [
+        "Funcionamento estável da versão 32.0.18 restaurado no pacote de instalação.",
+        "Correção do erro de token ao abrir e utilizar a extensão.",
+        "Ativação disponível pela chave de licença ou pelo e-mail usado na compra.",
+      ],
+    },
     {
       version: "32.0.20",
       date: "12/08/2026",
