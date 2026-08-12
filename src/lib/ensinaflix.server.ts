@@ -295,7 +295,18 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
     const { sendLicenseEmail } = await import("./license.server");
     await sendLicenseEmail(license.id, {
       product_name: n.productName,
+      product_id: n.productId,
+      billing_type: n.billingType,
+      offer_name: n.offerName,
+      offer_id: n.offerId,
+      offer_public_id: n.offerPublicId,
       subscription_interval: n.subscriptionInterval,
+      subscription_id: n.subscriptionId,
+      order_id: n.orderId,
+      amount: n.amount,
+      currency: n.currency,
+      payment_method: n.paymentMethod,
+      paid_at: n.paidAt,
     });
     return {
       processed: true,
