@@ -160,3 +160,11 @@ export const resendLicenseEmail = createServerFn({ method: "POST" })
     const { sendLicenseEmail } = await import("./license.server");
     return sendLicenseEmail(data.license_id);
   });
+
+export const sendSendGridTest = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((data: unknown) => z.object({ email: z.string().trim().email() }).parse(data))
+  .handler(async ({ data }) => {
+    const { sendSendGridTestEmail } = await import("./license.server");
+    return sendSendGridTestEmail(data.email);
+  });
