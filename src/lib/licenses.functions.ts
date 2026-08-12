@@ -50,6 +50,26 @@ export const createLicense = createServerFn({ method: "POST" })
     return { license, email };
   });
 
+export const deleteCustomer = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((data: unknown) => z.object({ customer_id: z.string().uuid() }).parse(data))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: customer, error: findError } = await supabaseAdmin
+      .from("customers")
+      .select("id, email")
+      .eq("id", data.customer_id)
+      .maybeSingle();
+    if (findError) throw new Error(findError.message);
+    if (!customer) return { ok: true, already_deleted: true };
+
+    // A FK de licenses usa ON DELETE SET NULL: as licenças e seus históricos
+    // permanecem preservados, apenas deixam de apontar para o cadastro removido.
+    const { error } = await supabaseAdmin.from("customers").delete().eq("id", customer.id);
+    if (error) throw new Error(error.message);
+    return { ok: true, email: customer.email };
+  });
+
 export const resendLicenseWebhook = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .inputValidator((data: unknown) => z.object({ license_id: z.string().uuid() }).parse(data))
