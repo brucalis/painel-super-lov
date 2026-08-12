@@ -115,6 +115,13 @@ function Index() {
               Use o chat próprio da extensão para enviar comandos, anexar arquivos, ditar por voz e trabalhar no seu projeto sem depender do chat nativo da Lovable.
             </p>
 
+            <div className="mt-8 max-w-xl rounded-2xl border border-fuchsia-400/25 bg-fuchsia-400/[0.08] px-5 py-4 shadow-[0_0_35px_rgba(217,70,239,0.08)]">
+              <p className="font-semibold text-fuchsia-100">Sua chave de ativação foi enviada para o seu e-mail.</p>
+              <p className="mt-1.5 text-sm leading-6 text-slate-300">
+                Confira a caixa de entrada, a aba de promoções e o spam. No e-mail você também encontrará sua licença e as orientações de acesso.
+              </p>
+            </div>
+
             <button
               onClick={download}
               className="download-pulse mt-9 rounded-2xl bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-600 px-7 py-4 font-semibold text-white transition hover:brightness-110"
