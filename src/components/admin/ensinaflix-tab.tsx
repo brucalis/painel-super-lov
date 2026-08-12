@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { getEnsinaflixSecretStatus, rotateEnsinaflixSecret, getSendGridSettings, saveSendGridSettings } from "@/lib/licenses.functions";
+import { getEnsinaflixSecretStatus, rotateEnsinaflixSecret, getSendGridSettings, saveSendGridSettings, sendSendGridTest } from "@/lib/licenses.functions";
 import { fmt } from "@/lib/licenses-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +58,7 @@ export function EnsinaflixTab() {
   const status = useServerFn(getEnsinaflixSecretStatus);
   const getEmailSettings = useServerFn(getSendGridSettings);
   const saveEmailSettings = useServerFn(saveSendGridSettings);
+  const sendEmailTest = useServerFn(sendSendGridTest);
   const [secret, setSecret] = useState<{ configured: boolean; hint: string | null; full: string | null; source: string | null }>({
     configured: false,
     hint: null,
@@ -82,6 +83,8 @@ export function EnsinaflixTab() {
     body_template: "", download_url: "https://painel-super-lov.lovable.app/",
   });
   const [emailConfigured, setEmailConfigured] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState("");
+  const [testSending, setTestSending] = useState(false);
 
   const baseUrl = typeof window === "undefined" ? "" : window.location.origin;
   const endpoint = `${baseUrl}/api/public/webhooks/ensinaflix`;
@@ -342,6 +345,39 @@ export function EnsinaflixTab() {
               toast.success("Envio automático desativado.");
               load();
             }}>Desativar envio automático</Button>}
+          </div>
+          <div className="rounded-xl border bg-muted/30 p-4">
+            <div className="mb-3">
+              <Label>Testar integração do SendGrid</Label>
+              <p className="text-xs text-muted-foreground">Envia uma demonstração para o endereço informado, sem criar compra, cliente ou licença.</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                type="email"
+                placeholder="seuemail@exemplo.com"
+                value={testEmail}
+                onChange={(event) => setTestEmail(event.target.value)}
+              />
+              <Button
+                variant="secondary"
+                disabled={testSending || !testEmail.trim()}
+                onClick={async () => {
+                  setTestSending(true);
+                  try {
+                    await saveEmailSettings({ data: emailForm });
+                    const result = await sendEmailTest({ data: { email: testEmail.trim() } });
+                    if (result.sent) toast.success(`E-mail de teste enviado para ${testEmail.trim()}.`);
+                    else toast.error(`Falha no teste: ${result.detail || result.reason || "erro desconhecido"}`);
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Não foi possível enviar o teste.");
+                  } finally {
+                    setTestSending(false);
+                  }
+                }}
+              >
+                {testSending ? "Enviando…" : "Enviar teste"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
