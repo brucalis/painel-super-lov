@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { createLicense, resendLicenseWebhook } from "@/lib/licenses.functions";
+import { createLicense, resendLicenseEmail, resendLicenseWebhook } from "@/lib/licenses.functions";
 import {
   fetchLicenses,
   effectiveStatus,
@@ -61,6 +61,35 @@ export function LicensesTab() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [detail, setDetail] = useState<License | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const resendAccess = useServerFn(resendLicenseEmail);
+
+  async function handleResendAccess(license: License) {
+    if (!license.customers?.email) {
+      toast.error("Esta licença não possui e-mail de cliente cadastrado.");
+      return;
+    }
+    setResendingId(license.id);
+    try {
+      const result = await resendAccess({ data: { license_id: license.id } });
+      if (result.sent) {
+        toast.success(`Acesso reenviado para ${license.customers.email}.`);
+      } else {
+        const reasons: Record<string, string> = {
+          disabled: "O envio automático de e-mails está desativado nas configurações.",
+          customer_email_missing: "Esta licença não possui e-mail de cliente cadastrado.",
+          sendgrid_not_configured: "O serviço de e-mail ainda não está configurado.",
+          sendgrid_quota_exceeded: "A cota de envios do SendGrid foi atingida.",
+          sendgrid_unavailable: "O serviço de e-mail está temporariamente indisponível.",
+        };
+        toast.error(reasons[result.reason || ""] || `Não foi possível reenviar o acesso (${result.reason || "falha não informada"}).`);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível reenviar o acesso.");
+    } finally {
+      setResendingId(null);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -202,9 +231,19 @@ export function LicensesTab() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{l.source}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setDetail(l)}>
-                        Gerenciar
-                      </Button>
+                      <div className="flex flex-wrap justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!l.customers?.email || resendingId === l.id}
+                          onClick={() => handleResendAccess(l)}
+                        >
+                          {resendingId === l.id ? "Reenviando…" : "Reenviar acesso"}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDetail(l)}>
+                          Gerenciar
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -350,6 +389,7 @@ function LicenseDetailDialog({
   onChanged: () => void;
 }) {
   const resend = useServerFn(resendLicenseWebhook);
+  const resendAccess = useServerFn(resendLicenseEmail);
   const [devices, setDevices] = useState<Device[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [expiry, setExpiry] = useState("");
@@ -414,6 +454,20 @@ function LicenseDetailDialog({
     toast.success("Licença excluída.");
     onChanged();
     onClose();
+  }
+
+  async function handleResendAccess() {
+    if (!license.customers?.email) return toast.error("Esta licença não possui e-mail de cliente cadastrado.");
+    setBusy(true);
+    try {
+      const result = await resendAccess({ data: { license_id: license.id } });
+      if (result.sent) toast.success(`Acesso reenviado para ${license.customers.email}.`);
+      else toast.error(`Não foi possível reenviar o acesso (${result.reason || "falha não informada"}).`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível reenviar o acesso.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -556,6 +610,9 @@ function LicenseDetailDialog({
             }}
           >
             Copiar chave
+          </Button>
+          <Button variant="outline" disabled={busy || !license.customers?.email} onClick={handleResendAccess}>
+            {busy ? "Reenviando…" : "Reenviar acesso"}
           </Button>
           <Button
             variant="outline"
