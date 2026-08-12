@@ -130,14 +130,18 @@ export const ENSINAFLIX_EVENT_MAP: Record<string, LicenseAction> = {
   payment_failed: "MARK_PENDING",
 };
 
-const PAID_STATUS = ["completed", "paid", "approved", "aprovado", "pago", "active", "ativa"];
 const PENDING_STATUS = ["pending", "pendente", "waiting_payment", "processing", "failed", "falhou"];
 const CANCEL_STATUS = ["canceled", "cancelled", "cancelado"];
 const REFUND_STATUS = ["refunded", "reembolsado", "estornado"];
 const CHARGEBACK_STATUS = ["chargeback", "disputa"];
 const EXPIRE_STATUS = ["expired", "expirado", "expirada"];
 
-/** Decide a ação combinando nome do evento e status recebido — nunca apenas o nome. */
+const PURCHASE_CONFIRMED_EVENTS = new Set([
+  "pedido_pago", "order_paid", "pedido_aprovado", "order_approved", "compra_aprovada",
+]);
+const RENEWAL_CONFIRMED_EVENTS = new Set(["assinatura_renovada", "subscription_renewed"]);
+
+/** Somente eventos explicitamente financeiros podem criar ou renovar acesso. */
 export function resolveLicenseAction(input: {
   event: string;
   orderStatus: string;
@@ -146,9 +150,8 @@ export function resolveLicenseAction(input: {
   const event = (input.event || "").toLowerCase();
   const status = (input.orderStatus || "").toLowerCase();
 
-  // A Ensinaflix envia a renovação com status externo ainda marcado como
-  // pending; o próprio evento assinatura_renovada é a confirmação da cobrança.
-  if (event === "assinatura_renovada" || event === "subscription_renewed") return "RENEW_LICENSE";
+  if (RENEWAL_CONFIRMED_EVENTS.has(event)) return "RENEW_LICENSE";
+  if (PURCHASE_CONFIRMED_EVENTS.has(event)) return "CREATE_LICENSE";
 
   if (CHARGEBACK_STATUS.includes(status) || event.includes("chargeback")) return "REVOKE_LICENSE";
   if (REFUND_STATUS.includes(status) || event.includes("reembol") || event.includes("refund"))
@@ -157,10 +160,6 @@ export function resolveLicenseAction(input: {
   if (CANCEL_STATUS.includes(status) || event.includes("cancel")) return "CANCEL_LICENSE";
 
   const mapped = ENSINAFLIX_EVENT_MAP[event];
-  if (PAID_STATUS.includes(status)) {
-    if (input.isRenewal || mapped === "RENEW_LICENSE") return "RENEW_LICENSE";
-    return "CREATE_LICENSE";
-  }
   if (PENDING_STATUS.includes(status)) return "MARK_PENDING";
   return mapped ?? "IGNORE_EVENT";
 }
@@ -268,7 +267,10 @@ export type ProcessResult = {
   license?: Record<string, unknown> | null;
 };
 
-export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<ProcessResult> {
+export async function processEnsinaflixEvent(
+  n: NormalizedEvent,
+  options: { retryEmail?: boolean } = {},
+): Promise<ProcessResult> {
   const action = resolveLicenseAction({
     event: n.eventType,
     orderStatus: n.orderStatus,
@@ -283,22 +285,27 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
     if (!mapping)
       return { processed: false, reason: "UNKNOWN_PRODUCT_MAPPING", action, licenseId: null };
 
-    // O número do pedido é a referência comum entre Ensinaflix e Mercado Pago.
-    // Se o mesmo pagamento for reprocessado, reutiliza a licença existente e
-    // tenta o e-mail novamente, sem criar outra chave.
+    // O número do pedido é a identidade da compra. Eventos automáticos repetidos
+    // nunca criam outra chave nem reenviam e-mail. O reenvio só ocorre por ação
+    // administrativa explícita no painel.
     const existingForOrder = n.orderId ? await findLicense(n) : null;
     if (existingForOrder && existingForOrder.order_id === n.orderId) {
-      const { sendLicenseEmail } = await import("./license.server");
-      const email = await sendLicenseEmail(existingForOrder.id, {
-        product_name: n.productName, product_id: n.productId, billing_type: n.billingType,
-        offer_name: n.offerName, offer_id: n.offerId, offer_public_id: n.offerPublicId,
-        subscription_interval: n.subscriptionInterval, subscription_id: n.subscriptionId,
-        order_id: n.orderId, amount: n.amount, currency: n.currency,
-        payment_method: n.paymentMethod, paid_at: n.paidAt,
-      });
+      let email: { sent: boolean; reason?: string } = { sent: true };
+      if (options.retryEmail) {
+        const { sendLicenseEmail } = await import("./license.server");
+        email = await sendLicenseEmail(existingForOrder.id, {
+          product_name: n.productName, product_id: n.productId, billing_type: n.billingType,
+          offer_name: n.offerName, offer_id: n.offerId, offer_public_id: n.offerPublicId,
+          subscription_interval: n.subscriptionInterval, subscription_id: n.subscriptionId,
+          order_id: n.orderId, amount: n.amount, currency: n.currency,
+          payment_method: n.paymentMethod, paid_at: n.paidAt,
+        });
+      }
       return {
         processed: true,
-        reason: email.sent ? undefined : `EMAIL_NOT_SENT:${email.reason || "unknown"}`,
+        reason: options.retryEmail
+          ? (email.sent ? undefined : `EMAIL_NOT_SENT:${email.reason || "unknown"}`)
+          : "ORDER_ALREADY_PROCESSED",
         action,
         licenseId: existingForOrder.id,
         license: existingForOrder,

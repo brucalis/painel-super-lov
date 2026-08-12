@@ -222,7 +222,7 @@ export const reprocessEnsinaflixWebhook = createServerFn({ method: "POST" })
     }).eq("id", event.id);
 
     try {
-      const result = await processEnsinaflixEvent(normalized);
+      const result = await processEnsinaflixEvent(normalized, { retryEmail: true });
       const status = result.processed
         ? "processed"
         : result.reason === "EVENT_IGNORED" ? "ignored" : "failed";
