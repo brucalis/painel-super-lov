@@ -210,12 +210,14 @@ export async function findMapping(n: NormalizedEvent): Promise<Mapping | null> {
     const hit = rows.find(test);
     if (hit) return hit as Mapping;
   }
-  // O ID do produto é estável na Ensinaflix, enquanto o public_id da oferta
-  // pode mudar quando um novo plano/preço é criado. Por isso, o catálogo
-  // operacional usa o produto como fallback e deixa a oferta apenas para os
-  // mapeamentos explícitos cadastrados no painel.
+  // Produtos com assinatura podem conter vários planos (por exemplo,
+  // Semanal comercial e TESTE). Quando o catálogo informa uma oferta oficial,
+  // produto e oferta precisam coincidir para não liberar uma compra de teste
+  // como se fosse o plano comercial.
   const fallback = DEFAULT_PRODUCT_MAPPINGS.find(
-    (item) => item.product_id === n.productId,
+    (item) =>
+      item.product_id === n.productId &&
+      (!item.offer_public_id || item.offer_public_id === n.offerPublicId),
   );
   return fallback ?? null;
 }
