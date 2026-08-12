@@ -320,7 +320,21 @@ export async function getSetting(key: string): Promise<string | null> {
 /** Envia a chave diretamente pelo SendGrid configurado no painel. */
 export async function sendLicenseEmail(
   licenseId: string,
-  context: { product_name?: string | null; subscription_interval?: string | null } = {},
+  context: {
+    product_name?: string | null;
+    product_id?: string | null;
+    billing_type?: string | null;
+    offer_name?: string | null;
+    offer_id?: string | null;
+    offer_public_id?: string | null;
+    subscription_interval?: string | null;
+    subscription_id?: string | null;
+    order_id?: string | null;
+    amount?: unknown;
+    currency?: string | null;
+    payment_method?: string | null;
+    paid_at?: string | null;
+  } = {},
 ): Promise<{ sent: boolean; reason?: string }> {
   const [{ data: license }, enabled, storedKey, fromEmail, fromName, replyTo, subjectTemplate, bodyTemplate, downloadUrl] = await Promise.all([
     supabaseAdmin
@@ -351,20 +365,56 @@ export async function sendLicenseEmail(
       }).format(new Date(license.expires_at))}`
     : "Validade não informada";
   const safeName = customer.full_name || "Cliente";
+  const productName = context.product_name || license.plan_name;
+  const subscriptionType = context.subscription_interval || (license.is_lifetime ? "vitalício" : license.plan_name);
+  const orderId = context.order_id || license.order_id || "Não informado";
+  const offerName = context.offer_name || "Oferta principal";
+  const paymentMethod = context.payment_method || "Pagamento confirmado";
+  const paidAt = formatWebhookDate(context.paid_at);
+  const amount = formatWebhookAmount(context.amount, context.currency || "BRL");
+  const downloadLink = downloadUrl || "https://painel-super-lov.lovable.app/";
   const variables: Record<string, string> = {
     nome: safeName,
     email: customer.email,
-    produto: context.product_name || license.plan_name,
+    produto: productName,
     plano: license.plan_name,
-    tipo_assinatura: context.subscription_interval || (license.is_lifetime ? "vitalício" : license.plan),
+    tipo_assinatura: subscriptionType,
     licenca: license.license_key,
     validade: validity,
-    link_download: downloadUrl || "https://painel-super-lov.lovable.app/",
+    link_download: downloadLink,
+    pedido: orderId,
+    oferta: offerName,
+    valor: amount,
+    metodo_pagamento: paymentMethod,
+    data_pagamento: paidAt,
+    "payload.customer.name": safeName,
+    "payload.customer.email": customer.email,
+    "payload.product.id": context.product_id || "",
+    "payload.product.name": productName,
+    "payload.product.billing_type": context.billing_type || "",
+    "payload.offer.id": context.offer_id || "",
+    "payload.offer.public_id": context.offer_public_id || "",
+    "payload.offer.name": offerName,
+    "payload.order.id": orderId,
+    "payload.subscription.id": context.subscription_id || "",
+    "payload.subscription_plan.interval": subscriptionType,
+    "payload.amount": amount,
+    "payload.paymentMethod": paymentMethod,
+    "payload.paidAt": paidAt,
   };
-  const render = (template: string) => template.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_, key) => variables[key] ?? "");
+  const render = (template: string) => template.replace(/\{\{\s*([a-z0-9_.]+)\s*\}\}/gi, (_, key) => variables[key] ?? "");
   const subject = render(subjectTemplate || "Bem-vindo(a) à Superlovable — sua licença está pronta");
   const text = render(bodyTemplate || `Olá, {{nome}}!\n\nSeja muito bem-vindo(a) à Superlovable. Seu pagamento foi confirmado e seu acesso já está liberado.\n\nProduto: {{produto}}\nPlano: {{plano}}\nLicença: {{licenca}}\nValidade: {{validade}}\n\nBaixe a extensão e consulte as instruções aqui:\n{{link_download}}\n\nCada licença pode ser utilizada em um navegador/dispositivo por vez. Se tiver qualquer dúvida, responda a este e-mail e nossa equipe ajudará você.`);
-  const html = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#171126"><div style="padding:28px;border-radius:14px;background:#f8f5ff"><div style="white-space:pre-wrap;line-height:1.6">${escapeHtml(text)}</div></div></div>`;
+  const html = buildLicenseEmailHtml({
+    name: safeName,
+    message: text,
+    product: productName,
+    plan: license.plan_name,
+    licenseKey: license.license_key,
+    validity,
+    orderId,
+    downloadLink,
+  });
   const payload: Record<string, unknown> = {
     personalizations: [{ to: [{ email: customer.email, name: safeName }], subject }],
     from: { email: fromEmail, name: fromName || "Superlovable" },
@@ -395,4 +445,72 @@ export async function sendLicenseEmail(
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char] || char);
+}
+
+function formatWebhookDate(value?: string | null): string {
+  if (!value) return "Não informada";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
+}
+
+function formatWebhookAmount(value: unknown, currency: string): string {
+  const amount = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(amount)) return "Não informado";
+  try {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}
+
+function buildLicenseEmailHtml(input: {
+  name: string;
+  message: string;
+  product: string;
+  plan: string;
+  licenseKey: string;
+  validity: string;
+  orderId: string;
+  downloadLink: string;
+}): string {
+  const messageHtml = escapeHtml(input.message).replace(/\r?\n/g, "<br>");
+  const safeLink = escapeHtml(input.downloadLink);
+  return `<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#080816;font-family:Inter,Segoe UI,Arial,sans-serif;color:#f8f7ff">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#080816;padding:32px 12px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#151027;border:1px solid #34205e;border-radius:24px;overflow:hidden">
+        <tr><td style="height:8px;background:linear-gradient(90deg,#ff2ca8,#a93cff,#6d5cff)"></td></tr>
+        <tr><td align="center" style="padding:34px 32px 18px;background:#100b20">
+          <img src="https://painel-super-lov.lovable.app/favicon.png" width="72" height="72" alt="Superlovable" style="display:block;border:0;margin:0 auto 16px">
+          <div style="font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#c69cff;font-weight:700">Superlovable</div>
+          <h1 style="margin:12px 0 8px;font-size:30px;line-height:1.2;color:#ffffff">Bem-vindo(a) à Superlovable!</h1>
+          <p style="margin:0;color:#bdb5d5;font-size:16px">Seu pagamento foi confirmado e sua licença está pronta.</p>
+        </td></tr>
+        <tr><td style="padding:28px 32px">
+          <div style="font-size:15px;line-height:1.75;color:#ded9eb">${messageHtml}</div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:26px 0;background:#0d0a1b;border:1px solid #3d2867;border-radius:16px">
+            <tr><td style="padding:22px">
+              <div style="font-size:12px;color:#a89dbf;text-transform:uppercase;letter-spacing:1px">Sua chave de licença</div>
+              <div style="margin:8px 0 18px;font-family:Consolas,Monaco,monospace;font-size:20px;font-weight:700;color:#ff5fc9;word-break:break-all">${escapeHtml(input.licenseKey)}</div>
+              <div style="font-size:14px;line-height:1.8;color:#d8d2e7"><strong style="color:#fff">Produto:</strong> ${escapeHtml(input.product)}<br><strong style="color:#fff">Plano:</strong> ${escapeHtml(input.plan)}<br><strong style="color:#fff">Validade:</strong> ${escapeHtml(input.validity)}<br><strong style="color:#fff">Pedido:</strong> ${escapeHtml(input.orderId)}</div>
+            </td></tr>
+          </table>
+          <table role="presentation" cellspacing="0" cellpadding="0" align="center"><tr><td style="border-radius:12px;background:#d832ff;background-image:linear-gradient(90deg,#ff2ca8,#8f35ff)">
+            <a href="${safeLink}" style="display:inline-block;padding:16px 28px;color:#fff;text-decoration:none;font-weight:800;font-size:16px">Baixar extensão e ver instruções</a>
+          </td></tr></table>
+          <p style="margin:24px 0 0;text-align:center;color:#9187a8;font-size:13px;line-height:1.6">Use sua licença em um navegador/dispositivo por vez.<br>Se precisar de ajuda, basta responder a este e-mail.</p>
+        </td></tr>
+        <tr><td style="padding:20px 32px;text-align:center;background:#0d0a1b;color:#716782;font-size:12px">Superlovable · Crie sem interrupções</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
 }
