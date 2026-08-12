@@ -291,8 +291,8 @@ export async function createLicenseRecord(input: {
       device_limit: input.device_limit ?? 1,
       minimum_version: input.minimum_version ?? null,
       order_id: input.order_id ?? null,
-      external_product_id: (input.external_product_id ?? null) as never,
-      external_subscription_id: (input.external_subscription_id ?? null) as never,
+      external_product_id: input.external_product_id ?? null,
+      external_subscription_id: input.external_subscription_id ?? null,
       source: input.source ?? "manual",
 
 
