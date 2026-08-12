@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/public/activate-license")({
         const {
           json,
           normalizeKey,
-          newToken,
+          deviceToken,
           effectiveStatus,
           versionLt,
           licenseResponse,
@@ -150,7 +150,11 @@ export const Route = createFileRoute("/api/public/activate-license")({
           }
         }
 
-        const { token, hash } = newToken();
+        // O mesmo perfil recebe sempre o mesmo token. Isso torna a ativação
+        // idempotente mesmo quando content script, painel e várias abas chegam
+        // juntos após uma reinstalação.
+        const tokenBinding = installationId || String(existing?.id || deviceId);
+        const { token, hash } = deviceToken(String(license.id), tokenBinding);
         if (existing) {
           const devicePatch: Record<string, unknown> = {
               token_hash: hash,

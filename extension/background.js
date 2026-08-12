@@ -124,7 +124,35 @@ chrome.action.onClicked.addListener(async (tab) => {
   await openLovableTabAndToggle();
 });
 
+let browserInstallationPromise = null;
+async function getCanonicalBrowserInstallationId() {
+  if (browserInstallationPromise) return browserInstallationPromise;
+  browserInstallationPromise = (async () => {
+    const cookieName = "superlovable_browser_id";
+    const url = "https://lovable.dev/";
+    const getCookie = () => new Promise((resolve) => chrome.cookies.get({ url, name: cookieName }, resolve));
+    let cookie = await getCookie();
+    if (!cookie || !cookie.value) {
+      const value = crypto.randomUUID();
+      await new Promise((resolve) => chrome.cookies.set({
+        url, name: cookieName, value, path: "/", secure: true, httpOnly: true,
+        sameSite: "lax", expirationDate: Math.floor(Date.now() / 1000) + (400 * 86400),
+      }, resolve));
+      cookie = await getCookie();
+    }
+    return cookie && cookie.value ? cookie.value : null;
+  })().finally(() => { browserInstallationPromise = null; });
+  return browserInstallationPromise;
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+
+  if (msg && msg.action === "getBrowserInstallationId") {
+    getCanonicalBrowserInstallationId()
+      .then((installationId) => sendResponse({ ok: Boolean(installationId), installationId }))
+      .catch((error) => sendResponse({ ok: false, error: error && error.message }));
+    return true;
+  }
 
   if (msg && msg.action === "getUpdateStatus") {
     refreshExtensionBlockState(true).then((state) => sendResponse({ ok: true, blocked: state.blocked, data: state.data }));

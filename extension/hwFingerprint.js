@@ -160,6 +160,20 @@ function qlCookieSet(details) {
 // outro perfil do Chrome nem com outro computador.
 async function getBrowserInstallationId() {
   if (_cachedInstallationId) return _cachedInstallationId;
+  // O service worker serializa a criação para todas as abas/frames. Sem isso,
+  // duas abas abertas no primeiro uso poderiam criar IDs diferentes.
+  try {
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: "getBrowserInstallationId" }, (value) => {
+        if (chrome.runtime.lastError) resolve(null);
+        else resolve(value || null);
+      });
+    });
+    if (response && response.ok && response.installationId) {
+      _cachedInstallationId = response.installationId;
+      return _cachedInstallationId;
+    }
+  } catch (_) {}
   const cookieName = "superlovable_browser_id";
   const existing = await qlCookieGet({ url: "https://lovable.dev/", name: cookieName });
   if (existing && existing.value) {
@@ -177,7 +191,9 @@ async function getBrowserInstallationId() {
     sameSite: "lax",
     expirationDate: Math.floor(Date.now() / 1000) + (400 * 24 * 60 * 60),
   });
-  _cachedInstallationId = (saved && saved.value) || value;
+  // Releia o valor canônico caso outro contexto tenha gravado em paralelo.
+  const canonical = await qlCookieGet({ url: "https://lovable.dev/", name: cookieName });
+  _cachedInstallationId = (canonical && canonical.value) || (saved && saved.value) || value;
   return _cachedInstallationId;
 }
 

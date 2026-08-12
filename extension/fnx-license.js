@@ -157,6 +157,33 @@
       }, existingToken);
       if (validation.ok) return validResponse(validation.data, existingToken);
 
+      // Outra aba pode ter concluído a recuperação da mesma licença enquanto
+      // esta requisição estava em voo. Se o token compartilhado mudou, valide
+      // o mais novo antes de considerar a sessão encerrada.
+      const latest = await storageGet(["ql_session_id", "ql_license_key"]);
+      const latestToken = formatKey(latest.ql_license_key || "") === key
+        ? String(latest.ql_session_id || "").trim()
+        : "";
+      if (latestToken && latestToken !== existingToken) {
+        const retry = await request(VALIDATE_URL, {
+          device_id: String(deviceId),
+          extension_version: extensionVersion(),
+        }, latestToken);
+        if (retry.ok) return validResponse(retry.data, latestToken);
+      }
+
+      // Indisponibilidade momentânea não revoga uma licença já validada. O
+      // heartbeat tentará novamente sem apagar chave e sessão do navegador.
+      if (validation.status === "offline" || validation.status === "server_error") {
+        return {
+          valid: true,
+          transient: true,
+          reason: validation.status,
+          message: validation.message || MESSAGES[validation.status],
+          session_id: existingToken,
+        };
+      }
+
       // Token inválido não é motivo para liberar nem reativar silenciosamente.
       // O usuário deve informar/confirmar a chave novamente após o estado local
       // ser limpo pelos chamadores existentes.

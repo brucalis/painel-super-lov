@@ -27,6 +27,17 @@ export function newToken(): { token: string; hash: string } {
   return { token, hash: sha256(token) };
 }
 
+/** Token repetível por vínculo. Evita que duas abas ativando ao mesmo tempo
+ * invalidem a sessão uma da outra. O segredo nunca é enviado ao cliente. */
+export function deviceToken(licenseId: string, browserBinding: string): { token: string; hash: string } {
+  const secret = process.env.LICENSE_TOKEN_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (!secret) return newToken();
+  const token = createHmac("sha256", secret)
+    .update(`superlovable-license:${licenseId}:${browserBinding}`)
+    .digest("hex");
+  return { token, hash: sha256(token) };
+}
+
 export function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -451,6 +462,13 @@ export async function sendLicenseEmail(
   }
   if (!response.ok) {
     const detail = (await response.text()).slice(0, 300);
+    if (/maximum credits exceeded/i.test(detail)) {
+      await logEvent(licenseId, "email.failed", "Cota de envios do SendGrid atingida; a licença foi gerada normalmente.", {
+        status: response.status,
+        detail,
+      });
+      return { sent: false, reason: "sendgrid_quota_exceeded" };
+    }
     await logEvent(licenseId, "email.failed", "Falha ao enviar e-mail da licença.", { status: response.status, detail });
     return { sent: false, reason: `sendgrid_${response.status}` };
   }
@@ -530,6 +548,13 @@ export async function sendSendGridTestEmail(
     });
     if (!response.ok) {
       const detail = (await response.text()).slice(0, 500);
+      if (/maximum credits exceeded/i.test(detail)) {
+        return {
+          sent: false,
+          reason: "sendgrid_quota_exceeded",
+          detail: "A cota de envios da conta SendGrid foi atingida. Aguarde a renovação da cota ou aumente o limite no SendGrid; nenhuma compra ou configuração do painel causou este bloqueio.",
+        };
+      }
       return { sent: false, reason: `sendgrid_${response.status}`, detail: detail || `HTTP ${response.status}` };
     }
     return { sent: true };

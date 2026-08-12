@@ -4,11 +4,19 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.17",
-  updatedAt: "11/08/2026 às 22:15 (horário de Brasília)",
+  version: "32.0.18",
+  updatedAt: "11/08/2026 às 23:10 (horário de Brasília)",
   downloadPath: "/super-lovable.zip",
-  downloadName: "superlovable-v32.0.17.zip",
+  downloadName: "superlovable-v32.0.18.zip",
   changelog: [
+    {
+      version: "32.0.18",
+      date: "11/08/2026",
+      changes: [
+        "Sessão da licença mais estável durante o uso e entre várias abas do mesmo navegador.",
+        "Separação mais confiável entre perfis do Chrome e dispositivos diferentes.",
+      ],
+    },
     {
       version: "32.0.17",
       date: "11/08/2026",
