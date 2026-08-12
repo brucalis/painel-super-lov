@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Superlovable - Painel Lateral</title>
+  <script src="branding.config.js"></script>
+  <script src="remote-branding.js"></script>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="sp-banner">
+    <img src="banner.png" alt="Superlovable" />
+  </div>
+
+  <div class="sp-header">
+    <div class="sp-brand">
+      <span class="sp-brand-text" data-ts-brand="name">Superlovable</span>
+      <span class="sp-badge">PRO</span>
+    </div>
+    <div class="sp-header-actions">
+      <!-- Layout mode toggle moved next to volume in profile actions -->
+
+      <button class="sp-icon-btn sp-theme-btn" title="Tema" style="display:none">
+        <svg class="sp-theme-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="sp-theme-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <button class="sp-icon-btn sp-logout-btn" title="Sair" style="display:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </div>
+  
+  <div class="sp-body" id="sp-body">
+    <div class="sp-license-gate" id="sp-loading" style="padding:40px 0;text-align:center">
+      <p style="color:var(--ql-text-muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91 0z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> Iniciando Superlovable...</p>
+    </div>
+  </div>
+
+  <div class="sp-footer">
+  <div class="sp-footer-badge" data-ts-brand="footer">
+    Desenvolvido por Superlovable
+  </div>
+</div>
+
+  <div class="sp-notif-panel" id="sp-notif-panel" style="display:none">
+    <div class="sp-notif-header">
+      <span>Notificações</span>
+      <button class="sp-notif-close" id="sp-notif-close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="sp-notif-list" id="sp-notif-list">
+      <p class="sp-notif-empty">Carregando...</p>
+    </div>
+  </div>
+
+  <script src="jszip.min.js"></script>
+  <script src="hwFingerprint.js"></script>
+  <script src="fnx-license.js"></script>
+  <script src="sidepanel-templates.js"></script>
+  <script src="sidepanel.js"></script>
+  <script src="update-check.js"></script>
+</body>
+</html>
