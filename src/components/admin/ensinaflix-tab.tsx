@@ -321,7 +321,10 @@ export function EnsinaflixTab() {
             <div className="md:col-span-2">
               <Label>Mensagem enviada ao cliente</Label>
               <Textarea className="min-h-72 font-mono text-sm" value={emailForm.body_template} onChange={(e) => setEmailForm({ ...emailForm, body_template: e.target.value })} />
-              <p className="mt-2 text-xs text-muted-foreground">Variáveis disponíveis: <code>{"{{nome}}"}</code>, <code>{"{{email}}"}</code>, <code>{"{{produto}}"}</code>, <code>{"{{plano}}"}</code>, <code>{"{{tipo_assinatura}}"}</code>, <code>{"{{licenca}}"}</code>, <code>{"{{validade}}"}</code> e <code>{"{{link_download}}"}</code>.</p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Variáveis disponíveis: <code>{"{{nome}}"}</code>, <code>{"{{email}}"}</code>, <code>{"{{produto}}"}</code>, <code>{"{{plano}}"}</code>, <code>{"{{tipo_assinatura}}"}</code>, <code>{"{{licenca}}"}</code>, <code>{"{{validade}}"}</code>, <code>{"{{pedido}}"}</code>, <code>{"{{oferta}}"}</code>, <code>{"{{valor}}"}</code>, <code>{"{{metodo_pagamento}}"}</code>, <code>{"{{data_pagamento}}"}</code> e <code>{"{{link_download}}"}</code>.
+                Também são aceitos os caminhos do webhook, como <code>{"{{payload.customer.name}}"}</code>, <code>{"{{payload.product.name}}"}</code>, <code>{"{{payload.offer.name}}"}</code> e <code>{"{{payload.order.id}}"}</code>.
+              </p>
             </div>
           </div>
           <div className="flex gap-2">
