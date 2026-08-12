@@ -86,6 +86,7 @@ export const Route = createFileRoute("/api/public/activate-license")({
         // Migração única das ativações anteriores à versão 32.0.16: quando a
         // licença permitia apenas um dispositivo e existe exatamente um vínculo
         // antigo sem installation_id, associamos esse vínculo ao perfil atual.
+        let claimedLegacyDevice = false;
         if (!existing && installationId && license.device_limit === 1) {
           const { data: legacyDevices } = await supabaseAdmin
             .from("license_devices")
@@ -93,8 +94,23 @@ export const Route = createFileRoute("/api/public/activate-license")({
             .eq("license_id", license.id)
             .eq("active", true)
             .is("installation_id", null)
-            .limit(2);
-          if (legacyDevices?.length === 1) existing = legacyDevices[0];
+            .order("last_seen_at", { ascending: false });
+          if (legacyDevices?.length) {
+            existing = legacyDevices[0];
+            claimedLegacyDevice = true;
+          }
+        }
+
+        // Se testes antigos criaram vínculos duplicados ao aumentar o limite,
+        // mantém apenas o mais recente durante a migração para um dispositivo.
+        if (existing && claimedLegacyDevice) {
+          await supabaseAdmin
+            .from("license_devices")
+            .update({ active: false })
+            .eq("license_id", license.id)
+            .eq("active", true)
+            .is("installation_id", null)
+            .neq("id", existing.id);
         }
 
         if (!existing) {
