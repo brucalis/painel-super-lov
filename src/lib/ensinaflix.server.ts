@@ -273,7 +273,9 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
       is_lifetime: mapping.is_lifetime,
       duration_days: mapping.duration_days,
       duration_minutes: mapping.duration_minutes,
-      expires_at: mapping.is_lifetime ? null : n.periodEnd,
+      // Alguns eventos enviam apenas YYYY-MM-DD em period_end. Nesse caso,
+      // usamos a duração do mapeamento para não encerrar horas antes do prazo.
+      expires_at: mapping.is_lifetime || !n.periodEnd?.includes("T") ? null : n.periodEnd,
       device_limit: mapping.device_limit,
       order_id: n.orderId,
       external_product_id: n.productId,
@@ -333,3 +335,4 @@ export async function processEnsinaflixEvent(n: NormalizedEvent): Promise<Proces
   await dispatchOutbound("license.updated", target.id);
   return { processed: true, action, licenseId: target.id };
 }
+d2b865a38c3c221f46da8ca911ad70b6848e63a8

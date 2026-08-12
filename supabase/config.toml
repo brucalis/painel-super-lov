@@ -1,9 +1,0 @@
-project_id = "vlayhykonzabepbsckhx"
-
-# A extensão usa o token próprio de sessão da licença, não um JWT do
-# Supabase Auth. A função faz a validação desse token no banco antes de usar IA.
-[functions.optimize-prompt]
-verify_jwt = false
-
-[functions.optimize-prompt-health]
-verify_jwt = false
