@@ -130,18 +130,27 @@ export const Route = createFileRoute("/api/public/webhooks/ensinaflix")({
         // ---- idempotência ----------------------------------------------------
         const { data: already } = await supabaseAdmin
           .from("webhook_events")
-          .select("id, processing_status")
+          .select("id, processing_status, processing_error, license_id")
           .eq("provider", "ensinaflix")
           .eq("event_key", eventKey)
           .maybeSingle();
 
-        if (already) {
+        const retryableDuplicate = !!already?.processing_error && (
+          already.processing_error === "UNKNOWN_PRODUCT_MAPPING" ||
+          already.processing_error.startsWith("EMAIL_NOT_SENT:")
+        );
+        if (already && !retryableDuplicate) {
           return jsonRes({ success: true, duplicate: true, message: "Evento já processado." });
         }
 
-        const { data: logRow } = await supabaseAdmin
-          .from("webhook_events")
-          .insert({
+        let logRow: { id: string } | null = already ? { id: already.id } : null;
+        if (already) {
+          await supabaseAdmin.from("webhook_events").update({
+            processing_status: "processing",
+            processing_error: null,
+          }).eq("id", already.id);
+        } else {
+          const { data: inserted } = await supabaseAdmin.from("webhook_events").insert({
             provider: "ensinaflix",
             event_key: eventKey,
             event_type: n.eventType,
@@ -155,6 +164,8 @@ export const Route = createFileRoute("/api/public/webhooks/ensinaflix")({
           })
           .select("id")
           .single();
+          logRow = inserted;
+        }
 
         const finish = async (patch: Record<string, unknown>, status: number, payload: unknown) => {
           if (logRow)
@@ -198,7 +209,7 @@ export const Route = createFileRoute("/api/public/webhooks/ensinaflix")({
           if (!result.processed) {
             return finish(
               {
-                processing_status: result.reason === "EVENT_IGNORED" ? "ignored" : "processed",
+                processing_status: result.reason === "EVENT_IGNORED" ? "ignored" : "failed",
                 processing_error: result.reason ?? null,
                 license_id: result.licenseId ?? null,
               },
@@ -207,7 +218,11 @@ export const Route = createFileRoute("/api/public/webhooks/ensinaflix")({
             );
           }
           return finish(
-            { processing_status: "processed", license_id: result.licenseId ?? null },
+            {
+              processing_status: "processed",
+              processing_error: result.reason ?? null,
+              license_id: result.licenseId ?? null,
+            },
             200,
             {
               success: true,
