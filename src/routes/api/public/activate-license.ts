@@ -73,6 +73,28 @@ export const Route = createFileRoute("/api/public/activate-license")({
             message: "Essa licença é inválida. Acesse a ferramenta e desbloqueie a Lovable Ilimitada agora mesmo.",
           }, 404);
 
+        // A contagem começa exatamente na primeira ativação. A atualização
+        // condicional torna chamadas simultâneas idempotentes: apenas uma delas
+        // define o início; as demais reutilizam o mesmo vencimento.
+        if (!license.is_lifetime && license.duration_minutes && !license.activation_started_at) {
+          const startedAt = new Date();
+          const expiresAt = new Date(startedAt.getTime() + license.duration_minutes * 60000);
+          await supabaseAdmin
+            .from("licenses")
+            .update({
+              activation_started_at: startedAt.toISOString(),
+              expires_at: expiresAt.toISOString(),
+            } as never)
+            .eq("id", license.id)
+            .is("activation_started_at", null);
+          const { data: activatedLicense } = await supabaseAdmin
+            .from("licenses")
+            .select("*")
+            .eq("id", license.id)
+            .single();
+          if (activatedLicense) license = activatedLicense;
+        }
+
         const status = effectiveStatus(license);
         if (status !== "active") {
           await logEvent(license.id, "activation.denied", `Ativação negada: ${status}.`, { deviceId });

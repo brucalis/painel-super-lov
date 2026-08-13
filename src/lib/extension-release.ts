@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.21",
-  updatedAt: "12/08/2026 às 23:02 (horário de Brasília)",
+  version: "32.0.22",
+  updatedAt: "13/08/2026 às 14:30 (horário de Brasília)",
   downloadPath: "/super-lovable.zip",
-  downloadName: "superlovable-v32.0.21.zip",
+  downloadName: "superlovable-v32.0.22.zip",
   changelog: [
+    {
+      version: "32.0.22",
+      date: "13/08/2026",
+      changes: [
+        "O período contratado agora começa somente na primeira ativação da licença.",
+        "Contador de tempo restante corrigido e disponível nos planos temporários.",
+        "Planos vitalício e revenda continuam sem contagem regressiva.",
+      ],
+    },
     {
       version: "32.0.21",
       date: "12/08/2026",

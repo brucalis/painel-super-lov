@@ -270,9 +270,11 @@ export type Database = {
       licenses: {
         Row: {
           access_role: string
+          activation_started_at: string | null
           created_at: string
           customer_id: string | null
           device_limit: number
+          duration_minutes: number | null
           expires_at: string | null
           external_product_id: string | null
           external_subscription_id: string | null
@@ -293,9 +295,11 @@ export type Database = {
         }
         Insert: {
           access_role?: string
+          activation_started_at?: string | null
           created_at?: string
           customer_id?: string | null
           device_limit?: number
+          duration_minutes?: number | null
           expires_at?: string | null
           external_product_id?: string | null
           external_subscription_id?: string | null
@@ -316,9 +320,11 @@ export type Database = {
         }
         Update: {
           access_role?: string
+          activation_started_at?: string | null
           created_at?: string
           customer_id?: string | null
           device_limit?: number
+          duration_minutes?: number | null
           expires_at?: string | null
           external_product_id?: string | null
           external_subscription_id?: string | null

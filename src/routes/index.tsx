@@ -120,6 +120,9 @@ function Index() {
               <p className="mt-1.5 text-sm leading-6 text-slate-300">
                 Sua chave foi enviada por e-mail — confira a caixa de entrada, a aba de promoções e o spam. Se não localizar a mensagem, use o mesmo e-mail informado no checkout para ativar a extensão imediatamente.
               </p>
+              <p className="mt-2 text-sm font-medium leading-6 text-fuchsia-200">
+                O período contratado começa a contar somente na primeira ativação. Essa regra não se aplica aos planos vitalício e revenda.
+              </p>
             </div>
 
             <button

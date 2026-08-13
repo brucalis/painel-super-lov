@@ -81,7 +81,7 @@
       reason: null,
       message: data.message || MESSAGES.ok,
       expires_at: data.is_lifetime ? null : (data.expires_at || null),
-      activated_at: data.server_time || new Date().toISOString(),
+      activated_at: data.activation_started_at || data.server_time || new Date().toISOString(),
       status: "active",
       license_type: "paid",
       lifetime: data.is_lifetime === true,

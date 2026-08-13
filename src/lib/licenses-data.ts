@@ -22,6 +22,8 @@ export type License = {
   status: LicenseStatus;
   is_lifetime: boolean;
   expires_at: string | null;
+  activation_started_at: string | null;
+  duration_minutes: number | null;
   device_limit: number;
   minimum_version: string | null;
   order_id: string | null;

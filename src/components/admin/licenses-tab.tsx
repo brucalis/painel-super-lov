@@ -220,6 +220,8 @@ export function LicensesTab() {
                     <TableCell className="text-sm">
                       {l.is_lifetime ? (
                         "Vitalícia"
+                      ) : !l.activation_started_at ? (
+                        <span className="text-amber-600">Aguardando primeira ativação</span>
                       ) : (
                         <>
                           {fmt(l.expires_at)}
@@ -336,7 +338,7 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
                 <SelectItem value="lifetime">Vitalícia</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">A validade começa na criação da licença e nunca reinicia ao atualizar ou reinstalar a extensão.</p>
+            <p className="text-xs text-muted-foreground">Nos planos temporários, a validade começa somente na primeira ativação e não reinicia ao atualizar ou reinstalar a extensão.</p>
           </div>
           <div className="space-y-2">
               <Label>Limite de navegadores/dispositivos</Label>

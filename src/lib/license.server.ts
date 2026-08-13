@@ -85,6 +85,8 @@ export type LicenseRow = {
   status: string;
   is_lifetime: boolean;
   expires_at: string | null;
+  activation_started_at?: string | null;
+  duration_minutes?: number | null;
   device_limit: number;
   minimum_version: string | null;
   offline_grace_seconds: number;
@@ -140,6 +142,8 @@ export async function licenseResponse(license: LicenseRow, token: string | null,
     plan: license.plan,
     plan_name: license.plan_name,
     expires_at: license.expires_at,
+    activation_started_at: license.activation_started_at ?? null,
+    duration_minutes: license.duration_minutes ?? null,
     is_lifetime: license.is_lifetime,
     device_count: count ?? 0,
     device_limit: license.device_limit,
@@ -279,14 +283,14 @@ export async function createLicenseRecord(input: {
   }
 
   const isLifetime = !!input.is_lifetime;
-  let expiresAt: string | null = null;
-  if (!isLifetime) {
-    if (input.expires_at) expiresAt = new Date(input.expires_at).toISOString();
-    else if (input.duration_minutes)
-      expiresAt = new Date(Date.now() + input.duration_minutes * 60000).toISOString();
-    else if (input.duration_days)
-      expiresAt = new Date(Date.now() + input.duration_days * 86400000).toISOString();
-  }
+  // Novas licenças temporárias aguardam a primeira ativação. O prazo comprado
+  // fica preservado em minutos e o vencimento só é calculado nesse momento.
+  const durationMinutes = isLifetime
+    ? null
+    : input.duration_minutes ?? (input.duration_days ? input.duration_days * 1440 : null);
+  const expiresAt = !isLifetime && input.expires_at && !durationMinutes
+    ? new Date(input.expires_at).toISOString()
+    : null;
 
   const key = generateLicenseKey();
   const baseInsert = {
@@ -298,6 +302,8 @@ export async function createLicenseRecord(input: {
       status: "active" as const,
       is_lifetime: isLifetime,
       expires_at: expiresAt,
+      activation_started_at: null,
+      duration_minutes: durationMinutes,
       device_limit: input.device_limit ?? 1,
       minimum_version: input.minimum_version ?? null,
       order_id: input.order_id ?? null,
@@ -379,6 +385,8 @@ export async function sendLicenseEmail(
     ? `Válida até ${new Intl.DateTimeFormat("pt-BR", {
         dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo"
       }).format(new Date(license.expires_at))}`
+    : license.duration_minutes
+    ? "A validade começa na primeira ativação"
     : "Validade não informada";
   const safeName = customer.full_name || "Cliente";
   const productName = context.product_name || license.plan_name;

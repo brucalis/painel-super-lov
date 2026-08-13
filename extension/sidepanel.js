@@ -1426,7 +1426,7 @@ licenseKey = resolvedKey;
       if (ch.ts_intercept_locked !== undefined) updateLockBtnVisual(Boolean(ch.ts_intercept_locked.newValue));
     });
 
-    // updateCountdown();
+    updateCountdown();
 
     chrome.storage.local.get(["ql_license_key","ql_session_id"], r => {
       if (r.ql_license_key) {
@@ -1678,7 +1678,7 @@ licenseKey = resolvedKey;
   const el = document.getElementById('sp-countdown');
   if(!el) return;
 
-  if(true) {
+  if(licenseLifetime) {
     el.style.display = 'flex';
     el.innerHTML =
       '<div class="sp-lifetime-card">' +
@@ -2628,7 +2628,7 @@ sessionId = data.session_id || sessionId;
   ql_session_id: sessionId
 });
               const nameEl = document.getElementById('sp-name'); if(nameEl) nameEl.textContent = userName || 'User';
-              // updateCountdown();
+              updateCountdown();
             } else {
               chrome.storage.local.remove(["ql_license_valid","ql_session_id","ql_user_name","ql_expires_at","ql_activated_at","ql_license_status"]);
               showLicenseGate();
