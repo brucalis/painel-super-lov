@@ -183,7 +183,8 @@ export function LicensesTab() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Plano</TableHead>
                 <TableHead>Situação</TableHead>
-                <TableHead>Validade</TableHead>
+                <TableHead>Ativada em</TableHead>
+                <TableHead>Expira em</TableHead>
                 <TableHead>Origem</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -191,14 +192,14 @@ export function LicensesTab() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                     Carregando…
                   </TableCell>
                 </TableRow>
               )}
               {!loading && !filtered.length && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                     Nenhuma licença encontrada.
                   </TableCell>
                 </TableRow>
@@ -218,10 +219,17 @@ export function LicensesTab() {
                       <Badge variant={statusVariant(status)}>{STATUS_LABEL[status]}</Badge>
                     </TableCell>
                     <TableCell className="text-sm">
+                      {l.activation_started_at ? (
+                        fmt(l.activation_started_at)
+                      ) : (
+                        <span className="text-amber-600">Aguardando primeira ativação</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
                       {l.is_lifetime ? (
                         "Vitalícia"
                       ) : !l.activation_started_at ? (
-                        <span className="text-amber-600">Aguardando primeira ativação</span>
+                        <span className="text-muted-foreground">Prazo ainda não iniciado</span>
                       ) : (
                         <>
                           {fmt(l.expires_at)}
@@ -503,6 +511,20 @@ function LicenseDetailDialog({
               <CardTitle className="text-sm">Prazo e situação</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="rounded-md border bg-muted/30 p-3 text-xs">
+                <p>
+                  <span className="font-medium">Ativada em:</span>{" "}
+                  {license.activation_started_at ? fmt(license.activation_started_at) : "Aguardando primeira ativação"}
+                </p>
+                <p className="mt-1">
+                  <span className="font-medium">Expira em:</span>{" "}
+                  {license.is_lifetime
+                    ? "Vitalícia"
+                    : license.activation_started_at
+                      ? fmt(license.expires_at)
+                      : "Prazo ainda não iniciado"}
+                </p>
+              </div>
               <Select
                 value={license.status}
                 onValueChange={(v) => patch({ status: v }, `Situação alterada para ${STATUS_LABEL[v as LicenseStatus]}.`)}
