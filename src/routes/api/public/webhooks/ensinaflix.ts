@@ -135,9 +135,11 @@ export const Route = createFileRoute("/api/public/webhooks/ensinaflix")({
           .eq("event_key", eventKey)
           .maybeSingle();
 
-        const retryableDuplicate = !!already?.processing_error && (
-          already.processing_error === "UNKNOWN_PRODUCT_MAPPING" ||
-          already.processing_error.startsWith("EMAIL_NOT_SENT:")
+        const retryableDuplicate = already?.processing_status === "failed" || (
+          !!already?.processing_error && (
+            already.processing_error === "UNKNOWN_PRODUCT_MAPPING" ||
+            already.processing_error.startsWith("EMAIL_NOT_SENT:")
+          )
         );
         if (already && !retryableDuplicate) {
           return jsonRes({ success: true, duplicate: true, message: "Evento já processado." });

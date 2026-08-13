@@ -246,6 +246,20 @@ export async function createLicenseRecord(input: {
     external_id?: string | null;
   } | null;
 }) {
+  // O numero do pedido identifica uma unica compra. Isso protege tanto o
+  // webhook quanto tentativas manuais repetidas depois de falha/timeout.
+  if (input.order_id?.trim()) {
+    const normalizedOrderId = input.order_id.trim();
+    const { data: existingOrderLicense } = await supabaseAdmin
+      .from("licenses")
+      .select("*")
+      .eq("order_id", normalizedOrderId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (existingOrderLicense) return existingOrderLicense;
+  }
+
   let customerId: string | null = null;
   if (input.customer?.email) {
     const email = input.customer.email.trim().toLowerCase();
@@ -319,8 +333,22 @@ export async function createLicenseRecord(input: {
     external_subscription_id: input.external_subscription_id ?? null,
   };
   let { data, error } = await supabaseAdmin.from("licenses").insert(withExternalReferences as never).select("*").single();
-  if (error && /external_(product|subscription)_id|schema cache/i.test(error.message)) {
+  if (error && /external_(product|subscription)_id/i.test(error.message)) {
     ({ data, error } = await supabaseAdmin.from("licenses").insert(baseInsert).select("*").single());
+  }
+  // Compatibilidade durante publicacoes em que o frontend chegou antes da
+  // migration de validade. O prazo temporario comeca na criacao somente nesse
+  // modo de contingencia; assim a venda nao e perdida nem vira acesso infinito.
+  if (error && /activation_started_at|duration_minutes/i.test(error.message)) {
+    const legacyInsert = {
+      ...baseInsert,
+      expires_at: isLifetime || !durationMinutes
+        ? expiresAt
+        : new Date(Date.now() + durationMinutes * 60000).toISOString(),
+    } as Record<string, unknown>;
+    delete legacyInsert.activation_started_at;
+    delete legacyInsert.duration_minutes;
+    ({ data, error } = await supabaseAdmin.from("licenses").insert(legacyInsert as never).select("*").single());
   }
   if (error) throw new Error(error.message);
   if (!data) throw new Error("A licença não foi criada.");

@@ -1,6 +1,12 @@
 -- Recupera a primeira ativacao das licencas criadas antes de
 -- activation_started_at existir. O evento e a fonte principal; o primeiro
 -- dispositivo registrado e usado apenas como fallback.
+-- A repeticao defensiva garante a atualizacao mesmo se a migration anterior
+-- ainda nao tiver sido aplicada no ambiente publicado.
+ALTER TABLE public.licenses
+  ADD COLUMN IF NOT EXISTS activation_started_at timestamptz,
+  ADD COLUMN IF NOT EXISTS duration_minutes integer;
+
 WITH inferred_duration AS (
   SELECT
     l.id,
@@ -62,3 +68,4 @@ FROM recovered r
 WHERE l.id = r.id
   AND r.activated_at IS NOT NULL;
 
+NOTIFY pgrst, 'reload schema';
