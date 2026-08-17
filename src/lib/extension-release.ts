@@ -6,7 +6,7 @@
 export const EXTENSION_RELEASE = {
   version: "32.0.23",
   updatedAt: "17/08/2026 às 15:10 (horário de Brasília)",
-  downloadPath: "/super-lovable-v32.0.23.zip",
+  downloadPath: "/super-lovable.zip?v=32.0.23-fix2",
   downloadName: "superlovable-v32.0.23.zip",
   changelog: [
     {
