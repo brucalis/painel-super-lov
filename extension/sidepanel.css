@@ -1224,3 +1224,16 @@ body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
 #sl-visual-status[data-kind="success"] { color:#6ee7b7; }
 #sl-visual-status[data-kind="warning"] { color:#fbbf24; }
 #sl-visual-status[data-kind="error"] { color:#fb7185; }
+
+#sl-github-agent { margin:10px 14px 6px; padding:11px; border:1px solid rgba(168,85,247,.4); border-radius:12px; background:rgba(30,18,58,.78); }
+.sl-agent-title { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#fff; font-size:12px; font-weight:800; }
+.sl-agent-title span:last-child { color:#67e8f9; font-size:8px; letter-spacing:.06em; }
+#sl-agent-status { margin:8px 0; color:#c4b5d9; font-size:10px; line-height:1.4; }
+#sl-agent-status[data-kind="success"] { color:#6ee7b7; }
+#sl-agent-status[data-kind="warning"] { color:#fbbf24; }
+#sl-agent-status[data-kind="error"] { color:#fb7185; }
+.sl-agent-actions { display:flex; gap:6px; }
+.sl-agent-actions button, .sl-agent-project button { border:1px solid rgba(236,72,153,.42); border-radius:8px; padding:7px 9px; background:#24113e; color:#f5e9ff; font-size:10px; cursor:pointer; }
+.sl-agent-actions button:hover, .sl-agent-project button:hover { border-color:#ec4899; background:#351650; }
+.sl-agent-project { gap:6px; margin-top:8px; }
+.sl-agent-project select { min-width:0; flex:1; border:1px solid rgba(168,85,247,.4); border-radius:8px; padding:7px; background:#140b25; color:#fff; font-size:10px; }
