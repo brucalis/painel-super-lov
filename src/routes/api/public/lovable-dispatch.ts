@@ -67,10 +67,10 @@ export const Route = createFileRoute("/api/public/lovable-dispatch")({
         if (method === "lovable_mcp") {
           return json({
             ok: false,
-            code: "LOVABLE_MCP_AUTHORIZATION_REQUIRED",
+            code: "LOVABLE_MCP_CLIENT_NOT_SUPPORTED",
             method,
             capability: capabilities.methods.lovable_mcp,
-            message: "O conector está preparado, mas a Super Lovable ainda precisa ser autorizada como cliente OAuth do Lovable MCP.",
+            message: "O MCP está disponível na conta, mas a extensão Super Lovable não é um dos clientes OAuth aceitos atualmente pelo servidor oficial.",
           }, 501);
         }
 
