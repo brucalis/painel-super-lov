@@ -56,11 +56,7 @@
     }
   };
 
-  globalThis.sendPromptNativeViaBackground = async (message, _planMode, attachedFilesSnapshot) => {
-    const attachments = Array.isArray(attachedFilesSnapshot) ? attachedFilesSnapshot : [];
-    if (attachments.length) {
-      throw new Error("Para anexar arquivos nesta versão, adicione-os primeiro no chat da Lovable e depois envie o comando pela Super Lovable.");
-    }
+  const sendThroughComposer = async (message) => {
     const prompt = String(message || "").trim();
     if (!prompt) throw new Error("Digite um comando antes de enviar.");
     const composer = findComposer();
@@ -69,4 +65,32 @@
     await clickSend(composer);
     return { success: true, method: "lovable_composer" };
   };
+
+  // The old sender is closed inside legacy scopes, so replacing a global
+  // function is not enough. Intercept its background request before it leaves
+  // the browser and complete the same callback contract locally.
+  const originalSendMessage = chrome.runtime.sendMessage.bind(chrome.runtime);
+  chrome.runtime.sendMessage = function(message, ...args) {
+    const isLegacyPromptRequest = message && message.action === "proxyFetch" &&
+      /\/functions\/v1\/send-lovable-prompt(?:\?|$)/.test(String(message.url || ""));
+    if (!isLegacyPromptRequest) return originalSendMessage(message, ...args);
+
+    const callback = typeof args[args.length - 1] === "function" ? args.pop() : null;
+    let payload = {};
+    try { payload = JSON.parse(message.body || "{}"); } catch (_) {}
+
+    const operation = sendThroughComposer(payload.message).then((result) => {
+      const response = { ok: true, status: 200, data: { ok: true, success: true, data: result } };
+      if (callback) callback(response);
+      return response;
+    }).catch((error) => {
+      const response = { ok: false, status: 0, data: { ok: false, success: false, error: error.message } };
+      if (callback) callback(response);
+      return response;
+    });
+
+    if (!callback) return operation;
+  };
+
+  globalThis.sendPromptNativeViaBackground = (message) => sendThroughComposer(message);
 })();
