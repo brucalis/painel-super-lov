@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.24",
-  updatedAt: "17/08/2026 às 16:30 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.24-visual1",
-  downloadName: "superlovable-v32.0.24.zip",
+  version: "32.0.25",
+  updatedAt: "17/08/2026 às 18:30 (horário de Brasília)",
+  downloadPath: "/super-lovable.zip?v=32.0.25-agent1",
+  downloadName: "superlovable-v32.0.25.zip",
   changelog: [
+    {
+      version: "32.0.25",
+      date: "17/08/2026",
+      changes: [
+        "Novo agente para preparar alterações no código e enviá-las pelo GitHub Sync.",
+        "Conexão do GitHub e seleção do projeto feitas apenas na primeira utilização.",
+        "Resumo dos arquivos alterados exibido antes da confirmação do commit.",
+      ],
+    },
     {
       version: "32.0.24",
       date: "17/08/2026",
