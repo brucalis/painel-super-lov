@@ -13,8 +13,10 @@
 
 - Endpoint oficial: `https://mcp.lovable.dev`.
 - As ferramentas oficiais podem criar projetos, enviar mensagens, inspecionar código e publicar.
-- O OAuth aceita somente clientes aprovados pela Lovable. A Super Lovable precisa ser cadastrada/autorizada antes de ativar este adaptador.
-- Segredos previstos: `LOVABLE_MCP_CLIENT_ID` e `LOVABLE_MCP_CLIENT_SECRET`.
+- O recurso está habilitado por padrão em contas Free, Pro e Business.
+- O OAuth aceita atualmente somente ChatGPT, Claude, Claude Code, Cursor e VS Code.
+- Outros clientes, incluindo uma extensão Chrome própria, não conseguem concluir o OAuth neste momento.
+- A Lovable não oferece autenticação do MCP por API key.
 
 ### 3. Git Sync
 
@@ -22,9 +24,9 @@
 - A aplicação já possui estrutura de GitHub App e OAuth individual.
 - Requer vincular a licença, o usuário, o repositório e o projeto Lovable antes de gerar commits.
 
-## Solicitação a enviar para a Lovable
+## Consulta opcional à Lovable
 
-Solicitar o cadastro da Super Lovable como cliente OAuth do Lovable MCP, informando:
+Não é necessário solicitar habilitação do MCP na conta. Caso a Lovable amplie a lista de clientes OAuth, confirmar se haverá registro público para extensões e aplicações próprias, informando:
 
 - nome da aplicação: Super Lovable;
 - tipo: extensão Chrome com backend próprio;
