@@ -26,11 +26,17 @@ import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/
 import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/transcribe'
 import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/public/validate-license'
 import { Route as ApiPublicVisualPlanRouteImport } from './routes/api/public/visual-plan'
+import { Route as ApiPublicAgentCommitRouteImport } from './routes/api/public/agent/commit'
+import { Route as ApiPublicAgentPlanRouteImport } from './routes/api/public/agent/plan'
+import { Route as ApiPublicAgentStatusRouteImport } from './routes/api/public/agent/status'
 import { Route as ApiPublicGithubCallbackRouteImport } from './routes/api/public/github/callback'
 import { Route as ApiPublicProjectsRemoveWatermarkRouteImport } from './routes/api/public/projects/remove-watermark'
 import { Route as ApiPublicProjectsWatermarkStatusRouteImport } from './routes/api/public/projects/watermark-status'
 import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
 import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
+import { Route as ApiPublicAgentGithubCallbackRouteImport } from './routes/api/public/agent/github/callback'
+import { Route as ApiPublicAgentGithubConnectRouteImport } from './routes/api/public/agent/github/connect'
+import { Route as ApiPublicAgentGithubRepositoriesRouteImport } from './routes/api/public/agent/github/repositories'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -122,6 +128,21 @@ const ApiPublicVisualPlanRoute = ApiPublicVisualPlanRouteImport.update({
   path: '/api/public/visual-plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAgentCommitRoute = ApiPublicAgentCommitRouteImport.update({
+  id: '/api/public/agent/commit',
+  path: '/api/public/agent/commit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAgentPlanRoute = ApiPublicAgentPlanRouteImport.update({
+  id: '/api/public/agent/plan',
+  path: '/api/public/agent/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAgentStatusRoute = ApiPublicAgentStatusRouteImport.update({
+  id: '/api/public/agent/status',
+  path: '/api/public/agent/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicGithubCallbackRoute = ApiPublicGithubCallbackRouteImport.update({
   id: '/api/public/github/callback',
   path: '/api/public/github/callback',
@@ -150,6 +171,24 @@ const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
   path: '/api/public/webhooks/sales',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAgentGithubCallbackRoute =
+  ApiPublicAgentGithubCallbackRouteImport.update({
+    id: '/api/public/agent/github/callback',
+    path: '/api/public/agent/github/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAgentGithubConnectRoute =
+  ApiPublicAgentGithubConnectRouteImport.update({
+    id: '/api/public/agent/github/connect',
+    path: '/api/public/agent/github/connect',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAgentGithubRepositoriesRoute =
+  ApiPublicAgentGithubRepositoriesRouteImport.update({
+    id: '/api/public/agent/github/repositories',
+    path: '/api/public/agent/github/repositories',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -169,11 +208,17 @@ export interface FileRoutesByFullPath {
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
+  '/api/public/agent/commit': typeof ApiPublicAgentCommitRoute
+  '/api/public/agent/plan': typeof ApiPublicAgentPlanRoute
+  '/api/public/agent/status': typeof ApiPublicAgentStatusRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
   '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
   '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
+  '/api/public/agent/github/callback': typeof ApiPublicAgentGithubCallbackRoute
+  '/api/public/agent/github/connect': typeof ApiPublicAgentGithubConnectRoute
+  '/api/public/agent/github/repositories': typeof ApiPublicAgentGithubRepositoriesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -193,11 +238,17 @@ export interface FileRoutesByTo {
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
+  '/api/public/agent/commit': typeof ApiPublicAgentCommitRoute
+  '/api/public/agent/plan': typeof ApiPublicAgentPlanRoute
+  '/api/public/agent/status': typeof ApiPublicAgentStatusRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
   '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
   '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
+  '/api/public/agent/github/callback': typeof ApiPublicAgentGithubCallbackRoute
+  '/api/public/agent/github/connect': typeof ApiPublicAgentGithubConnectRoute
+  '/api/public/agent/github/repositories': typeof ApiPublicAgentGithubRepositoriesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -218,11 +269,17 @@ export interface FileRoutesById {
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
+  '/api/public/agent/commit': typeof ApiPublicAgentCommitRoute
+  '/api/public/agent/plan': typeof ApiPublicAgentPlanRoute
+  '/api/public/agent/status': typeof ApiPublicAgentStatusRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
   '/api/public/webhooks/ensinaflix': typeof ApiPublicWebhooksEnsinaflixRoute
   '/api/public/webhooks/sales': typeof ApiPublicWebhooksSalesRoute
+  '/api/public/agent/github/callback': typeof ApiPublicAgentGithubCallbackRoute
+  '/api/public/agent/github/connect': typeof ApiPublicAgentGithubConnectRoute
+  '/api/public/agent/github/repositories': typeof ApiPublicAgentGithubRepositoriesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -244,11 +301,17 @@ export interface FileRouteTypes {
     | '/api/public/transcribe'
     | '/api/public/validate-license'
     | '/api/public/visual-plan'
+    | '/api/public/agent/commit'
+    | '/api/public/agent/plan'
+    | '/api/public/agent/status'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
     | '/api/public/webhooks/ensinaflix'
     | '/api/public/webhooks/sales'
+    | '/api/public/agent/github/callback'
+    | '/api/public/agent/github/connect'
+    | '/api/public/agent/github/repositories'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -268,11 +331,17 @@ export interface FileRouteTypes {
     | '/api/public/transcribe'
     | '/api/public/validate-license'
     | '/api/public/visual-plan'
+    | '/api/public/agent/commit'
+    | '/api/public/agent/plan'
+    | '/api/public/agent/status'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
     | '/api/public/webhooks/ensinaflix'
     | '/api/public/webhooks/sales'
+    | '/api/public/agent/github/callback'
+    | '/api/public/agent/github/connect'
+    | '/api/public/agent/github/repositories'
   id:
     | '__root__'
     | '/'
@@ -292,11 +361,17 @@ export interface FileRouteTypes {
     | '/api/public/transcribe'
     | '/api/public/validate-license'
     | '/api/public/visual-plan'
+    | '/api/public/agent/commit'
+    | '/api/public/agent/plan'
+    | '/api/public/agent/status'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
     | '/api/public/webhooks/ensinaflix'
     | '/api/public/webhooks/sales'
+    | '/api/public/agent/github/callback'
+    | '/api/public/agent/github/connect'
+    | '/api/public/agent/github/repositories'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -317,11 +392,17 @@ export interface RootRouteChildren {
   ApiPublicTranscribeRoute: typeof ApiPublicTranscribeRoute
   ApiPublicValidateLicenseRoute: typeof ApiPublicValidateLicenseRoute
   ApiPublicVisualPlanRoute: typeof ApiPublicVisualPlanRoute
+  ApiPublicAgentCommitRoute: typeof ApiPublicAgentCommitRoute
+  ApiPublicAgentPlanRoute: typeof ApiPublicAgentPlanRoute
+  ApiPublicAgentStatusRoute: typeof ApiPublicAgentStatusRoute
   ApiPublicGithubCallbackRoute: typeof ApiPublicGithubCallbackRoute
   ApiPublicProjectsRemoveWatermarkRoute: typeof ApiPublicProjectsRemoveWatermarkRoute
   ApiPublicProjectsWatermarkStatusRoute: typeof ApiPublicProjectsWatermarkStatusRoute
   ApiPublicWebhooksEnsinaflixRoute: typeof ApiPublicWebhooksEnsinaflixRoute
   ApiPublicWebhooksSalesRoute: typeof ApiPublicWebhooksSalesRoute
+  ApiPublicAgentGithubCallbackRoute: typeof ApiPublicAgentGithubCallbackRoute
+  ApiPublicAgentGithubConnectRoute: typeof ApiPublicAgentGithubConnectRoute
+  ApiPublicAgentGithubRepositoriesRoute: typeof ApiPublicAgentGithubRepositoriesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -445,6 +526,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicVisualPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/agent/commit': {
+      id: '/api/public/agent/commit'
+      path: '/api/public/agent/commit'
+      fullPath: '/api/public/agent/commit'
+      preLoaderRoute: typeof ApiPublicAgentCommitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/plan': {
+      id: '/api/public/agent/plan'
+      path: '/api/public/agent/plan'
+      fullPath: '/api/public/agent/plan'
+      preLoaderRoute: typeof ApiPublicAgentPlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/status': {
+      id: '/api/public/agent/status'
+      path: '/api/public/agent/status'
+      fullPath: '/api/public/agent/status'
+      preLoaderRoute: typeof ApiPublicAgentStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/github/callback': {
       id: '/api/public/github/callback'
       path: '/api/public/github/callback'
@@ -480,6 +582,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksSalesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/agent/github/callback': {
+      id: '/api/public/agent/github/callback'
+      path: '/api/public/agent/github/callback'
+      fullPath: '/api/public/agent/github/callback'
+      preLoaderRoute: typeof ApiPublicAgentGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/github/connect': {
+      id: '/api/public/agent/github/connect'
+      path: '/api/public/agent/github/connect'
+      fullPath: '/api/public/agent/github/connect'
+      preLoaderRoute: typeof ApiPublicAgentGithubConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/github/repositories': {
+      id: '/api/public/agent/github/repositories'
+      path: '/api/public/agent/github/repositories'
+      fullPath: '/api/public/agent/github/repositories'
+      preLoaderRoute: typeof ApiPublicAgentGithubRepositoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -501,11 +624,17 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicTranscribeRoute: ApiPublicTranscribeRoute,
   ApiPublicValidateLicenseRoute: ApiPublicValidateLicenseRoute,
   ApiPublicVisualPlanRoute: ApiPublicVisualPlanRoute,
+  ApiPublicAgentCommitRoute: ApiPublicAgentCommitRoute,
+  ApiPublicAgentPlanRoute: ApiPublicAgentPlanRoute,
+  ApiPublicAgentStatusRoute: ApiPublicAgentStatusRoute,
   ApiPublicGithubCallbackRoute: ApiPublicGithubCallbackRoute,
   ApiPublicProjectsRemoveWatermarkRoute: ApiPublicProjectsRemoveWatermarkRoute,
   ApiPublicProjectsWatermarkStatusRoute: ApiPublicProjectsWatermarkStatusRoute,
   ApiPublicWebhooksEnsinaflixRoute: ApiPublicWebhooksEnsinaflixRoute,
   ApiPublicWebhooksSalesRoute: ApiPublicWebhooksSalesRoute,
+  ApiPublicAgentGithubCallbackRoute: ApiPublicAgentGithubCallbackRoute,
+  ApiPublicAgentGithubConnectRoute: ApiPublicAgentGithubConnectRoute,
+  ApiPublicAgentGithubRepositoriesRoute: ApiPublicAgentGithubRepositoriesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
