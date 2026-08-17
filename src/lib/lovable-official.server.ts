@@ -7,7 +7,6 @@ function configured(...names: string[]) {
 }
 
 export function officialCapabilities() {
-  const mcpCredentialsPresent = configured("LOVABLE_MCP_CLIENT_ID", "LOVABLE_MCP_CLIENT_SECRET");
   const githubConfigured = configured("GITHUB_APP_ID", "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "GITHUB_PRIVATE_KEY");
 
   return {
@@ -19,10 +18,11 @@ export function officialCapabilities() {
         authorization: "Lovable user confirms and uses their own account in the browser.",
       },
       lovable_mcp: {
-        status: mcpCredentialsPresent ? "credentials_present_pending_validation" : "authorization_required",
+        status: "available_on_account_client_not_supported",
         scope: "existing_project",
         endpoint: "https://mcp.lovable.dev",
-        authorization: "The Super Lovable OAuth client must be accepted by Lovable.",
+        account_access: "Enabled by default on Free, Pro and Business workspaces.",
+        authorization: "OAuth is currently limited to ChatGPT, Claude, Claude Code, Cursor and VS Code. API key authentication is not available.",
       },
       github_sync: {
         status: githubConfigured ? "configured" : "configuration_required",
