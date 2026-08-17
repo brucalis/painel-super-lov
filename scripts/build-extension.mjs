@@ -1,5 +1,5 @@
 import { createWriteStream } from "node:fs";
-import { access, cp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
+import { access, copyFile, cp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import archiver from "archiver";
@@ -9,6 +9,7 @@ const sourceDir = path.join(root, "extension");
 const buildRoot = path.join(root, ".extension-dist");
 const buildDir = path.join(buildRoot, "extension");
 const outputZip = path.join(root, "public", "super-lovable.zip");
+const versionedOutputZip = path.join(root, "public", "super-lovable-v32.0.23.zip");
 
 // Arquivos críticos que precisam permanecer no pacote exatamente como foram
 // testados. Eles compartilham funções e mensagens entre contextos diferentes
@@ -77,6 +78,7 @@ await cp(sourceDir, buildDir, { recursive: true });
 
 await validatePackage();
 await zipDirectory();
+await copyFile(outputZip, versionedOutputZip);
 
 const zipSize = (await stat(outputZip)).size;
 const files = await readdir(buildDir);
