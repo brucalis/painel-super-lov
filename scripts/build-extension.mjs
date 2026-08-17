@@ -19,6 +19,7 @@ const requiredScripts = [
   "castle-v2.js",
   "content-templates.js",
   "content.js",
+  "composer-bridge.js",
   "fnx-license.js",
   "hwFingerprint.js",
   "overlay.js",
