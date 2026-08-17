@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Superlovable",
-  "version": "32.0.22",
+  "version": "32.0.23",
   "description": "Superlovable — Assistente premium com licenciamento por key.",
   "permissions": [
     "storage",
@@ -49,6 +49,7 @@
         "fnx-license.js",
         "content-templates.js",
         "content.js",
+        "composer-bridge.js",
         "overlay.js"
       ],
       "css": [
