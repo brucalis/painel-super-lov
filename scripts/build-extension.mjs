@@ -9,7 +9,7 @@ const sourceDir = path.join(root, "extension");
 const buildRoot = path.join(root, ".extension-dist");
 const buildDir = path.join(buildRoot, "extension");
 const outputZip = path.join(root, "public", "super-lovable.zip");
-const versionedOutputZip = path.join(root, "public", "super-lovable-v32.0.23.zip");
+const versionedOutputZip = path.join(root, "public", "super-lovable-v32.0.24.zip");
 
 // Arquivos críticos que precisam permanecer no pacote exatamente como foram
 // testados. Eles compartilham funções e mensagens entre contextos diferentes
@@ -20,6 +20,8 @@ const requiredScripts = [
   "castle-v2.js",
   "content-templates.js",
   "content.js",
+  "visual-editor.js",
+  "visual-editor-panel.js",
   "composer-bridge.js",
   "fnx-license.js",
   "hwFingerprint.js",

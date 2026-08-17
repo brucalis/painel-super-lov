@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.23",
-  updatedAt: "17/08/2026 às 15:10 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.23-fix2",
-  downloadName: "superlovable-v32.0.23.zip",
+  version: "32.0.24",
+  updatedAt: "17/08/2026 às 16:30 (horário de Brasília)",
+  downloadPath: "/super-lovable.zip?v=32.0.24-visual1",
+  downloadName: "superlovable-v32.0.24.zip",
   changelog: [
+    {
+      version: "32.0.24",
+      date: "17/08/2026",
+      changes: [
+        "Novo modo experimental para selecionar e editar elementos diretamente no preview.",
+        "Pedidos incompatíveis com edição visual segura agora são identificados antes da execução.",
+        "Histórico de uma etapa permite desfazer a última alteração aplicada no preview.",
+      ],
+    },
     {
       version: "32.0.23",
       date: "17/08/2026",

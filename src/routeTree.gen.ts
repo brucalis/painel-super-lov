@@ -25,6 +25,7 @@ import { Route as ApiPublicOptimizePromptRouteImport } from './routes/api/public
 import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
 import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/transcribe'
 import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/public/validate-license'
+import { Route as ApiPublicVisualPlanRouteImport } from './routes/api/public/visual-plan'
 import { Route as ApiPublicGithubCallbackRouteImport } from './routes/api/public/github/callback'
 import { Route as ApiPublicProjectsRemoveWatermarkRouteImport } from './routes/api/public/projects/remove-watermark'
 import { Route as ApiPublicProjectsWatermarkStatusRouteImport } from './routes/api/public/projects/watermark-status'
@@ -116,6 +117,11 @@ const ApiPublicValidateLicenseRoute =
     path: '/api/public/validate-license',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicVisualPlanRoute = ApiPublicVisualPlanRouteImport.update({
+  id: '/api/public/visual-plan',
+  path: '/api/public/visual-plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicGithubCallbackRoute = ApiPublicGithubCallbackRouteImport.update({
   id: '/api/public/github/callback',
   path: '/api/public/github/callback',
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
@@ -185,6 +192,7 @@ export interface FileRoutesByTo {
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
+  '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
     | '/api/public/recover-device'
     | '/api/public/transcribe'
     | '/api/public/validate-license'
+    | '/api/public/visual-plan'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
@@ -257,6 +267,7 @@ export interface FileRouteTypes {
     | '/api/public/recover-device'
     | '/api/public/transcribe'
     | '/api/public/validate-license'
+    | '/api/public/visual-plan'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
@@ -280,6 +291,7 @@ export interface FileRouteTypes {
     | '/api/public/recover-device'
     | '/api/public/transcribe'
     | '/api/public/validate-license'
+    | '/api/public/visual-plan'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
@@ -304,6 +316,7 @@ export interface RootRouteChildren {
   ApiPublicRecoverDeviceRoute: typeof ApiPublicRecoverDeviceRoute
   ApiPublicTranscribeRoute: typeof ApiPublicTranscribeRoute
   ApiPublicValidateLicenseRoute: typeof ApiPublicValidateLicenseRoute
+  ApiPublicVisualPlanRoute: typeof ApiPublicVisualPlanRoute
   ApiPublicGithubCallbackRoute: typeof ApiPublicGithubCallbackRoute
   ApiPublicProjectsRemoveWatermarkRoute: typeof ApiPublicProjectsRemoveWatermarkRoute
   ApiPublicProjectsWatermarkStatusRoute: typeof ApiPublicProjectsWatermarkStatusRoute
@@ -425,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicValidateLicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/visual-plan': {
+      id: '/api/public/visual-plan'
+      path: '/api/public/visual-plan'
+      fullPath: '/api/public/visual-plan'
+      preLoaderRoute: typeof ApiPublicVisualPlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/github/callback': {
       id: '/api/public/github/callback'
       path: '/api/public/github/callback'
@@ -480,6 +500,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicRecoverDeviceRoute: ApiPublicRecoverDeviceRoute,
   ApiPublicTranscribeRoute: ApiPublicTranscribeRoute,
   ApiPublicValidateLicenseRoute: ApiPublicValidateLicenseRoute,
+  ApiPublicVisualPlanRoute: ApiPublicVisualPlanRoute,
   ApiPublicGithubCallbackRoute: ApiPublicGithubCallbackRoute,
   ApiPublicProjectsRemoveWatermarkRoute: ApiPublicProjectsRemoveWatermarkRoute,
   ApiPublicProjectsWatermarkStatusRoute: ApiPublicProjectsWatermarkStatusRoute,
