@@ -1,7 +1,29 @@
-name: Test
-on: workflow_dispatch
+name: Build extension ZIP
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-extension.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - run: echo ok
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run build:extension
+      - run: unzip -t public/super-lovable.zip
+      - name: Publish generated ZIP only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/super-lovable.zip
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "build: atualizar pacote da extensão 32.0.23"
+          git push
