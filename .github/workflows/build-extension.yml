@@ -1,4 +1,4 @@
-name: Build extension ZIP
+name: Build extension ZIP 32.0.23 fix2
 on:
   push:
     branches:
