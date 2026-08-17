@@ -19,6 +19,8 @@ import { Route as ApiGithubRepositoriesRouteImport } from './routes/api/github/r
 import { Route as ApiGithubStatusRouteImport } from './routes/api/github/status'
 import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
 import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
+import { Route as ApiPublicLovableCapabilitiesRouteImport } from './routes/api/public/lovable-capabilities'
+import { Route as ApiPublicLovableDispatchRouteImport } from './routes/api/public/lovable-dispatch'
 import { Route as ApiPublicOptimizePromptRouteImport } from './routes/api/public/optimize-prompt'
 import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
 import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/transcribe'
@@ -79,6 +81,18 @@ const ApiPublicDeactivateDeviceRoute =
   ApiPublicDeactivateDeviceRouteImport.update({
     id: '/api/public/deactivate-device',
     path: '/api/public/deactivate-device',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLovableCapabilitiesRoute =
+  ApiPublicLovableCapabilitiesRouteImport.update({
+    id: '/api/public/lovable-capabilities',
+    path: '/api/public/lovable-capabilities',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLovableDispatchRoute =
+  ApiPublicLovableDispatchRouteImport.update({
+    id: '/api/public/lovable-dispatch',
+    path: '/api/public/lovable-dispatch',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicOptimizePromptRoute = ApiPublicOptimizePromptRouteImport.update({
@@ -142,6 +156,8 @@ export interface FileRoutesByFullPath {
   '/api/github/status': typeof ApiGithubStatusRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
+  '/api/public/lovable-capabilities': typeof ApiPublicLovableCapabilitiesRoute
+  '/api/public/lovable-dispatch': typeof ApiPublicLovableDispatchRoute
   '/api/public/optimize-prompt': typeof ApiPublicOptimizePromptRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
@@ -163,6 +179,8 @@ export interface FileRoutesByTo {
   '/api/github/status': typeof ApiGithubStatusRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
+  '/api/public/lovable-capabilities': typeof ApiPublicLovableCapabilitiesRoute
+  '/api/public/lovable-dispatch': typeof ApiPublicLovableDispatchRoute
   '/api/public/optimize-prompt': typeof ApiPublicOptimizePromptRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
@@ -185,6 +203,8 @@ export interface FileRoutesById {
   '/api/github/status': typeof ApiGithubStatusRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
+  '/api/public/lovable-capabilities': typeof ApiPublicLovableCapabilitiesRoute
+  '/api/public/lovable-dispatch': typeof ApiPublicLovableDispatchRoute
   '/api/public/optimize-prompt': typeof ApiPublicOptimizePromptRoute
   '/api/public/recover-device': typeof ApiPublicRecoverDeviceRoute
   '/api/public/transcribe': typeof ApiPublicTranscribeRoute
@@ -208,6 +228,8 @@ export interface FileRouteTypes {
     | '/api/github/status'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
+    | '/api/public/lovable-capabilities'
+    | '/api/public/lovable-dispatch'
     | '/api/public/optimize-prompt'
     | '/api/public/recover-device'
     | '/api/public/transcribe'
@@ -229,6 +251,8 @@ export interface FileRouteTypes {
     | '/api/github/status'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
+    | '/api/public/lovable-capabilities'
+    | '/api/public/lovable-dispatch'
     | '/api/public/optimize-prompt'
     | '/api/public/recover-device'
     | '/api/public/transcribe'
@@ -250,6 +274,8 @@ export interface FileRouteTypes {
     | '/api/github/status'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
+    | '/api/public/lovable-capabilities'
+    | '/api/public/lovable-dispatch'
     | '/api/public/optimize-prompt'
     | '/api/public/recover-device'
     | '/api/public/transcribe'
@@ -272,6 +298,8 @@ export interface RootRouteChildren {
   ApiGithubStatusRoute: typeof ApiGithubStatusRoute
   ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
   ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
+  ApiPublicLovableCapabilitiesRoute: typeof ApiPublicLovableCapabilitiesRoute
+  ApiPublicLovableDispatchRoute: typeof ApiPublicLovableDispatchRoute
   ApiPublicOptimizePromptRoute: typeof ApiPublicOptimizePromptRoute
   ApiPublicRecoverDeviceRoute: typeof ApiPublicRecoverDeviceRoute
   ApiPublicTranscribeRoute: typeof ApiPublicTranscribeRoute
@@ -355,6 +383,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicDeactivateDeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/lovable-capabilities': {
+      id: '/api/public/lovable-capabilities'
+      path: '/api/public/lovable-capabilities'
+      fullPath: '/api/public/lovable-capabilities'
+      preLoaderRoute: typeof ApiPublicLovableCapabilitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/lovable-dispatch': {
+      id: '/api/public/lovable-dispatch'
+      path: '/api/public/lovable-dispatch'
+      fullPath: '/api/public/lovable-dispatch'
+      preLoaderRoute: typeof ApiPublicLovableDispatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/optimize-prompt': {
       id: '/api/public/optimize-prompt'
       path: '/api/public/optimize-prompt'
@@ -432,6 +474,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGithubStatusRoute: ApiGithubStatusRoute,
   ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
   ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
+  ApiPublicLovableCapabilitiesRoute: ApiPublicLovableCapabilitiesRoute,
+  ApiPublicLovableDispatchRoute: ApiPublicLovableDispatchRoute,
   ApiPublicOptimizePromptRoute: ApiPublicOptimizePromptRoute,
   ApiPublicRecoverDeviceRoute: ApiPublicRecoverDeviceRoute,
   ApiPublicTranscribeRoute: ApiPublicTranscribeRoute,
