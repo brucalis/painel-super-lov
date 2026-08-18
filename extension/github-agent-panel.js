@@ -150,7 +150,11 @@
       stopProgressTimer();
       setStatus(error.message || "Não foi possível concluir a alteração.", "error");
       const box = document.getElementById("sl-agent-progress");
-      if (box) { box.hidden = false; box.innerHTML = `<div class="sl-agent-progress-error">Não foi possível concluir: ${String(error.message || error)}</div>`; }
+      if (box) {
+        box.hidden = false;
+        box.innerHTML = '<div class="sl-agent-progress-error"></div>';
+        box.firstElementChild.textContent = `Não foi possível concluir: ${String(error.message || error)}`;
+      }
     } finally { state.busy = false; }
   }
 
