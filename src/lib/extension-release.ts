@@ -15,6 +15,7 @@ export const EXTENSION_RELEASE = {
       changes: [
         "O agente encontra arquivos equivalentes mesmo quando a IA informa uma pasta ou capitalização diferente.",
         "Projetos com rotas e componentes organizados de formas diferentes agora continuam o processamento.",
+        "Arquivos principais do projeto são priorizados para reduzir novas chamadas à inteligência artificial.",
       ],
     },
     {

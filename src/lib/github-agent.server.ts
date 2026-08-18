@@ -18,7 +18,7 @@ const REDUCED_CONTEXT_FILES = 6;
 const REDUCED_CONTEXT_CHARS = 12_000;
 const GROQ_CONTEXT_CHARS = 16_000;
 const GROQ_RETRY_CONTEXT_CHARS = 8_000;
-const GROQ_MAX_COMPLETION_TOKENS = 2_000;
+const GROQ_MAX_COMPLETION_TOKENS = 1_500;
 const MAX_CONTEXT_ROUNDS = 3;
 
 type LicenseAuth = Awaited<ReturnType<typeof requireActiveExtensionLicense>>;
@@ -196,6 +196,9 @@ function scorePath(path: string, prompt: string) {
   let score = words.reduce((total, word) => total + (lower.includes(word) ? 8 : 0), 0);
   if (/\.(tsx|ts|jsx|js|css|json|sql)$/.test(lower)) score += 2;
   if (lower.includes("route") || lower.includes("page") || lower.includes("component")) score += 2;
+  if (/^src\/(routes|pages)\/index\.(tsx|ts|jsx|js)$/.test(lower)) score += 24;
+  if (/^src\/(app|main)\.(tsx|ts|jsx|js)$/.test(lower)) score += 20;
+  if (/(^|\/)hero\.(tsx|ts|jsx|js)$/.test(lower)) score += 20;
   if (/lock|node_modules|dist|\.output|routeTree\.gen/.test(lower)) score -= 100;
   return score;
 }
@@ -369,8 +372,6 @@ async function callGroq(prompt: string, reducedContext: boolean) {
       model,
       temperature: 0.1,
       max_completion_tokens: GROQ_MAX_COMPLETION_TOKENS,
-      reasoning_effort: "low",
-      include_reasoning: false,
       response_format: { type: "json_object" },
       messages: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
     }),
@@ -409,7 +410,7 @@ async function generatePlan(payload: string, forceReduced = false) {
       throw new AgentPlanError(
         "A inteligência artificial ficou indisponível durante o processamento. Tente novamente em alguns instantes.",
         "AI_PROVIDER_UNAVAILABLE",
-        true,
+        !forceReduced,
         503,
       );
     }
