@@ -4,7 +4,7 @@
   globalThis.__superlovableGithubAgentLoaded = true;
 
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
-  let state = { ready: false, busy: false, pendingRunId: null, repositories: [], progressTimer: null };
+  let state = { ready: false, busy: false, pendingRunId: null, repositories: [], progressTimer: null, lastPrompt: "" };
 
   const storage = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
   const auth = async () => {
@@ -15,7 +15,12 @@
   const request = async (path, options = {}) => {
     const response = await fetch(`${API}${path}`, { ...options, headers: { ...(await auth()), ...(options.headers || {}) } });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.error || `Servidor respondeu ${response.status}.`);
+    if (!response.ok || data.ok === false) {
+      const error = new Error(data.error || `Servidor respondeu ${response.status}.`);
+      error.code = data.code || `HTTP_${response.status}`;
+      error.retryable = Boolean(data.retryable);
+      throw error;
+    }
     return data;
   };
   const setStatus = (message, kind = "info") => {
@@ -125,14 +130,44 @@
     } catch (error) { setStatus(error.message, "error"); }
   }
 
-  async function execute(prompt) {
+  const renderFailure = (error) => {
+    renderProgress("error", "Falha no processamento");
+    const box = document.getElementById("sl-agent-progress");
+    if (!box) return;
+    box.hidden = false;
+    box.innerHTML = "";
+    const failure = document.createElement("div");
+    failure.className = "sl-agent-progress-error";
+    const message = document.createElement("p");
+    message.textContent = `Falha no processamento: ${String(error.message || error)}`;
+    failure.appendChild(message);
+    const actions = document.createElement("div");
+    actions.className = "sl-agent-error-actions";
+    if (error.retryable) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.textContent = "Tentar novamente com contexto reduzido";
+      retry.addEventListener("click", () => execute(state.lastPrompt, true));
+      actions.appendChild(retry);
+    }
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Cancelar tarefa";
+    cancel.addEventListener("click", () => { renderProgress(false); setStatus("Tarefa cancelada. Você já pode enviar o próximo comando.", "warning"); });
+    actions.appendChild(cancel);
+    failure.appendChild(actions);
+    box.appendChild(failure);
+  };
+
+  async function execute(prompt, reducedContext = false) {
     if (state.busy) return;
     if (!state.ready) { setStatus("Conecte e selecione o projeto antes de enviar.", "error"); return; }
     state.busy = true;
-    setStatus("Analisando o projeto e preparando a alteração…");
+    state.lastPrompt = prompt;
+    setStatus(reducedContext ? "Tentando novamente com menos informações do projeto…" : "Analisando o projeto e preparando a alteração…");
     startPlanningProgress();
     try {
-      const plan = await request("/plan", { method: "POST", body: JSON.stringify({ prompt }) });
+      const plan = await request("/plan", { method: "POST", body: JSON.stringify({ prompt, reduced_context: reducedContext }) });
       stopProgressTimer();
       state.pendingRunId = plan.runId;
       const files = (plan.files || []).join(", ");
@@ -149,12 +184,7 @@
     } catch (error) {
       stopProgressTimer();
       setStatus(error.message || "Não foi possível concluir a alteração.", "error");
-      const box = document.getElementById("sl-agent-progress");
-      if (box) {
-        box.hidden = false;
-        box.innerHTML = '<div class="sl-agent-progress-error"></div>';
-        box.firstElementChild.textContent = `Não foi possível concluir: ${String(error.message || error)}`;
-      }
+      renderFailure(error);
     } finally { state.busy = false; }
   }
 

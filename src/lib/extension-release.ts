@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.26",
-  updatedAt: "17/08/2026 às 22:15 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.26-agent-progress",
-  downloadName: "superlovable-v32.0.26.zip",
+  version: "32.0.27",
+  updatedAt: "18/08/2026 (horário de Brasília)",
+  downloadPath: "/super-lovable.zip?v=32.0.27-groq-context",
+  downloadName: "superlovable-v32.0.27.zip",
   changelog: [
+    {
+      version: "32.0.27",
+      date: "18/08/2026",
+      changes: [
+        "O agente reduz automaticamente o contexto antes de acionar a IA de contingência.",
+        "Falhas de limite agora liberam a tarefa e permitem tentar novamente com contexto reduzido.",
+        "O acompanhamento informa a falha sem deixar o processamento travado.",
+      ],
+    },
     {
       version: "32.0.26",
       date: "17/08/2026",

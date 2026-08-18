@@ -13,10 +13,42 @@ import { requireActiveExtensionLicense } from "@/lib/lovable-official.server";
 const GITHUB_API = "https://api.github.com";
 const USER_AGENT = "SuperLovable-Agent";
 const MAX_CONTEXT_FILES = 14;
-const MAX_CONTEXT_CHARS = 140_000;
+const MAX_CONTEXT_CHARS = 60_000;
+const REDUCED_CONTEXT_FILES = 6;
+const REDUCED_CONTEXT_CHARS = 12_000;
+const GROQ_CONTEXT_CHARS = 16_000;
+const GROQ_RETRY_CONTEXT_CHARS = 8_000;
+const GROQ_MAX_COMPLETION_TOKENS = 2_000;
 
 type LicenseAuth = Awaited<ReturnType<typeof requireActiveExtensionLicense>>;
 type ProposedFile = { path: string; content: string };
+type ContextFile = { path: string; content: string };
+
+class AgentPlanError extends Error {
+  code: string;
+  retryable: boolean;
+  status: number;
+
+  constructor(message: string, code: string, retryable = false, status = 500) {
+    super(message);
+    this.name = "AgentPlanError";
+    this.code = code;
+    this.retryable = retryable;
+    this.status = status;
+  }
+}
+
+export function agentErrorDetails(error: unknown) {
+  if (error instanceof AgentPlanError) {
+    return { message: error.message, code: error.code, retryable: error.retryable, status: error.status };
+  }
+  return {
+    message: error instanceof Error ? error.message : "Falha ao planejar alteração.",
+    code: "AGENT_PLAN_FAILED",
+    retryable: false,
+    status: 500,
+  };
+}
 
 const headers = (token: string) => ({
   Accept: "application/vnd.github+json",
@@ -167,7 +199,7 @@ function scorePath(path: string, prompt: string) {
   return score;
 }
 
-async function repoContext(token: string, repo: string, branch: string, prompt: string) {
+async function repoContext(token: string, repo: string, branch: string, prompt: string, reduced = false) {
   const ref = await githubJson<{ object: { sha: string } }>(`${GITHUB_API}/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, token);
   const commit = await githubJson<{ tree: { sha: string } }>(`${GITHUB_API}/repos/${repo}/git/commits/${ref.object.sha}`, token);
   const tree = await githubJson<{ tree: Array<{ path: string; type: string; size?: number }> }>(`${GITHUB_API}/repos/${repo}/git/trees/${commit.tree.sha}?recursive=1`, token);
@@ -176,17 +208,21 @@ async function repoContext(token: string, repo: string, branch: string, prompt: 
     .map((item) => ({ ...item, score: scorePath(item.path, prompt) }))
     .filter((item) => item.score > -50)
     .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))
-    .slice(0, MAX_CONTEXT_FILES);
-  const files: Array<{ path: string; content: string }> = [];
+    .slice(0, reduced ? REDUCED_CONTEXT_FILES : MAX_CONTEXT_FILES);
+  const files: ContextFile[] = [];
   let used = 0;
+  const contextLimit = reduced ? REDUCED_CONTEXT_CHARS : MAX_CONTEXT_CHARS;
   for (const item of candidates) {
     const file = await githubJson<{ content?: string; encoding?: string }>(`${GITHUB_API}/repos/${repo}/contents/${contentPath(item.path)}?ref=${encodeURIComponent(branch)}`, token);
     const content = file.encoding === "base64" && file.content ? decodeBase64Utf8(file.content) : "";
-    if (!content || used + content.length > MAX_CONTEXT_CHARS) continue;
-    used += content.length;
-    files.push({ path: item.path, content });
+    if (!content || used >= contextLimit) continue;
+    const remaining = contextLimit - used;
+    const selected = content.slice(0, remaining);
+    if (!selected) continue;
+    used += selected.length;
+    files.push({ path: item.path, content: selected });
   }
-  return { baseSha: ref.object.sha, treeSha: commit.tree.sha, files };
+  return { baseSha: ref.object.sha, treeSha: commit.tree.sha, files, contextChars: used, reduced };
 }
 
 function extractJson(raw: string) {
@@ -214,14 +250,56 @@ async function callGemini(prompt: string) {
   return { provider: "gemini", model, raw: String(data.candidates?.[0]?.content?.parts?.[0]?.text || "") };
 }
 
-async function callGroq(prompt: string) {
+function estimateTokens(value: string) {
+  return Math.ceil(value.length / 4);
+}
+
+function compactPayload(payload: string, maxChars: number) {
+  try {
+    const parsed = JSON.parse(payload) as { request?: string; repository?: string; branch?: string; files?: ContextFile[] };
+    let remaining = maxChars;
+    const files = (parsed.files || []).flatMap((file) => {
+      if (remaining <= 0) return [];
+      const allowance = Math.min(remaining, Math.max(1_200, Math.floor(maxChars / Math.max(1, parsed.files?.length || 1))));
+      const content = String(file.content || "");
+      const selected = content.length <= allowance
+        ? content
+        : `${content.slice(0, Math.floor(allowance * 0.7))}\n/* ... trecho reduzido automaticamente ... */\n${content.slice(-Math.floor(allowance * 0.3))}`;
+      remaining -= selected.length;
+      return [{ path: file.path, content: selected }];
+    });
+    return JSON.stringify({ request: parsed.request, repository: parsed.repository, branch: parsed.branch, context_reduced: true, files });
+  } catch {
+    return payload.slice(0, maxChars);
+  }
+}
+
+function isGroqCapacityError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /GROQ_(413|429)|request too large|tokens per minute|\bTPM\b/i.test(message);
+}
+
+async function callGroq(prompt: string, reducedContext: boolean) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("GROQ_NOT_CONFIGURED");
-  const model = process.env.GROQ_CODE_MODEL || "openai/gpt-oss-120b";
+  const model = process.env.GROQ_CODE_MODEL || "openai/gpt-oss-20b";
+  console.info("[github-agent] chamada Groq", {
+    model,
+    approximateInputTokens: estimateTokens(`${systemPrompt}\n${prompt}`),
+    reducedContext,
+  });
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, temperature: 0.1, response_format: { type: "json_object" }, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }] }),
+    body: JSON.stringify({
+      model,
+      temperature: 0.1,
+      max_completion_tokens: GROQ_MAX_COMPLETION_TOKENS,
+      reasoning_effort: "low",
+      include_reasoning: false,
+      response_format: { type: "json_object" },
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
+    }),
   });
   const raw = await response.text();
   if (!response.ok) throw new Error(`GROQ_${response.status}:${raw.slice(0, 180)}`);
@@ -229,11 +307,38 @@ async function callGroq(prompt: string) {
   return { provider: "groq", model, raw: String(data.choices?.[0]?.message?.content || "") };
 }
 
-async function generatePlan(payload: string) {
+async function generatePlan(payload: string, forceReduced = false) {
   try { return await callGemini(payload); }
   catch (geminiError) {
-    console.warn("[github-agent] Gemini indisponível", geminiError);
-    return callGroq(payload);
+    console.warn("[github-agent] Gemini indisponível; acionando Groq com contexto reduzido", {
+      error: geminiError instanceof Error ? geminiError.message : String(geminiError),
+      originalApproximateTokens: estimateTokens(payload),
+    });
+    const compact = compactPayload(payload, forceReduced ? GROQ_RETRY_CONTEXT_CHARS : GROQ_CONTEXT_CHARS);
+    try {
+      return await callGroq(compact, true);
+    } catch (groqError) {
+      console.error("[github-agent] Groq indisponível", {
+        model: process.env.GROQ_CODE_MODEL || "openai/gpt-oss-20b",
+        approximateInputTokens: estimateTokens(compact),
+        reducedContext: true,
+        error: groqError instanceof Error ? groqError.message : String(groqError),
+      });
+      if (isGroqCapacityError(groqError)) {
+        throw new AgentPlanError(
+          "Este projeto enviou informações demais para a IA de uma só vez. Tente novamente com o contexto reduzido.",
+          "AI_CONTEXT_TOO_LARGE",
+          !forceReduced,
+          413,
+        );
+      }
+      throw new AgentPlanError(
+        "A inteligência artificial ficou indisponível durante o processamento. Tente novamente em alguns instantes.",
+        "AI_PROVIDER_UNAVAILABLE",
+        true,
+        503,
+      );
+    }
   }
 }
 
@@ -249,16 +354,24 @@ function sanitizeFiles(value: unknown): ProposedFile[] {
   });
 }
 
-export async function planAgentRun(auth: LicenseAuth, prompt: string) {
+export async function planAgentRun(auth: LicenseAuth, prompt: string, options: { reducedContext?: boolean } = {}) {
   const connection = await getLicenseConnection(auth.license.id);
   const installationId = Number(connection?.installation_id || 0);
   const repo = String(connection?.repository_full_name || "");
   const branch = String(connection?.branch || "main");
   if (!installationId || !repo) throw new Error("Conecte e selecione o projeto GitHub primeiro.");
   const token = await createInstallationToken(installationId);
-  const context = await repoContext(token, repo, branch, prompt);
+  const reducedContext = Boolean(options.reducedContext);
+  const context = await repoContext(token, repo, branch, prompt, reducedContext);
   const payload = JSON.stringify({ request: prompt, repository: repo, branch, files: context.files });
-  const ai = await generatePlan(payload);
+  console.info("[github-agent] contexto preparado", {
+    repository: repo,
+    files: context.files.length,
+    contextChars: context.contextChars,
+    approximateTokens: estimateTokens(payload),
+    reducedContext,
+  });
+  const ai = await generatePlan(payload, reducedContext);
   const parsed = extractJson(ai.raw);
   const files = sanitizeFiles(parsed.files);
   if (!files.length) throw new Error(String(parsed.summary || "A IA não propôs uma alteração segura."));
