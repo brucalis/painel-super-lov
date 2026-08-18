@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.29",
+  version: "32.0.30",
   updatedAt: "18/08/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.29-smart-paths",
-  downloadName: "superlovable-v32.0.29.zip",
+  downloadPath: "/super-lovable.zip?v=32.0.30-progressive-agent",
+  downloadName: "superlovable-v32.0.30.zip",
   changelog: [
+    {
+      version: "32.0.30",
+      date: "18/08/2026",
+      changes: [
+        "O agente agora entende a estrutura real de qualquer projeto antes de escolher os arquivos necessários.",
+        "Pedidos simples e complexos usam contexto progressivo para reduzir falhas e acelerar o processamento.",
+        "A seleção de outra inteligência artificial acontece automaticamente quando o serviço principal estiver indisponível.",
+      ],
+    },
     {
       version: "32.0.29",
       date: "18/08/2026",
