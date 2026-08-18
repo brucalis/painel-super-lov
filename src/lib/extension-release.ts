@@ -4,11 +4,19 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.28",
+  version: "32.0.29",
   updatedAt: "18/08/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.28-context-rounds",
-  downloadName: "superlovable-v32.0.28.zip",
+  downloadPath: "/super-lovable.zip?v=32.0.29-smart-paths",
+  downloadName: "superlovable-v32.0.29.zip",
   changelog: [
+    {
+      version: "32.0.29",
+      date: "18/08/2026",
+      changes: [
+        "O agente encontra arquivos equivalentes mesmo quando a IA informa uma pasta ou capitalização diferente.",
+        "Projetos com rotas e componentes organizados de formas diferentes agora continuam o processamento.",
+      ],
+    },
     {
       version: "32.0.28",
       date: "18/08/2026",

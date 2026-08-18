@@ -249,24 +249,62 @@ function requestedContextPaths(summary: unknown) {
 async function requestedRepoContext(token: string, repo: string, branch: string, paths: string[], reduced: boolean) {
   const files: ContextFile[] = [];
   const missing: string[] = [];
+  const resolved: Array<{ requested: string; actual: string }> = [];
+  const ref = await githubJson<{ object: { sha: string } }>(
+    `${GITHUB_API}/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
+    token,
+  );
+  const commit = await githubJson<{ tree: { sha: string } }>(
+    `${GITHUB_API}/repos/${repo}/git/commits/${ref.object.sha}`,
+    token,
+  );
+  const tree = await githubJson<{ tree: Array<{ path: string; type: string }> }>(
+    `${GITHUB_API}/repos/${repo}/git/trees/${commit.tree.sha}?recursive=1`,
+    token,
+  );
+  const repositoryPaths = tree.tree.filter((item) => item.type === "blob").map((item) => item.path);
+  const resolvePath = (requested: string) => {
+    const normalized = requested.toLowerCase();
+    const exact = repositoryPaths.find((path) => path.toLowerCase() === normalized);
+    if (exact) return exact;
+    const basename = normalized.split("/").pop() || normalized;
+    const sameName = repositoryPaths.filter((path) => (path.toLowerCase().split("/").pop() || "") === basename);
+    if (sameName.length) {
+      const requestedParts = normalized.split("/");
+      return sameName.sort((left, right) => {
+        const score = (candidate: string) => {
+          const parts = candidate.toLowerCase().split("/");
+          let value = requestedParts.reduce((total, part) => total + (parts.includes(part) ? 4 : 0), 0);
+          if (normalized.includes("/pages/") && candidate.toLowerCase().includes("/routes/")) value += 8;
+          if (normalized.includes("/routes/") && candidate.toLowerCase().includes("/pages/")) value += 8;
+          return value - parts.length;
+        };
+        return score(right) - score(left) || left.localeCompare(right);
+      })[0];
+    }
+    return null;
+  };
   let remaining = reduced ? REDUCED_CONTEXT_CHARS : MAX_CONTEXT_CHARS;
   for (const path of paths) {
     if (remaining <= 0) break;
+    const actualPath = resolvePath(path);
+    if (!actualPath) { missing.push(path); continue; }
     try {
       const file = await githubJson<{ content?: string; encoding?: string }>(
-        `${GITHUB_API}/repos/${repo}/contents/${contentPath(path)}?ref=${encodeURIComponent(branch)}`,
+        `${GITHUB_API}/repos/${repo}/contents/${contentPath(actualPath)}?ref=${encodeURIComponent(branch)}`,
         token,
       );
       const content = file.encoding === "base64" && file.content ? decodeBase64Utf8(file.content) : "";
       if (!content) { missing.push(path); continue; }
       const selected = content.slice(0, remaining);
       remaining -= selected.length;
-      files.push({ path, content: selected });
+      files.push({ path: actualPath, content: selected });
+      if (actualPath !== path) resolved.push({ requested: path, actual: actualPath });
     } catch {
       missing.push(path);
     }
   }
-  return { files, missing };
+  return { files, missing, resolved };
 }
 
 const systemPrompt = `Você é o agente de programação da Super Lovable. Receberá um pedido e arquivos reais de um projeto conectado ao GitHub. Retorne SOMENTE JSON válido no formato {"summary":"resumo em português","commit_message":"mensagem curta em português","files":[{"path":"caminho existente ou novo","content":"conteúdo completo final"}]}. Faça a menor alteração correta que cumpra o pedido. Preserve arquitetura, estilo, TypeScript e recursos existentes. Nunca inclua segredos, .env, lockfiles, arquivos gerados ou binários. No máximo 8 arquivos. Se o contexto for insuficiente, retorne {"summary":"CONTEXT_REQUIRED: caminhos adicionais separados por vírgula","commit_message":"","files":[]}.`;
@@ -420,6 +458,7 @@ export async function planAgentRun(auth: LicenseAuth, prompt: string, options: {
       requestedPaths,
       loadedFiles: requested.files.map((file) => file.path),
       missingFiles: requested.missing,
+      resolvedPaths: requested.resolved,
       reducedContext,
     });
     if (!requested.files.length) {
@@ -440,6 +479,7 @@ export async function planAgentRun(auth: LicenseAuth, prompt: string, options: {
       branch,
       context_round: round + 1,
       requested_files: requestedPaths,
+      resolved_files: requested.resolved,
       missing_files: requested.missing,
       files: supplementalFiles,
     });
