@@ -19,6 +19,7 @@ const REDUCED_CONTEXT_CHARS = 12_000;
 const GROQ_CONTEXT_CHARS = 16_000;
 const GROQ_RETRY_CONTEXT_CHARS = 8_000;
 const GROQ_MAX_COMPLETION_TOKENS = 2_000;
+const MAX_CONTEXT_ROUNDS = 3;
 
 type LicenseAuth = Awaited<ReturnType<typeof requireActiveExtensionLicense>>;
 type ProposedFile = { path: string; content: string };
@@ -233,6 +234,41 @@ function extractJson(raw: string) {
   return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
 }
 
+function requestedContextPaths(summary: unknown) {
+  const text = String(summary || "").trim();
+  if (!/^CONTEXT_REQUIRED\s*:/i.test(text)) return [];
+  return text
+    .replace(/^CONTEXT_REQUIRED\s*:/i, "")
+    .split(/[,\n]/)
+    .map((path) => path.trim().replace(/^['"`]|['"`]$/g, ""))
+    .filter((path) => path && !path.startsWith("/") && !path.includes(".."))
+    .filter((path, index, paths) => paths.indexOf(path) === index)
+    .slice(0, MAX_CONTEXT_FILES);
+}
+
+async function requestedRepoContext(token: string, repo: string, branch: string, paths: string[], reduced: boolean) {
+  const files: ContextFile[] = [];
+  const missing: string[] = [];
+  let remaining = reduced ? REDUCED_CONTEXT_CHARS : MAX_CONTEXT_CHARS;
+  for (const path of paths) {
+    if (remaining <= 0) break;
+    try {
+      const file = await githubJson<{ content?: string; encoding?: string }>(
+        `${GITHUB_API}/repos/${repo}/contents/${contentPath(path)}?ref=${encodeURIComponent(branch)}`,
+        token,
+      );
+      const content = file.encoding === "base64" && file.content ? decodeBase64Utf8(file.content) : "";
+      if (!content) { missing.push(path); continue; }
+      const selected = content.slice(0, remaining);
+      remaining -= selected.length;
+      files.push({ path, content: selected });
+    } catch {
+      missing.push(path);
+    }
+  }
+  return { files, missing };
+}
+
 const systemPrompt = `Você é o agente de programação da Super Lovable. Receberá um pedido e arquivos reais de um projeto conectado ao GitHub. Retorne SOMENTE JSON válido no formato {"summary":"resumo em português","commit_message":"mensagem curta em português","files":[{"path":"caminho existente ou novo","content":"conteúdo completo final"}]}. Faça a menor alteração correta que cumpra o pedido. Preserve arquitetura, estilo, TypeScript e recursos existentes. Nunca inclua segredos, .env, lockfiles, arquivos gerados ou binários. No máximo 8 arquivos. Se o contexto for insuficiente, retorne {"summary":"CONTEXT_REQUIRED: caminhos adicionais separados por vírgula","commit_message":"","files":[]}.`;
 
 async function callGemini(prompt: string) {
@@ -363,7 +399,7 @@ export async function planAgentRun(auth: LicenseAuth, prompt: string, options: {
   const token = await createInstallationToken(installationId);
   const reducedContext = Boolean(options.reducedContext);
   const context = await repoContext(token, repo, branch, prompt, reducedContext);
-  const payload = JSON.stringify({ request: prompt, repository: repo, branch, files: context.files });
+  let payload = JSON.stringify({ request: prompt, repository: repo, branch, files: context.files });
   console.info("[github-agent] contexto preparado", {
     repository: repo,
     files: context.files.length,
@@ -371,10 +407,58 @@ export async function planAgentRun(auth: LicenseAuth, prompt: string, options: {
     approximateTokens: estimateTokens(payload),
     reducedContext,
   });
-  const ai = await generatePlan(payload, reducedContext);
-  const parsed = extractJson(ai.raw);
-  const files = sanitizeFiles(parsed.files);
-  if (!files.length) throw new Error(String(parsed.summary || "A IA não propôs uma alteração segura."));
+  let ai = await generatePlan(payload, reducedContext);
+  let parsed = extractJson(ai.raw);
+  let files = sanitizeFiles(parsed.files);
+  let supplementalFiles: ContextFile[] = [];
+  for (let round = 1; !files.length && round < MAX_CONTEXT_ROUNDS; round += 1) {
+    const requestedPaths = requestedContextPaths(parsed.summary);
+    if (!requestedPaths.length) break;
+    const requested = await requestedRepoContext(token, repo, branch, requestedPaths, reducedContext);
+    console.info("[github-agent] contexto adicional solicitado", {
+      round,
+      requestedPaths,
+      loadedFiles: requested.files.map((file) => file.path),
+      missingFiles: requested.missing,
+      reducedContext,
+    });
+    if (!requested.files.length) {
+      throw new AgentPlanError(
+        `A IA solicitou arquivos que não foram encontrados no projeto: ${requested.missing.join(", ")}.`,
+        "REQUESTED_CONTEXT_NOT_FOUND",
+        false,
+        422,
+      );
+    }
+    supplementalFiles = [
+      ...supplementalFiles.filter((file) => !requested.files.some((newFile) => newFile.path === file.path)),
+      ...requested.files,
+    ];
+    payload = JSON.stringify({
+      request: prompt,
+      repository: repo,
+      branch,
+      context_round: round + 1,
+      requested_files: requestedPaths,
+      missing_files: requested.missing,
+      files: supplementalFiles,
+    });
+    ai = await generatePlan(payload, reducedContext);
+    parsed = extractJson(ai.raw);
+    files = sanitizeFiles(parsed.files);
+  }
+  if (!files.length) {
+    const remainingPaths = requestedContextPaths(parsed.summary);
+    if (remainingPaths.length) {
+      throw new AgentPlanError(
+        "A IA ainda precisa de mais contexto depois das tentativas automáticas. Tente novamente com um pedido mais específico.",
+        "CONTEXT_ROUNDS_EXHAUSTED",
+        true,
+        422,
+      );
+    }
+    throw new Error(String(parsed.summary || "A IA não propôs uma alteração segura."));
+  }
   const summary = String(parsed.summary || "Alteração preparada.").slice(0, 2_000);
   const commitMessage = String(parsed.commit_message || "aplicar alteração pela Super Lovable").slice(0, 120);
   const { data, error } = await supabaseAdmin.from("github_agent_runs").insert({

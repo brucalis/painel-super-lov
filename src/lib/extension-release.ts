@@ -4,11 +4,19 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.27",
+  version: "32.0.28",
   updatedAt: "18/08/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.27-groq-context",
-  downloadName: "superlovable-v32.0.27.zip",
+  downloadPath: "/super-lovable.zip?v=32.0.28-context-rounds",
+  downloadName: "superlovable-v32.0.28.zip",
   changelog: [
+    {
+      version: "32.0.28",
+      date: "18/08/2026",
+      changes: [
+        "O agente busca automaticamente arquivos adicionais solicitados pela IA.",
+        "Pedidos de contexto agora continuam o processamento sem interromper a tarefa.",
+      ],
+    },
     {
       version: "32.0.27",
       date: "18/08/2026",
