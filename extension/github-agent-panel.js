@@ -39,7 +39,7 @@
         return;
       }
       if (!connection.installation_id) {
-        setStatus("Conecte seu GitHub uma única vez para escolher o projeto.", "warning");
+        setStatus(connection.status === "pending_installation" ? "Instale a GitHub App e depois clique novamente em Conectar GitHub." : "Conecte seu GitHub uma única vez para escolher o projeto.", "warning");
         if (connect) connect.style.display = "inline-flex";
         if (picker) picker.style.display = "none";
         return;
@@ -144,4 +144,3 @@
   new MutationObserver(mount).observe(document.documentElement, { childList: true, subtree: true });
   mount();
 })();
-
