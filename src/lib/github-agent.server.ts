@@ -21,7 +21,7 @@ const REDUCED_REPOSITORY_MAP_CHARS = 8_000;
 const GROQ_CONTEXT_CHARS = 6_000;
 const GROQ_RETRY_CONTEXT_CHARS = 2_800;
 const GROQ_MAX_COMPLETION_TOKENS = 1_200;
-const MAX_CONTEXT_ROUNDS = 3;
+const MAX_CONTEXT_ROUNDS = 5;
 const PROVIDER_TIMEOUT_MS = 45_000;
 const TRANSIENT_RETRY_DELAYS = [700, 1_600];
 
@@ -707,9 +707,15 @@ export async function planAgentRun(
   let ai = await generatePlan(payload, reducedContext);
   let parsed = extractJson(ai.raw);
   let files = sanitizeFiles(parsed.files);
-  let supplementalFiles: ContextFile[] = [];
+  let accumulatedFiles: ContextFile[] = [...context.files];
+  const attemptedContextPaths = new Set<string>();
   for (let round = 1; !files.length && round < MAX_CONTEXT_ROUNDS; round += 1) {
-    const requestedPaths = contextRequestPaths(parsed);
+    const requestedPaths = contextRequestPaths(parsed).filter((path) => {
+      const normalized = path.toLowerCase();
+      if (attemptedContextPaths.has(normalized)) return false;
+      attemptedContextPaths.add(normalized);
+      return true;
+    });
     if (!requestedPaths.length) break;
     const requested = await requestedRepoContext(
       token,
@@ -727,8 +733,8 @@ export async function planAgentRun(
       resolvedPaths: requested.resolved,
       reducedContext,
     });
-    supplementalFiles = [
-      ...supplementalFiles.filter(
+    accumulatedFiles = [
+      ...accumulatedFiles.filter(
         (file) => !requested.files.some((newFile) => newFile.path === file.path),
       ),
       ...requested.files,
@@ -742,7 +748,7 @@ export async function planAgentRun(
       resolved_files: requested.resolved,
       missing_files: requested.missing,
       available_files: context.availableFiles,
-      files: supplementalFiles,
+      files: accumulatedFiles,
     });
     ai = await generatePlan(payload, reducedContext);
     parsed = extractJson(ai.raw);

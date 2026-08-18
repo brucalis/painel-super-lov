@@ -4,13 +4,13 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.31",
+  version: "32.0.32",
   updatedAt: "18/08/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.31-resilient-agent",
-  downloadName: "superlovable-v32.0.31.zip",
+  downloadPath: "/super-lovable.zip?v=32.0.32-cumulative-context",
+  downloadName: "superlovable-v32.0.32.zip",
   changelog: [
     {
-      version: "32.0.31",
+      version: "32.0.32",
       date: "18/08/2026",
       changes: [
         "O agente agora entende a estrutura real de qualquer projeto antes de escolher os arquivos necessários.",

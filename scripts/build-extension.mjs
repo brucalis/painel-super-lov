@@ -9,7 +9,7 @@ const sourceDir = path.join(root, "extension");
 const buildRoot = path.join(root, ".extension-dist");
 const buildDir = path.join(buildRoot, "extension");
 const outputZip = path.join(root, "public", "super-lovable.zip");
-const versionedOutputZip = path.join(root, "public", "super-lovable-v32.0.31.zip");
+const versionedOutputZip = path.join(root, "public", "super-lovable-v32.0.32.zip");
 
 // Arquivos críticos que precisam permanecer no pacote exatamente como foram
 // testados. Eles compartilham funções e mensagens entre contextos diferentes
@@ -35,22 +35,34 @@ const requiredScripts = [
 ];
 
 async function exists(file) {
-  try { await access(file); return true; } catch { return false; }
+  try {
+    await access(file);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function validatePackage() {
   const manifest = JSON.parse(await readFile(path.join(buildDir, "manifest.json"), "utf8"));
-  const required = new Set([
-    manifest.background?.service_worker,
-    manifest.action?.default_popup,
-    manifest.side_panel?.default_path,
-    ...(manifest.content_scripts || []).flatMap((entry) => [...(entry.js || []), ...(entry.css || [])]),
-  ].filter(Boolean));
+  const required = new Set(
+    [
+      manifest.background?.service_worker,
+      manifest.action?.default_popup,
+      manifest.side_panel?.default_path,
+      ...(manifest.content_scripts || []).flatMap((entry) => [
+        ...(entry.js || []),
+        ...(entry.css || []),
+      ]),
+    ].filter(Boolean),
+  );
 
   const panelHtml = await readFile(path.join(buildDir, "sidepanel.html"), "utf8");
-  for (const match of panelHtml.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)) required.add(match[1]);
+  for (const match of panelHtml.matchAll(/<script[^>]+src=["']([^"']+)["']/gi))
+    required.add(match[1]);
   for (const relative of required) {
-    if (!(await exists(path.join(buildDir, relative)))) throw new Error(`Arquivo obrigatório ausente: ${relative}`);
+    if (!(await exists(path.join(buildDir, relative))))
+      throw new Error(`Arquivo obrigatório ausente: ${relative}`);
   }
 
   for (const relative of requiredScripts) {
@@ -85,4 +97,6 @@ await copyFile(outputZip, versionedOutputZip);
 
 const zipSize = (await stat(outputZip)).size;
 const files = await readdir(buildDir);
-console.log(`Extensão íntegra gerada: ${path.relative(root, outputZip)} (${zipSize} bytes, ${files.length} itens).`);
+console.log(
+  `Extensão íntegra gerada: ${path.relative(root, outputZip)} (${zipSize} bytes, ${files.length} itens).`,
+);
