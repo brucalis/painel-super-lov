@@ -4,7 +4,7 @@
   globalThis.__superlovableGithubAgentLoaded = true;
 
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
-  let state = { ready: false, busy: false, pendingRunId: null };
+  let state = { ready: false, busy: false, pendingRunId: null, repositories: [], progressTimer: null };
 
   const storage = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
   const auth = async () => {
@@ -24,6 +24,34 @@
     el.textContent = message;
     el.dataset.kind = kind;
   };
+  const progressSteps = [
+    ["context", "Lendo estrutura e arquivos do projeto"],
+    ["ai", "Analisando o pedido com a inteligência artificial"],
+    ["plan", "Preparando o plano e os arquivos"],
+    ["confirm", "Aguardando sua confirmação"],
+    ["commit", "Enviando alterações para o GitHub"],
+    ["done", "Alteração concluída"],
+  ];
+  const renderProgress = (active, detail = "") => {
+    const box = document.getElementById("sl-agent-progress");
+    if (!box) return;
+    if (!active) { box.hidden = true; box.innerHTML = ""; return; }
+    const activeIndex = progressSteps.findIndex(([id]) => id === active);
+    box.hidden = false;
+    box.innerHTML = `<div class="sl-agent-progress-title">Acompanhamento da alteração</div>` + progressSteps.map(([id, label], index) => {
+      const status = index < activeIndex ? "done" : index === activeIndex ? "active" : "pending";
+      const icon = status === "done" ? "✓" : status === "active" ? '<span class="sl-agent-spinner"></span>' : "·";
+      return `<div class="sl-agent-step" data-status="${status}"><span>${icon}</span><span>${label}${index === activeIndex && detail ? `<small>${detail}</small>` : ""}</span></div>`;
+    }).join("");
+  };
+  const startPlanningProgress = () => {
+    clearInterval(state.progressTimer);
+    const stages = [["context", "Conectando ao repositório…"], ["ai", "Gemini em uso; Groq assume automaticamente se necessário…"], ["plan", "Organizando as alterações propostas…"]];
+    let index = 0;
+    renderProgress(...stages[index]);
+    state.progressTimer = setInterval(() => { if (index < stages.length - 1) renderProgress(...stages[++index]); }, 3500);
+  };
+  const stopProgressTimer = () => { clearInterval(state.progressTimer); state.progressTimer = null; };
 
   async function refresh() {
     try {
@@ -71,7 +99,20 @@
     const select = document.getElementById("sl-agent-repository");
     if (!select) return;
     const data = await request("/github/repositories");
-    select.innerHTML = '<option value="">Escolha o projeto…</option>' + data.repositories.map((repo) => `<option value="${repo.full_name}">${repo.full_name}</option>`).join("");
+    state.repositories = data.repositories || [];
+    filterRepositories("");
+  }
+
+  function filterRepositories(term) {
+    const select = document.getElementById("sl-agent-repository");
+    if (!select) return;
+    const current = select.value;
+    const query = String(term || "").trim().toLocaleLowerCase("pt-BR");
+    const filtered = state.repositories.filter((repo) => String(repo.full_name || "").toLocaleLowerCase("pt-BR").includes(query));
+    select.innerHTML = `<option value="">${filtered.length ? `Escolha entre ${filtered.length} projeto(s)…` : "Nenhum projeto encontrado"}</option>` + filtered.map((repo) => `<option value="${repo.full_name}">${repo.full_name}</option>`).join("");
+    if (filtered.some((repo) => repo.full_name === current)) select.value = current;
+    const count = document.getElementById("sl-agent-search-count");
+    if (count) count.textContent = query ? `${filtered.length} resultado(s)` : `${state.repositories.length} projeto(s) disponível(is)`;
   }
 
   async function bind() {
@@ -89,19 +130,27 @@
     if (!state.ready) { setStatus("Conecte e selecione o projeto antes de enviar.", "error"); return; }
     state.busy = true;
     setStatus("Analisando o projeto e preparando a alteração…");
+    startPlanningProgress();
     try {
       const plan = await request("/plan", { method: "POST", body: JSON.stringify({ prompt }) });
+      stopProgressTimer();
       state.pendingRunId = plan.runId;
       const files = (plan.files || []).join(", ");
+      renderProgress("confirm", `${plan.provider === "groq" ? "Groq" : "Gemini"} preparou ${plan.files?.length || 0} arquivo(s).`);
       const approved = window.confirm(`${plan.summary}\n\nArquivos: ${files}\n\nConfirmar envio para o GitHub?`);
-      if (!approved) { setStatus("Alteração cancelada. Nenhum commit foi enviado.", "warning"); return; }
+      if (!approved) { setStatus("Alteração cancelada. Nenhum commit foi enviado.", "warning"); renderProgress(false); return; }
       setStatus("Enviando a alteração para o GitHub…");
+      renderProgress("commit", `${plan.files?.length || 0} arquivo(s) aprovado(s).`);
       const result = await request("/commit", { method: "POST", body: JSON.stringify({ run_id: plan.runId }) });
       setStatus(`Concluído. Commit ${String(result.commitSha || "").slice(0, 7)} enviado. Aguarde o preview da Lovable atualizar.`, "success");
+      renderProgress("done", `Commit ${String(result.commitSha || "").slice(0, 7)} publicado em ${result.repository || "GitHub"}.`);
       const textarea = document.getElementById("sp-msg");
       if (textarea) textarea.value = "";
     } catch (error) {
+      stopProgressTimer();
       setStatus(error.message || "Não foi possível concluir a alteração.", "error");
+      const box = document.getElementById("sl-agent-progress");
+      if (box) { box.hidden = false; box.innerHTML = `<div class="sl-agent-progress-error">Não foi possível concluir: ${String(error.message || error)}</div>`; }
     } finally { state.busy = false; }
   }
 
@@ -120,16 +169,28 @@
         <button type="button" id="sl-agent-refresh">Atualizar</button>
       </div>
       <div id="sl-agent-project-row" class="sl-agent-project" style="display:none">
+        <input id="sl-agent-repository-search" type="search" placeholder="Pesquisar por nome, ex.: connect" autocomplete="off">
+        <small id="sl-agent-search-count"></small>
+        <div class="sl-agent-project-select">
         <select id="sl-agent-repository"><option value="">Escolha o projeto…</option></select>
         <button type="button" id="sl-agent-bind">Usar projeto</button>
-      </div>`;
+        </div>
+      </div>
+      <div id="sl-agent-progress" hidden></div>`;
     const card = composer.closest(".sp-compose-card");
     card?.parentElement?.insertBefore(panel, card);
     document.getElementById("sl-agent-connect")?.addEventListener("click", connect);
     document.getElementById("sl-agent-refresh")?.addEventListener("click", refresh);
     document.getElementById("sl-agent-bind")?.addEventListener("click", bind);
+    document.getElementById("sl-agent-repository-search")?.addEventListener("input", (event) => filterRepositories(event.target.value));
     refresh();
   }
+
+  globalThis.superLovableGithubAgentExecute = (prompt) => {
+    if (!document.getElementById("sl-github-agent")) return false;
+    execute(String(prompt || "").trim());
+    return true;
+  };
 
   document.addEventListener("click", (event) => {
     const button = event.target.closest?.("#sp-send");

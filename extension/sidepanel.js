@@ -2270,6 +2270,7 @@ licenseKey = resolvedKey;
   // --- Send Message ---
   async function handleSend() {
     const msg = document.getElementById('sp-msg').value.trim();
+    if (typeof globalThis.superLovableGithubAgentExecute === 'function' && globalThis.superLovableGithubAgentExecute(msg)) return;
     const modoPlano = false;
     const log = document.getElementById('sp-log');
     const btn = document.getElementById('sp-send');
