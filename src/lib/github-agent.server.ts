@@ -18,14 +18,60 @@ const REDUCED_CONTEXT_FILES = 4;
 const REDUCED_CONTEXT_CHARS = 8_000;
 const REPOSITORY_MAP_CHARS = 18_000;
 const REDUCED_REPOSITORY_MAP_CHARS = 8_000;
-const GROQ_CONTEXT_CHARS = 12_000;
-const GROQ_RETRY_CONTEXT_CHARS = 6_000;
+const GROQ_CONTEXT_CHARS = 6_000;
+const GROQ_RETRY_CONTEXT_CHARS = 2_800;
 const GROQ_MAX_COMPLETION_TOKENS = 1_200;
 const MAX_CONTEXT_ROUNDS = 3;
+const PROVIDER_TIMEOUT_MS = 45_000;
+const TRANSIENT_RETRY_DELAYS = [700, 1_600];
 
 type LicenseAuth = Awaited<ReturnType<typeof requireActiveExtensionLicense>>;
 type ProposedFile = { path: string; content: string };
 type ContextFile = { path: string; content: string };
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isTransientProviderStatus(status: number) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+}
+
+function retryDelayFromResponse(response: Response | null, fallback: number) {
+  if (!response) return fallback;
+  const raw = response.headers.get("retry-after");
+  const seconds = Number(raw || 0);
+  if (Number.isFinite(seconds) && seconds > 0) return Math.min(15_000, seconds * 1_000);
+  return fallback;
+}
+
+async function providerFetch(url: string, init: RequestInit) {
+  let lastResponse: Response | null = null;
+  for (let attempt = 0; attempt <= TRANSIENT_RETRY_DELAYS.length; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      lastResponse = response;
+      if (
+        !isTransientProviderStatus(response.status) ||
+        attempt === TRANSIENT_RETRY_DELAYS.length
+      ) {
+        return response;
+      }
+    } catch (error) {
+      if (attempt === TRANSIENT_RETRY_DELAYS.length) throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+    await wait(
+      retryDelayFromResponse(
+        lastResponse,
+        TRANSIENT_RETRY_DELAYS[attempt] + Math.floor(Math.random() * 350),
+      ),
+    );
+  }
+  if (lastResponse) return lastResponse;
+  throw new Error("AI_PROVIDER_TIMEOUT");
+}
 
 class AgentPlanError extends Error {
   code: string;
@@ -426,7 +472,7 @@ const systemPrompt = `Você é um agente de programação geral. O pedido pode s
 async function callGeminiModel(prompt: string, model: string) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_NOT_CONFIGURED");
-  const response = await fetch(
+  const response = await providerFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: "POST",
@@ -518,9 +564,14 @@ function compactPayload(payload: string, maxChars: number) {
   }
 }
 
-function isGroqCapacityError(error: unknown) {
+function isGroqContextError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return /GROQ_(413|429)|request too large|tokens per minute|\bTPM\b/i.test(message);
+  return /GROQ_413|request too large|context length|maximum context/i.test(message);
+}
+
+function isGroqRateLimitError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /GROQ_429|rate limit|tokens per minute|requests per minute|\bTPM\b|\bRPM\b/i.test(message);
 }
 
 async function callGroq(prompt: string, reducedContext: boolean) {
@@ -532,7 +583,7 @@ async function callGroq(prompt: string, reducedContext: boolean) {
     approximateInputTokens: estimateTokens(`${systemPrompt}\n${prompt}`),
     reducedContext,
   });
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const response = await providerFetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -567,18 +618,35 @@ async function generatePlan(payload: string, forceReduced = false) {
     try {
       return await callGroq(compact, true);
     } catch (groqError) {
+      let finalGroqError = groqError;
+      if (isGroqContextError(groqError) && !forceReduced) {
+        const ultraCompact = compactPayload(payload, GROQ_RETRY_CONTEXT_CHARS);
+        try {
+          return await callGroq(ultraCompact, true);
+        } catch (retryError) {
+          finalGroqError = retryError;
+        }
+      }
       console.error("[github-agent] Groq indisponível", {
         model: process.env.GROQ_CODE_MODEL || "openai/gpt-oss-20b",
         approximateInputTokens: estimateTokens(compact),
         reducedContext: true,
-        error: groqError instanceof Error ? groqError.message : String(groqError),
+        error: finalGroqError instanceof Error ? finalGroqError.message : String(finalGroqError),
       });
-      if (isGroqCapacityError(groqError)) {
+      if (isGroqContextError(finalGroqError)) {
         throw new AgentPlanError(
           "Este projeto enviou informações demais para a IA de uma só vez. Tente novamente com o contexto reduzido.",
           "AI_CONTEXT_TOO_LARGE",
           !forceReduced,
           413,
+        );
+      }
+      if (isGroqRateLimitError(finalGroqError)) {
+        throw new AgentPlanError(
+          "As IAs gratuitas atingiram o limite temporário de uso. O projeto e o prompt estão corretos; aguarde alguns instantes e envie novamente.",
+          "AI_RATE_LIMITED",
+          false,
+          429,
         );
       }
       throw new AgentPlanError(
