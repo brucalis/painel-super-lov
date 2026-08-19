@@ -516,6 +516,46 @@ async function callGemini(prompt: string) {
   throw lastError || new Error("GEMINI_NOT_CONFIGURED");
 }
 
+async function callLovableGateway(prompt: string) {
+  const key = process.env.LOVABLE_API_KEY;
+  if (!key) throw new Error("LOVABLE_GATEWAY_NOT_CONFIGURED");
+  const models = ["google/gemini-2.5-flash", "google/gemini-3-flash-preview"];
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      const response = await providerFetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          temperature: 0.1,
+          max_tokens: 4_000,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+      const raw = await response.text();
+      if (!response.ok) throw new Error(`LOVABLE_GATEWAY_${response.status}:${raw.slice(0, 180)}`);
+      const data = JSON.parse(raw) as { choices?: Array<{ message?: { content?: string } }> };
+      return {
+        provider: "lovable-gateway",
+        model,
+        raw: String(data.choices?.[0]?.message?.content || ""),
+      };
+    } catch (error) {
+      lastError = error;
+      console.warn("[github-agent] modelo do Lovable AI indisponível", {
+        model,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  throw lastError || new Error("LOVABLE_GATEWAY_UNAVAILABLE");
+}
+
 function estimateTokens(value: string) {
   return Math.ceil(value.length / 4);
 }
@@ -574,6 +614,15 @@ function isGroqRateLimitError(error: unknown) {
   return /GROQ_429|rate limit|tokens per minute|requests per minute|\bTPM\b|\bRPM\b/i.test(message);
 }
 
+function providerErrorCode(error: unknown, prefix: string) {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(new RegExp(`${prefix}_(\\d{3})`, "i"));
+  if (match) return match[1];
+  if (/NOT_CONFIGURED/i.test(message)) return "não configurado";
+  if (/AbortError|TIMEOUT/i.test(message)) return "tempo esgotado";
+  return "indisponível";
+}
+
 async function callGroq(prompt: string, reducedContext: boolean) {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("GROQ_NOT_CONFIGURED");
@@ -607,54 +656,61 @@ async function generatePlan(payload: string, forceReduced = false) {
   try {
     return await callGemini(payload);
   } catch (geminiError) {
-    console.warn("[github-agent] Gemini indisponível; acionando Groq com contexto reduzido", {
+    console.warn("[github-agent] Gemini direto indisponível; acionando Lovable AI", {
       error: geminiError instanceof Error ? geminiError.message : String(geminiError),
       originalApproximateTokens: estimateTokens(payload),
     });
-    const compact = compactPayload(
-      payload,
-      forceReduced ? GROQ_RETRY_CONTEXT_CHARS : GROQ_CONTEXT_CHARS,
-    );
     try {
-      return await callGroq(compact, true);
-    } catch (groqError) {
-      let finalGroqError = groqError;
-      if (isGroqContextError(groqError) && !forceReduced) {
-        const ultraCompact = compactPayload(payload, GROQ_RETRY_CONTEXT_CHARS);
-        try {
-          return await callGroq(ultraCompact, true);
-        } catch (retryError) {
-          finalGroqError = retryError;
-        }
-      }
-      console.error("[github-agent] Groq indisponível", {
-        model: process.env.GROQ_CODE_MODEL || "openai/gpt-oss-20b",
-        approximateInputTokens: estimateTokens(compact),
-        reducedContext: true,
-        error: finalGroqError instanceof Error ? finalGroqError.message : String(finalGroqError),
+      return await callLovableGateway(payload);
+    } catch (gatewayError) {
+      console.warn("[github-agent] Lovable AI indisponível; acionando Groq", {
+        error: gatewayError instanceof Error ? gatewayError.message : String(gatewayError),
       });
-      if (isGroqContextError(finalGroqError)) {
-        throw new AgentPlanError(
-          "Este projeto enviou informações demais para a IA de uma só vez. Tente novamente com o contexto reduzido.",
-          "AI_CONTEXT_TOO_LARGE",
-          !forceReduced,
-          413,
-        );
-      }
-      if (isGroqRateLimitError(finalGroqError)) {
-        throw new AgentPlanError(
-          "As IAs gratuitas atingiram o limite temporário de uso. O projeto e o prompt estão corretos; aguarde alguns instantes e envie novamente.",
-          "AI_RATE_LIMITED",
-          false,
-          429,
-        );
-      }
-      throw new AgentPlanError(
-        "A inteligência artificial ficou indisponível durante o processamento. Tente novamente em alguns instantes.",
-        "AI_PROVIDER_UNAVAILABLE",
-        !forceReduced,
-        503,
+      const compact = compactPayload(
+        payload,
+        forceReduced ? GROQ_RETRY_CONTEXT_CHARS : GROQ_CONTEXT_CHARS,
       );
+      try {
+        return await callGroq(compact, true);
+      } catch (groqError) {
+        let finalGroqError = groqError;
+        if (isGroqContextError(groqError) && !forceReduced) {
+          const ultraCompact = compactPayload(payload, GROQ_RETRY_CONTEXT_CHARS);
+          try {
+            return await callGroq(ultraCompact, true);
+          } catch (retryError) {
+            finalGroqError = retryError;
+          }
+        }
+        console.error("[github-agent] Groq indisponível", {
+          model: process.env.GROQ_CODE_MODEL || "openai/gpt-oss-20b",
+          approximateInputTokens: estimateTokens(compact),
+          reducedContext: true,
+          error: finalGroqError instanceof Error ? finalGroqError.message : String(finalGroqError),
+        });
+        if (isGroqContextError(finalGroqError)) {
+          throw new AgentPlanError(
+            "Este projeto enviou informações demais para a IA de uma só vez. Tente novamente com o contexto reduzido.",
+            "AI_CONTEXT_TOO_LARGE",
+            !forceReduced,
+            413,
+          );
+        }
+        if (isGroqRateLimitError(finalGroqError)) {
+          throw new AgentPlanError(
+            "As IAs gratuitas atingiram o limite temporário de uso. O projeto e o prompt estão corretos; aguarde alguns instantes e envie novamente.",
+            "AI_RATE_LIMITED",
+            false,
+            429,
+          );
+        }
+        throw new AgentPlanError(
+          `Nenhum provedor de IA conseguiu concluir o processamento (Gemini: ${providerErrorCode(geminiError, "GEMINI")}; Lovable AI: ${providerErrorCode(gatewayError, "LOVABLE_GATEWAY")}; Groq: ${providerErrorCode(finalGroqError, "GROQ")}). Tente novamente em alguns instantes.`,
+          "AI_PROVIDER_UNAVAILABLE",
+          !forceReduced,
+          503,
+        );
+      }
     }
   }
 }
