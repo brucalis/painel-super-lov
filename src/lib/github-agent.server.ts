@@ -28,6 +28,7 @@ const TRANSIENT_RETRY_DELAYS = [700, 1_600];
 type LicenseAuth = Awaited<ReturnType<typeof requireActiveExtensionLicense>>;
 type ProposedFile = { path: string; content: string };
 type ContextFile = { path: string; content: string };
+type ProposedEdit = { path: string; search: string; replace: string };
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -467,7 +468,7 @@ async function requestedRepoContext(
   return { files, missing, resolved };
 }
 
-const systemPrompt = `Você é um agente de programação geral. O pedido pode se referir a qualquer projeto. "available_files" é o mapa de caminhos reais do repositório e "files" contém arquivos já carregados. Não invente caminhos. Retorne SOMENTE JSON válido no formato {"summary":"resumo em português","commit_message":"mensagem curta em português","files":[{"path":"caminho existente ou novo","content":"conteúdo completo final"}]}. Faça a menor alteração correta que cumpra o pedido, preserve a arquitetura e o estilo encontrados e devolva o conteúdo completo final de cada arquivo alterado. Nunca inclua segredos, .env, lockfiles, arquivos gerados ou binários. No máximo 8 arquivos. Se precisar ler outros arquivos antes de editar, escolha caminhos EXATOS de "available_files" e retorne {"summary":"CONTEXT_REQUIRED","commit_message":"","files":[],"context_request":{"paths":["caminho/real"]}}.`;
+const systemPrompt = `Você é um agente de programação geral. O pedido pode se referir a qualquer projeto. "available_files" é o mapa de caminhos reais do repositório e "files" contém trechos de arquivos já carregados. Não invente caminhos. Retorne SOMENTE JSON válido no formato {"summary":"resumo em português","commit_message":"mensagem curta em português","edits":[{"path":"caminho existente","search":"trecho EXATO atual","replace":"novo trecho"}],"new_files":[{"path":"novo caminho","content":"conteúdo completo"}]}. Para arquivos existentes, NUNCA devolva o arquivo completo: use somente edits cirúrgicos com o menor trecho único possível. Preserve tudo que não foi solicitado. Nunca use nem copie o marcador "trecho reduzido automaticamente". Nunca inclua segredos, .env, lockfiles, arquivos gerados ou binários. No máximo 12 edições e 4 arquivos novos. Se precisar ler outros arquivos antes de editar, escolha caminhos EXATOS de "available_files" e retorne {"summary":"CONTEXT_REQUIRED","commit_message":"","edits":[],"new_files":[],"context_request":{"paths":["caminho/real"]}}.`;
 
 async function callGeminiModel(prompt: string, model: string) {
   const key = process.env.GEMINI_API_KEY;
@@ -728,9 +729,111 @@ function sanitizeFiles(value: unknown): ProposedFile[] {
       /(^|\/)(\.env|node_modules|dist|\.output)(\/|$)|lock$/i.test(path)
     )
       return [];
-    if (content.length > 300_000) return [];
+    if (content.length > 300_000 || /trecho reduzido automaticamente/i.test(content)) return [];
     return [{ path, content }];
   });
+}
+
+function safeAgentPath(path: string) {
+  return Boolean(
+    path &&
+    !path.startsWith("/") &&
+    !path.includes("..") &&
+    !/(^|\/)(\.env|node_modules|dist|\.output)(\/|$)|lock$/i.test(path),
+  );
+}
+
+function sanitizeEdits(value: unknown): ProposedEdit[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).flatMap((item): ProposedEdit[] => {
+    if (!item || typeof item !== "object") return [];
+    const candidate = item as Record<string, unknown>;
+    const path = String(candidate.path || "").trim();
+    const search = String(candidate.search ?? "");
+    const replace = String(candidate.replace ?? "");
+    if (!safeAgentPath(path) || !search || search === replace) return [];
+    if (search.length > 20_000 || replace.length > 40_000) return [];
+    if (/trecho reduzido automaticamente/i.test(search + replace)) return [];
+    return [{ path, search, replace }];
+  });
+}
+
+async function readRepositoryFile(token: string, repo: string, branch: string, path: string) {
+  const file = await githubJson<{ content?: string; encoding?: string }>(
+    `${GITHUB_API}/repos/${repo}/contents/${contentPath(path)}?ref=${encodeURIComponent(branch)}`,
+    token,
+  );
+  return file.encoding === "base64" && file.content ? decodeBase64Utf8(file.content) : "";
+}
+
+async function materializePlanFiles(
+  parsed: Record<string, unknown>,
+  token: string,
+  repo: string,
+  branch: string,
+  repositoryPaths: string[],
+) {
+  const edits = sanitizeEdits(parsed.edits);
+  const newFiles = sanitizeFiles(parsed.new_files).filter(
+    (file) => !repositoryPaths.some((path) => path.toLowerCase() === file.path.toLowerCase()),
+  );
+  if (!edits.length && !newFiles.length) return [];
+
+  const byPath = new Map<string, ProposedEdit[]>();
+  for (const edit of edits) {
+    const actualPath = repositoryPaths.find(
+      (path) => path.toLowerCase() === edit.path.toLowerCase(),
+    );
+    if (!actualPath) {
+      throw new AgentPlanError(
+        `A IA tentou editar um arquivo inexistente: ${edit.path}.`,
+        "AI_INVALID_EDIT_PATH",
+        true,
+        422,
+      );
+    }
+    byPath.set(actualPath, [...(byPath.get(actualPath) || []), { ...edit, path: actualPath }]);
+  }
+
+  const changedFiles: ProposedFile[] = [];
+  for (const [path, pathEdits] of byPath) {
+    const original = await readRepositoryFile(token, repo, branch, path);
+    let content = original;
+    for (const edit of pathEdits) {
+      const first = content.indexOf(edit.search);
+      const last = content.lastIndexOf(edit.search);
+      if (first < 0 || first !== last) {
+        throw new AgentPlanError(
+          `A alteração proposta para ${path} não encontrou um trecho único e seguro. O agente fará uma nova leitura antes de tentar novamente.`,
+          "AI_EDIT_NOT_UNIQUE",
+          true,
+          422,
+        );
+      }
+      content = `${content.slice(0, first)}${edit.replace}${content.slice(first + edit.search.length)}`;
+    }
+    if (/trecho reduzido automaticamente/i.test(content)) {
+      throw new AgentPlanError(
+        `A alteração de ${path} foi bloqueada porque continha conteúdo truncado.`,
+        "AI_TRUNCATED_CONTENT_BLOCKED",
+        true,
+        422,
+      );
+    }
+    const changedCharacters =
+      Math.abs(content.length - original.length) +
+      pathEdits.reduce((total, edit) => total + edit.search.length + edit.replace.length, 0);
+    if (original.length > 2_000 && changedCharacters > Math.max(12_000, original.length * 0.65)) {
+      throw new AgentPlanError(
+        `A alteração de ${path} foi bloqueada porque modificaria uma parte excessiva do arquivo.`,
+        "AI_CHANGE_TOO_BROAD",
+        false,
+        422,
+      );
+    }
+    changedFiles.push({ path, content });
+  }
+  return [...changedFiles, ...newFiles].slice(0, 8);
 }
 
 export async function planAgentRun(
@@ -762,7 +865,7 @@ export async function planAgentRun(
   });
   let ai = await generatePlan(payload, reducedContext);
   let parsed = extractJson(ai.raw);
-  let files = sanitizeFiles(parsed.files);
+  let files = await materializePlanFiles(parsed, token, repo, branch, context.repositoryPaths);
   let accumulatedFiles: ContextFile[] = [...context.files];
   const attemptedContextPaths = new Set<string>();
   for (let round = 1; !files.length && round < MAX_CONTEXT_ROUNDS; round += 1) {
@@ -808,7 +911,7 @@ export async function planAgentRun(
     });
     ai = await generatePlan(payload, reducedContext);
     parsed = extractJson(ai.raw);
-    files = sanitizeFiles(parsed.files);
+    files = await materializePlanFiles(parsed, token, repo, branch, context.repositoryPaths);
   }
   if (!files.length) {
     const remainingPaths = contextRequestPaths(parsed);
