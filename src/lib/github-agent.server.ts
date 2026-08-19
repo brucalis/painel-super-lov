@@ -836,6 +836,69 @@ async function materializePlanFiles(
   return [...changedFiles, ...newFiles].slice(0, 8);
 }
 
+async function forcePlanWithFocusedContext(
+  parsed: Record<string, unknown>,
+  context: Awaited<ReturnType<typeof repoContext>>,
+  token: string,
+  repo: string,
+  branch: string,
+  prompt: string,
+  reducedContext: boolean,
+) {
+  const requested = contextRequestPaths(parsed);
+  const rankedPaths = [
+    ...requested,
+    ...context.files.map((file) => file.path),
+    ...context.availableFiles,
+  ];
+  const selectedPaths = rankedPaths
+    .map(
+      (path) =>
+        context.repositoryPaths.find(
+          (candidate) => candidate.toLowerCase() === path.toLowerCase(),
+        ) || "",
+    )
+    .filter((path, index, paths) => path && paths.indexOf(path) === index)
+    .slice(0, reducedContext ? 1 : 3);
+  const focusedFiles: ContextFile[] = [];
+  let remaining = reducedContext ? 24_000 : 90_000;
+  for (const path of selectedPaths) {
+    if (remaining <= 0) break;
+    const content = await readRepositoryFile(token, repo, branch, path);
+    if (!content) continue;
+    const selected = content.slice(0, remaining);
+    focusedFiles.push({ path, content: selected });
+    remaining -= selected.length;
+  }
+  if (!focusedFiles.length) return null;
+
+  const focusedPayload = JSON.stringify({
+    request: prompt,
+    repository: repo,
+    branch,
+    instruction:
+      "DECISÃO FINAL: os arquivos mais prováveis já estão carregados. Não solicite mais contexto. Produza agora somente edits cirúrgicos para cumprir o pedido. Se o pedido não exigir mudança, explique em summary sem inventar arquivos.",
+    files: focusedFiles,
+  });
+  console.info("[github-agent] decisão com contexto focado", {
+    repository: repo,
+    files: focusedFiles.map((file) => file.path),
+    contextChars: focusedFiles.reduce((total, file) => total + file.content.length, 0),
+    approximateTokens: estimateTokens(focusedPayload),
+    reducedContext,
+  });
+  const ai = await generatePlan(focusedPayload, reducedContext);
+  const focusedParsed = extractJson(ai.raw);
+  const files = await materializePlanFiles(
+    focusedParsed,
+    token,
+    repo,
+    branch,
+    context.repositoryPaths,
+  );
+  return { ai, parsed: focusedParsed, files };
+}
+
 export async function planAgentRun(
   auth: LicenseAuth,
   prompt: string,
@@ -916,14 +979,31 @@ export async function planAgentRun(
   if (!files.length) {
     const remainingPaths = contextRequestPaths(parsed);
     if (remainingPaths.length) {
-      throw new AgentPlanError(
-        "Não foi possível concluir a seleção automática dos arquivos deste projeto. Tente novamente; o agente fará uma nova leitura do repositório.",
-        "CONTEXT_ROUNDS_EXHAUSTED",
-        true,
-        422,
+      const focused = await forcePlanWithFocusedContext(
+        parsed,
+        context,
+        token,
+        repo,
+        branch,
+        prompt,
+        reducedContext,
       );
+      if (focused?.files.length) {
+        ai = focused.ai;
+        parsed = focused.parsed;
+        files = focused.files;
+      } else {
+        throw new AgentPlanError(
+          "Não foi possível concluir uma alteração segura com os arquivos selecionados. Tente descrever em qual página ou componente deseja fazer a mudança.",
+          "CONTEXT_ROUNDS_EXHAUSTED",
+          true,
+          422,
+        );
+      }
     }
-    throw new Error(String(parsed.summary || "A IA não propôs uma alteração segura."));
+    if (!files.length) {
+      throw new Error(String(parsed.summary || "A IA não propôs uma alteração segura."));
+    }
   }
   const summary = String(parsed.summary || "Alteração preparada.").slice(0, 2_000);
   const commitMessage = String(
