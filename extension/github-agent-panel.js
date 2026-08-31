@@ -44,7 +44,7 @@
     ["ai", "Analisando o pedido com a inteligência artificial"],
     ["plan", "Preparando o plano e os arquivos"],
     ["confirm", "Aguardando sua confirmação"],
-    ["commit", "Enviando alterações para o GitHub"],
+    ["commit", "Criando alteração segura no GitHub"],
     ["done", "Alteração concluída"],
   ];
   const renderProgress = (active, detail = "") => {
@@ -261,13 +261,22 @@
         method: "POST",
         body: JSON.stringify({ run_id: plan.runId }),
       });
+      if (result.requiresReview) {
+        setStatus(
+          "A alteração foi preparada, mas o GitHub solicitou revisão antes de aplicar.",
+          "warning",
+        );
+        renderProgress("done", "Pull Request criado e aguardando revisão no GitHub.");
+        if (result.pullRequestUrl) await chrome.tabs.create({ url: result.pullRequestUrl });
+        return;
+      }
       setStatus(
-        `Concluído. Commit ${String(result.commitSha || "").slice(0, 7)} enviado. Aguarde o preview da Lovable atualizar.`,
+        `Concluído. Alteração ${String(result.commitSha || "").slice(0, 7)} aplicada. Aguarde o preview da Lovable atualizar.`,
         "success",
       );
       renderProgress(
         "done",
-        `Commit ${String(result.commitSha || "").slice(0, 7)} publicado em ${result.repository || "GitHub"}.`,
+        `Alteração ${String(result.commitSha || "").slice(0, 7)} aplicada em ${result.repository || "GitHub"}.`,
       );
       const textarea = document.getElementById("sp-msg");
       if (textarea) textarea.value = "";

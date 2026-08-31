@@ -1051,6 +1051,7 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
   const token = await createInstallationToken(installationId);
   const repo = String(run.repository_full_name);
   const branch = String(run.branch);
+  const workingBranch = `super-lovable/${runId.slice(0, 8)}`;
   const ref = await githubJson<{ object: { sha: string } }>(
     `${GITHUB_API}/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
     token,
@@ -1088,18 +1089,81 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
       }),
     },
   );
+  await githubJson(`${GITHUB_API}/repos/${repo}/git/refs`, token, {
+    method: "POST",
+    body: JSON.stringify({ ref: `refs/heads/${workingBranch}`, sha: ref.object.sha }),
+  });
   await githubJson(
-    `${GITHUB_API}/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
+    `${GITHUB_API}/repos/${repo}/git/refs/heads/${encodeURIComponent(workingBranch)}`,
     token,
     { method: "PATCH", body: JSON.stringify({ sha: commit.sha, force: false }) },
   );
+  const pullRequest = await githubJson<{ number: number; html_url: string }>(
+    `${GITHUB_API}/repos/${repo}/pulls`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        title: String(run.commit_message),
+        head: workingBranch,
+        base: branch,
+        body: `Alteração preparada pela Super Lovable.\n\n${String(run.summary || "")}`,
+      }),
+    },
+  );
+  const merged = await githubJson<{ merged: boolean; sha?: string; message?: string }>(
+    `${GITHUB_API}/repos/${repo}/pulls/${pullRequest.number}/merge`,
+    token,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        merge_method: "squash",
+        commit_title: String(run.commit_message),
+      }),
+    },
+  );
+  if (!merged.merged || !merged.sha) {
+    await supabaseAdmin
+      .from("github_agent_runs")
+      .update({
+        status: "awaiting_confirmation",
+        working_branch: workingBranch,
+        pull_request_number: pullRequest.number,
+        pull_request_url: pullRequest.html_url,
+        commit_sha: commit.sha,
+        error: merged.message || "O GitHub solicitou revisão manual do Pull Request.",
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", runId);
+    return {
+      commitSha: commit.sha,
+      repository: repo,
+      branch,
+      summary: run.summary,
+      pullRequestUrl: pullRequest.html_url,
+      merged: false,
+      requiresReview: true,
+    };
+  }
   await supabaseAdmin
     .from("github_agent_runs")
     .update({
-      status: "committed",
+      status: "merged",
       commit_sha: commit.sha,
+      working_branch: workingBranch,
+      pull_request_number: pullRequest.number,
+      pull_request_url: pullRequest.html_url,
+      merge_commit_sha: merged.sha,
+      merged_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     } as never)
     .eq("id", runId);
-  return { commitSha: commit.sha, repository: repo, branch, summary: run.summary };
+  return {
+    commitSha: merged.sha,
+    repository: repo,
+    branch,
+    summary: run.summary,
+    pullRequestUrl: pullRequest.html_url,
+    merged: true,
+  };
 }

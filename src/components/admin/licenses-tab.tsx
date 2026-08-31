@@ -424,13 +424,14 @@ function LicenseDetailDialog({
   }, [license]);
 
   if (!license) return null;
+  const activeLicense = license;
 
   async function patch(values: Record<string, unknown>, message: string) {
     setBusy(true);
-    const { error } = await supabase.from("licenses").update(values as never).eq("id", license!.id);
+    const { error } = await supabase.from("licenses").update(values as never).eq("id", activeLicense.id);
     setBusy(false);
     if (error) return toast.error(error.message);
-    await supabase.from("license_events").insert({ license_id: license!.id, type: "admin.update", message });
+    await supabase.from("license_events").insert({ license_id: activeLicense.id, type: "admin.update", message });
     toast.success(message);
     onChanged();
     onClose();
@@ -438,8 +439,8 @@ function LicenseDetailDialog({
 
   function addDays(days: number) {
     const base =
-      license!.expires_at && Date.parse(license!.expires_at) > Date.now()
-        ? Date.parse(license!.expires_at)
+      activeLicense.expires_at && Date.parse(activeLicense.expires_at) > Date.now()
+        ? Date.parse(activeLicense.expires_at)
         : Date.now();
     return patch(
       { expires_at: new Date(base + days * 86400000).toISOString(), is_lifetime: false, status: "active" },
@@ -459,7 +460,7 @@ function LicenseDetailDialog({
 
   async function removeLicense() {
     if (!confirm("Excluir esta licença definitivamente?")) return;
-    const { error } = await supabase.from("licenses").delete().eq("id", license!.id);
+    const { error } = await supabase.from("licenses").delete().eq("id", activeLicense.id);
     if (error) return toast.error(error.message);
     toast.success("Licença excluída.");
     onChanged();
@@ -467,11 +468,11 @@ function LicenseDetailDialog({
   }
 
   async function handleResendAccess() {
-    if (!license.customers?.email) return toast.error("Esta licença não possui e-mail de cliente cadastrado.");
+    if (!activeLicense.customers?.email) return toast.error("Esta licença não possui e-mail de cliente cadastrado.");
     setBusy(true);
     try {
-      const result = await resendAccess({ data: { license_id: license.id } });
-      if (result.sent) toast.success(`Acesso reenviado para ${license.customers.email}.`);
+      const result = await resendAccess({ data: { license_id: activeLicense.id } });
+      if (result.sent) toast.success(`Acesso reenviado para ${activeLicense.customers.email}.`);
       else toast.error(`Não foi possível reenviar o acesso (${result.reason || "falha não informada"}).`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível reenviar o acesso.");

@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.32",
-  updatedAt: "18/08/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.32-cumulative-context",
-  downloadName: "superlovable-v32.0.32.zip",
+  version: "32.0.33",
+  updatedAt: "31/08/2026 (horário de Brasília)",
+  downloadPath: "/super-lovable.zip?v=32.0.33-safe-pull-request",
+  downloadName: "superlovable-v32.0.33.zip",
   changelog: [
+    {
+      version: "32.0.33",
+      date: "31/08/2026",
+      changes: [
+        "Alterações agora passam por uma branch segura e um Pull Request antes de chegar ao projeto principal.",
+        "Quando o GitHub exigir revisão, a extensão abre automaticamente a tela correta sem forçar a mudança.",
+        "A conexão GitHub mantém a experiência rápida e registra melhor cada alteração aplicada.",
+      ],
+    },
     {
       version: "32.0.32",
       date: "18/08/2026",
