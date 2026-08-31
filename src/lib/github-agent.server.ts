@@ -883,6 +883,20 @@ async function readRepositoryFile(token: string, repo: string, branch: string, p
   return file.encoding === "base64" && file.content ? decodeBase64Utf8(file.content) : "";
 }
 
+async function readRepositoryFileOptional(
+  token: string,
+  repo: string,
+  ref: string,
+  path: string,
+) {
+  try {
+    return await readRepositoryFile(token, repo, ref, path);
+  } catch (error) {
+    if (error instanceof Error && /GitHub respondeu 404/.test(error.message)) return null;
+    throw error;
+  }
+}
+
 async function materializePlanFiles(
   parsed: Record<string, unknown>,
   token: string,
@@ -1296,6 +1310,7 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
       } as never)
       .eq("id", runId);
     return {
+      runId,
       commitSha: commit.sha,
       repository: repo,
       branch,
@@ -1321,6 +1336,7 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
     } as never)
     .eq("id", runId);
   return {
+    runId,
     commitSha: merged.sha,
     repository: repo,
     branch,
@@ -1328,5 +1344,167 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
     pullRequestUrl: pullRequest.html_url,
     merged: true,
     riskLevel: validation.riskLevel,
+  };
+}
+
+export async function rollbackAgentRun(auth: LicenseAuth, runId: string) {
+  const { data } = await supabaseAdmin
+    .from("github_agent_runs")
+    .select("*")
+    .eq("id", runId)
+    .eq("license_id", auth.license.id)
+    .maybeSingle();
+  const run = data as Record<string, unknown> | null;
+  if (!run || run.status !== "merged" || !run.merge_commit_sha) {
+    throw new AgentPlanError(
+      "Somente alterações já aplicadas podem ser desfeitas.",
+      "ROLLBACK_NOT_AVAILABLE",
+      false,
+      422,
+    );
+  }
+  if (run.rollback_status === "merged" || run.rollback_status === "awaiting_confirmation") {
+    throw new AgentPlanError(
+      "Essa alteração já possui um processo de reversão.",
+      "ROLLBACK_ALREADY_CREATED",
+      false,
+      409,
+    );
+  }
+
+  const connection = await getLicenseConnection(auth.license.id);
+  const installationId = Number(connection?.installation_id || 0);
+  if (!installationId) throw new Error("Conexão GitHub indisponível.");
+  const token = await createInstallationToken(installationId);
+  const repo = String(run.repository_full_name);
+  const branch = String(run.branch);
+  const baseSha = String(run.base_sha || "");
+  const appliedSha = String(run.merge_commit_sha);
+  const proposed = sanitizeFiles(run.proposed_files);
+  if (!baseSha || !proposed.length) {
+    throw new AgentPlanError(
+      "Não existem dados suficientes para desfazer essa alteração com segurança.",
+      "ROLLBACK_DATA_MISSING",
+      false,
+      422,
+    );
+  }
+
+  const currentRef = await githubJson<{ object: { sha: string } }>(
+    `${GITHUB_API}/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
+    token,
+  );
+  const currentCommit = await githubJson<{ tree: { sha: string } }>(
+    `${GITHUB_API}/repos/${repo}/git/commits/${currentRef.object.sha}`,
+    token,
+  );
+  const elements: Array<{
+    path: string;
+    mode: string;
+    type: string;
+    sha: string | null;
+  }> = [];
+  const conflicts: string[] = [];
+
+  for (const file of proposed) {
+    const [original, applied, current] = await Promise.all([
+      readRepositoryFileOptional(token, repo, baseSha, file.path),
+      readRepositoryFileOptional(token, repo, appliedSha, file.path),
+      readRepositoryFileOptional(token, repo, branch, file.path),
+    ]);
+    if (current !== applied) conflicts.push(file.path);
+    if (original === null) {
+      elements.push({ path: file.path, mode: "100644", type: "blob", sha: null });
+      continue;
+    }
+    const blob = await githubJson<{ sha: string }>(`${GITHUB_API}/repos/${repo}/git/blobs`, token, {
+      method: "POST",
+      body: JSON.stringify({ content: original, encoding: "utf-8" }),
+    });
+    elements.push({ path: file.path, mode: "100644", type: "blob", sha: blob.sha });
+  }
+
+  const tree = await githubJson<{ sha: string }>(`${GITHUB_API}/repos/${repo}/git/trees`, token, {
+    method: "POST",
+    body: JSON.stringify({ base_tree: currentCommit.tree.sha, tree: elements }),
+  });
+  const rollbackCommit = await githubJson<{ sha: string }>(
+    `${GITHUB_API}/repos/${repo}/git/commits`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        message: `desfazer: ${String(run.commit_message || "alteração da Super Lovable")}`,
+        tree: tree.sha,
+        parents: [currentRef.object.sha],
+      }),
+    },
+  );
+  const rollbackBranch = `super-lovable/revert-${runId.slice(0, 8)}-${Date.now().toString(36)}`;
+  await githubJson(`${GITHUB_API}/repos/${repo}/git/refs`, token, {
+    method: "POST",
+    body: JSON.stringify({ ref: `refs/heads/${rollbackBranch}`, sha: rollbackCommit.sha }),
+  });
+  const pullRequest = await githubJson<{ number: number; html_url: string }>(
+    `${GITHUB_API}/repos/${repo}/pulls`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        title: `Desfazer: ${String(run.commit_message || "alteração da Super Lovable")}`,
+        head: rollbackBranch,
+        base: branch,
+        body: conflicts.length
+          ? `Reversão preparada pela Super Lovable.\n\nRevisão necessária: estes arquivos também foram alterados depois da execução original:\n\n${conflicts.map((path) => `- ${path}`).join("\n")}`
+          : "Reversão segura preparada pela Super Lovable.",
+      }),
+    },
+  );
+
+  let merged: { merged: boolean; sha?: string; message?: string } = {
+    merged: false,
+    message: conflicts.length
+      ? "Existem alterações posteriores nos mesmos arquivos."
+      : "O GitHub solicitou revisão manual.",
+  };
+  if (!conflicts.length) {
+    try {
+      merged = await githubJson<{ merged: boolean; sha?: string; message?: string }>(
+        `${GITHUB_API}/repos/${repo}/pulls/${pullRequest.number}/merge`,
+        token,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            merge_method: "squash",
+            commit_title: `desfazer: ${String(run.commit_message || "alteração")}`,
+          }),
+        },
+      );
+    } catch (error) {
+      merged.message = error instanceof Error ? error.message : merged.message;
+    }
+  }
+
+  const rollbackStatus = merged.merged && merged.sha ? "merged" : "awaiting_confirmation";
+  await supabaseAdmin
+    .from("github_agent_runs")
+    .update({
+      rollback_status: rollbackStatus,
+      rollback_branch: rollbackBranch,
+      rollback_commit_sha: merged.sha || rollbackCommit.sha,
+      rollback_pull_request_number: pullRequest.number,
+      rollback_pull_request_url: pullRequest.html_url,
+      rolled_back_at: merged.merged ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    } as never)
+    .eq("id", runId);
+
+  return {
+    runId,
+    rolledBack: Boolean(merged.merged && merged.sha),
+    requiresReview: !merged.merged,
+    pullRequestUrl: pullRequest.html_url,
+    conflicts,
+    commitSha: merged.sha || rollbackCommit.sha,
   };
 }

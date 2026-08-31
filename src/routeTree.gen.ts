@@ -28,6 +28,7 @@ import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/publi
 import { Route as ApiPublicVisualPlanRouteImport } from './routes/api/public/visual-plan'
 import { Route as ApiPublicAgentCommitRouteImport } from './routes/api/public/agent/commit'
 import { Route as ApiPublicAgentPlanRouteImport } from './routes/api/public/agent/plan'
+import { Route as ApiPublicAgentRollbackRouteImport } from './routes/api/public/agent/rollback'
 import { Route as ApiPublicAgentStatusRouteImport } from './routes/api/public/agent/status'
 import { Route as ApiPublicGithubCallbackRouteImport } from './routes/api/public/github/callback'
 import { Route as ApiPublicProjectsRemoveWatermarkRouteImport } from './routes/api/public/projects/remove-watermark'
@@ -138,6 +139,11 @@ const ApiPublicAgentPlanRoute = ApiPublicAgentPlanRouteImport.update({
   path: '/api/public/agent/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAgentRollbackRoute = ApiPublicAgentRollbackRouteImport.update({
+  id: '/api/public/agent/rollback',
+  path: '/api/public/agent/rollback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicAgentStatusRoute = ApiPublicAgentStatusRouteImport.update({
   id: '/api/public/agent/status',
   path: '/api/public/agent/status',
@@ -210,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
   '/api/public/agent/commit': typeof ApiPublicAgentCommitRoute
   '/api/public/agent/plan': typeof ApiPublicAgentPlanRoute
+  '/api/public/agent/rollback': typeof ApiPublicAgentRollbackRoute
   '/api/public/agent/status': typeof ApiPublicAgentStatusRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
@@ -240,6 +247,7 @@ export interface FileRoutesByTo {
   '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
   '/api/public/agent/commit': typeof ApiPublicAgentCommitRoute
   '/api/public/agent/plan': typeof ApiPublicAgentPlanRoute
+  '/api/public/agent/rollback': typeof ApiPublicAgentRollbackRoute
   '/api/public/agent/status': typeof ApiPublicAgentStatusRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
@@ -271,6 +279,7 @@ export interface FileRoutesById {
   '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
   '/api/public/agent/commit': typeof ApiPublicAgentCommitRoute
   '/api/public/agent/plan': typeof ApiPublicAgentPlanRoute
+  '/api/public/agent/rollback': typeof ApiPublicAgentRollbackRoute
   '/api/public/agent/status': typeof ApiPublicAgentStatusRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/public/visual-plan'
     | '/api/public/agent/commit'
     | '/api/public/agent/plan'
+    | '/api/public/agent/rollback'
     | '/api/public/agent/status'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/api/public/visual-plan'
     | '/api/public/agent/commit'
     | '/api/public/agent/plan'
+    | '/api/public/agent/rollback'
     | '/api/public/agent/status'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
@@ -363,6 +374,7 @@ export interface FileRouteTypes {
     | '/api/public/visual-plan'
     | '/api/public/agent/commit'
     | '/api/public/agent/plan'
+    | '/api/public/agent/rollback'
     | '/api/public/agent/status'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
@@ -394,6 +406,7 @@ export interface RootRouteChildren {
   ApiPublicVisualPlanRoute: typeof ApiPublicVisualPlanRoute
   ApiPublicAgentCommitRoute: typeof ApiPublicAgentCommitRoute
   ApiPublicAgentPlanRoute: typeof ApiPublicAgentPlanRoute
+  ApiPublicAgentRollbackRoute: typeof ApiPublicAgentRollbackRoute
   ApiPublicAgentStatusRoute: typeof ApiPublicAgentStatusRoute
   ApiPublicGithubCallbackRoute: typeof ApiPublicGithubCallbackRoute
   ApiPublicProjectsRemoveWatermarkRoute: typeof ApiPublicProjectsRemoveWatermarkRoute
@@ -540,6 +553,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAgentPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/agent/rollback': {
+      id: '/api/public/agent/rollback'
+      path: '/api/public/agent/rollback'
+      fullPath: '/api/public/agent/rollback'
+      preLoaderRoute: typeof ApiPublicAgentRollbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/agent/status': {
       id: '/api/public/agent/status'
       path: '/api/public/agent/status'
@@ -626,6 +646,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicVisualPlanRoute: ApiPublicVisualPlanRoute,
   ApiPublicAgentCommitRoute: ApiPublicAgentCommitRoute,
   ApiPublicAgentPlanRoute: ApiPublicAgentPlanRoute,
+  ApiPublicAgentRollbackRoute: ApiPublicAgentRollbackRoute,
   ApiPublicAgentStatusRoute: ApiPublicAgentStatusRoute,
   ApiPublicGithubCallbackRoute: ApiPublicGithubCallbackRoute,
   ApiPublicProjectsRemoveWatermarkRoute: ApiPublicProjectsRemoveWatermarkRoute,
