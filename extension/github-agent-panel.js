@@ -262,11 +262,20 @@
         body: JSON.stringify({ run_id: plan.runId }),
       });
       if (result.requiresReview) {
+        const riskLabel =
+          result.riskLevel === "high"
+            ? "revisão de risco alto"
+            : result.riskLevel === "medium"
+              ? "revisão preventiva"
+              : "validação do GitHub";
         setStatus(
-          "A alteração foi preparada, mas o GitHub solicitou revisão antes de aplicar.",
+          `A alteração foi preparada e aguarda ${riskLabel} antes de aplicar.`,
           "warning",
         );
-        renderProgress("done", "Pull Request criado e aguardando revisão no GitHub.");
+        renderProgress(
+          "done",
+          `Pull Request criado com classificação ${result.riskLevel || "manual"}.`,
+        );
         if (result.pullRequestUrl) await chrome.tabs.create({ url: result.pullRequestUrl });
         return;
       }

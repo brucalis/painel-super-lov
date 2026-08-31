@@ -152,10 +152,13 @@ export type Database = {
           provider: string | null
           pull_request_number: number | null
           pull_request_url: string | null
+          requires_review: boolean
           repository_full_name: string
+          risk_level: string | null
           status: string
           summary: string | null
           updated_at: string
+          validation_report: Json
           working_branch: string | null
         }
         Insert: {
@@ -175,10 +178,13 @@ export type Database = {
           provider?: string | null
           pull_request_number?: number | null
           pull_request_url?: string | null
+          requires_review?: boolean
           repository_full_name: string
+          risk_level?: string | null
           status?: string
           summary?: string | null
           updated_at?: string
+          validation_report?: Json
           working_branch?: string | null
         }
         Update: {
@@ -198,10 +204,13 @@ export type Database = {
           provider?: string | null
           pull_request_number?: number | null
           pull_request_url?: string | null
+          requires_review?: boolean
           repository_full_name?: string
+          risk_level?: string | null
           status?: string
           summary?: string | null
           updated_at?: string
+          validation_report?: Json
           working_branch?: string | null
         }
         Relationships: [

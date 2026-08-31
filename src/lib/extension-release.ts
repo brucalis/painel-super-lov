@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.33",
+  version: "32.0.34",
   updatedAt: "31/08/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.33-safe-pull-request",
-  downloadName: "superlovable-v32.0.33.zip",
+  downloadPath: "/super-lovable.zip?v=32.0.34-automatic-validation",
+  downloadName: "superlovable-v32.0.34.zip",
   changelog: [
+    {
+      version: "32.0.34",
+      date: "31/08/2026",
+      changes: [
+        "Cada alteração agora recebe uma classificação automática de risco antes de chegar ao projeto principal.",
+        "Arquivos sensíveis, credenciais e operações destrutivas são bloqueados antes do envio.",
+        "Mudanças simples continuam automáticas; configurações e áreas críticas pedem revisão preventiva.",
+      ],
+    },
     {
       version: "32.0.33",
       date: "31/08/2026",

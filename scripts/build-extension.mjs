@@ -9,7 +9,7 @@ const sourceDir = path.join(root, "extension");
 const buildRoot = path.join(root, ".extension-dist");
 const buildDir = path.join(buildRoot, "extension");
 const outputZip = path.join(root, "public", "super-lovable.zip");
-const versionedOutputZip = path.join(root, "public", "super-lovable-v32.0.33.zip");
+const versionedOutputZip = path.join(root, "public", "super-lovable-v32.0.34.zip");
 
 // Arquivos críticos que precisam permanecer no pacote exatamente como foram
 // testados. Eles compartilham funções e mensagens entre contextos diferentes

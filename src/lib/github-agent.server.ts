@@ -29,6 +29,15 @@ type LicenseAuth = Awaited<ReturnType<typeof requireActiveExtensionLicense>>;
 type ProposedFile = { path: string; content: string };
 type ContextFile = { path: string; content: string };
 type ProposedEdit = { path: string; search: string; replace: string };
+type RiskLevel = "low" | "medium" | "high" | "blocked";
+type ValidationReport = {
+  riskLevel: RiskLevel;
+  autoMerge: boolean;
+  filesChecked: number;
+  changedCharacters: number;
+  reasons: string[];
+  warnings: string[];
+};
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -758,6 +767,114 @@ function sanitizeEdits(value: unknown): ProposedEdit[] {
   });
 }
 
+const BLOCKED_AGENT_PATH =
+  /(^|\/)(\.env(?:\.|$)|\.github\/workflows|node_modules|dist|\.output)(\/|$)|(?:^|\/)(?:id_rsa|id_ed25519|.*\.(?:pem|p12|pfx|key))$|(?:^|\/)(?:package-lock|pnpm-lock|yarn\.lock)$/i;
+const HIGH_RISK_AGENT_PATH =
+  /(^|\/)(?:auth|authentication|billing|payment|checkout|license|security)(\/|\.|-|$)|(^|\/)supabase\/(?:migrations|functions)(\/|$)|(^|\/)(?:api|server)(\/|\.|-|$)|package\.json$/i;
+const MEDIUM_RISK_AGENT_PATH =
+  /(^|\/)(?:config|routes?|middleware)(\/|\.|-|$)|(?:manifest|vite\.config|tsconfig)\.(?:json|js|ts)$/i;
+const SECRET_CONTENT =
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:ghp|github_pat|sk_live|sk_test)_[A-Za-z0-9_-]{16,}|\bAKIA[0-9A-Z]{16}\b/i;
+const DESTRUCTIVE_SQL = /\b(?:drop\s+(?:table|schema|database)|truncate\s+table)\b/i;
+
+function riskRank(level: RiskLevel) {
+  return { low: 0, medium: 1, high: 2, blocked: 3 }[level];
+}
+
+function raiseRisk(current: RiskLevel, next: RiskLevel) {
+  return riskRank(next) > riskRank(current) ? next : current;
+}
+
+function changedCharacterCount(original: string, next: string) {
+  const sharedLength = Math.min(original.length, next.length);
+  let changed = Math.abs(original.length - next.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    if (original[index] !== next[index]) changed += 1;
+  }
+  return changed;
+}
+
+async function validateProposedChanges(
+  token: string,
+  repo: string,
+  branch: string,
+  files: ProposedFile[],
+): Promise<ValidationReport> {
+  let riskLevel: RiskLevel = "low";
+  let changedCharacters = 0;
+  const reasons: string[] = [];
+  const warnings: string[] = [];
+  const seen = new Set<string>();
+
+  for (const file of files) {
+    const normalizedPath = file.path.toLowerCase();
+    if (seen.has(normalizedPath)) {
+      riskLevel = "blocked";
+      reasons.push(`O arquivo ${file.path} apareceu mais de uma vez no plano.`);
+      continue;
+    }
+    seen.add(normalizedPath);
+
+    if (BLOCKED_AGENT_PATH.test(file.path)) {
+      riskLevel = "blocked";
+      reasons.push(`${file.path} é um arquivo protegido e não pode ser alterado pelo agente.`);
+    }
+    if (SECRET_CONTENT.test(file.content)) {
+      riskLevel = "blocked";
+      reasons.push(`${file.path} parece conter uma credencial privada.`);
+    }
+    if (/\.sql$/i.test(file.path) && DESTRUCTIVE_SQL.test(file.content)) {
+      riskLevel = "blocked";
+      reasons.push(`${file.path} contém uma operação destrutiva de banco de dados.`);
+    }
+    if (/\.json$/i.test(file.path)) {
+      try {
+        JSON.parse(file.content);
+      } catch {
+        riskLevel = "blocked";
+        reasons.push(`${file.path} contém JSON inválido.`);
+      }
+    }
+
+    if (HIGH_RISK_AGENT_PATH.test(file.path)) {
+      riskLevel = raiseRisk(riskLevel, "high");
+      reasons.push(`${file.path} afeta uma área sensível e exige revisão.`);
+    } else if (MEDIUM_RISK_AGENT_PATH.test(file.path)) {
+      riskLevel = raiseRisk(riskLevel, "medium");
+      reasons.push(`${file.path} altera configuração ou roteamento.`);
+    }
+
+    let original = "";
+    try {
+      original = await readRepositoryFile(token, repo, branch, file.path);
+    } catch {
+      warnings.push(`${file.path} será criado como um arquivo novo.`);
+    }
+    changedCharacters += changedCharacterCount(original, file.content);
+  }
+
+  if (files.length > 4) {
+    riskLevel = raiseRisk(riskLevel, "medium");
+    reasons.push("A alteração envolve mais de quatro arquivos.");
+  }
+  if (changedCharacters > 80_000) {
+    riskLevel = raiseRisk(riskLevel, "high");
+    reasons.push("O volume total da alteração é elevado.");
+  } else if (changedCharacters > 20_000) {
+    riskLevel = raiseRisk(riskLevel, "medium");
+    reasons.push("O volume total da alteração requer uma conferência adicional.");
+  }
+
+  return {
+    riskLevel,
+    autoMerge: riskLevel === "low",
+    filesChecked: files.length,
+    changedCharacters,
+    reasons: [...new Set(reasons)],
+    warnings: [...new Set(warnings)],
+  };
+}
+
 async function readRepositoryFile(token: string, repo: string, branch: string, path: string) {
   const file = await githubJson<{ content?: string; encoding?: string }>(
     `${GITHUB_API}/repos/${repo}/contents/${contentPath(path)}?ref=${encodeURIComponent(branch)}`,
@@ -1065,6 +1182,33 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
     token,
   );
   const proposed = sanitizeFiles(run.proposed_files);
+  if (!proposed.length) throw new Error("O plano não contém arquivos válidos para aplicar.");
+  const validation = await validateProposedChanges(token, repo, branch, proposed);
+  await supabaseAdmin
+    .from("github_agent_runs")
+    .update({
+      risk_level: validation.riskLevel,
+      validation_report: validation as never,
+      requires_review: !validation.autoMerge,
+      updated_at: new Date().toISOString(),
+    } as never)
+    .eq("id", runId);
+  if (validation.riskLevel === "blocked") {
+    await supabaseAdmin
+      .from("github_agent_runs")
+      .update({
+        status: "blocked",
+        error: validation.reasons.join(" "),
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", runId);
+    throw new AgentPlanError(
+      validation.reasons[0] || "A alteração foi bloqueada pela validação de segurança.",
+      "CHANGE_BLOCKED",
+      false,
+      422,
+    );
+  }
   const elements: Array<{ path: string; mode: string; type: string; sha: string }> = [];
   for (const file of proposed) {
     const blob = await githubJson<{ sha: string }>(`${GITHUB_API}/repos/${repo}/git/blobs`, token, {
@@ -1111,17 +1255,33 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
       }),
     },
   );
-  const merged = await githubJson<{ merged: boolean; sha?: string; message?: string }>(
-    `${GITHUB_API}/repos/${repo}/pulls/${pullRequest.number}/merge`,
-    token,
-    {
-      method: "PUT",
-      body: JSON.stringify({
-        merge_method: "squash",
-        commit_title: String(run.commit_message),
-      }),
-    },
-  );
+  let merged: { merged: boolean; sha?: string; message?: string } = {
+    merged: false,
+    message: validation.reasons[0] || "A alteração requer revisão manual.",
+  };
+  if (validation.autoMerge) {
+    try {
+      merged = await githubJson<{ merged: boolean; sha?: string; message?: string }>(
+        `${GITHUB_API}/repos/${repo}/pulls/${pullRequest.number}/merge`,
+        token,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            merge_method: "squash",
+            commit_title: String(run.commit_message),
+          }),
+        },
+      );
+    } catch (error) {
+      merged = {
+        merged: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "O GitHub solicitou revisão manual do Pull Request.",
+      };
+    }
+  }
   if (!merged.merged || !merged.sha) {
     await supabaseAdmin
       .from("github_agent_runs")
@@ -1143,6 +1303,8 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
       pullRequestUrl: pullRequest.html_url,
       merged: false,
       requiresReview: true,
+      riskLevel: validation.riskLevel,
+      validationReasons: validation.reasons,
     };
   }
   await supabaseAdmin
@@ -1165,5 +1327,6 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
     summary: run.summary,
     pullRequestUrl: pullRequest.html_url,
     merged: true,
+    riskLevel: validation.riskLevel,
   };
 }
