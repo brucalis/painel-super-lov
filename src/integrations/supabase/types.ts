@@ -134,6 +134,177 @@ export type Database = {
         }
         Relationships: []
       }
+      github_agent_runs: {
+        Row: {
+          base_sha: string | null
+          branch: string
+          commit_message: string | null
+          commit_sha: string | null
+          created_at: string
+          error: string | null
+          id: string
+          license_id: string
+          merge_commit_sha: string | null
+          merged_at: string | null
+          model: string | null
+          prompt: string
+          proposed_files: Json
+          provider: string | null
+          pull_request_number: number | null
+          pull_request_url: string | null
+          repository_full_name: string
+          status: string
+          summary: string | null
+          updated_at: string
+          working_branch: string | null
+        }
+        Insert: {
+          base_sha?: string | null
+          branch: string
+          commit_message?: string | null
+          commit_sha?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          license_id: string
+          merge_commit_sha?: string | null
+          merged_at?: string | null
+          model?: string | null
+          prompt: string
+          proposed_files?: Json
+          provider?: string | null
+          pull_request_number?: number | null
+          pull_request_url?: string | null
+          repository_full_name: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          working_branch?: string | null
+        }
+        Update: {
+          base_sha?: string | null
+          branch?: string
+          commit_message?: string | null
+          commit_sha?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          license_id?: string
+          merge_commit_sha?: string | null
+          merged_at?: string | null
+          model?: string | null
+          prompt?: string
+          proposed_files?: Json
+          provider?: string | null
+          pull_request_number?: number | null
+          pull_request_url?: string | null
+          repository_full_name?: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          working_branch?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_agent_runs_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      github_license_connections: {
+        Row: {
+          branch: string
+          connected_at: string | null
+          created_at: string
+          github_avatar_url: string | null
+          github_login: string | null
+          github_user_id: number | null
+          id: string
+          installation_id: number | null
+          license_id: string
+          repository_full_name: string | null
+          repository_id: number | null
+          repository_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          branch?: string
+          connected_at?: string | null
+          created_at?: string
+          github_avatar_url?: string | null
+          github_login?: string | null
+          github_user_id?: number | null
+          id?: string
+          installation_id?: number | null
+          license_id: string
+          repository_full_name?: string | null
+          repository_id?: number | null
+          repository_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          branch?: string
+          connected_at?: string | null
+          created_at?: string
+          github_avatar_url?: string | null
+          github_login?: string | null
+          github_user_id?: number | null
+          id?: string
+          installation_id?: number | null
+          license_id?: string
+          repository_full_name?: string | null
+          repository_id?: number | null
+          repository_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_license_connections_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: true
+            referencedRelation: "licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      github_license_oauth_states: {
+        Row: {
+          created_at: string
+          expires_at: string
+          license_id: string
+          state: string
+          used: boolean
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          license_id: string
+          state: string
+          used?: boolean
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          license_id?: string
+          state?: string
+          used?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_license_oauth_states_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       license_devices: {
         Row: {
           active: boolean
