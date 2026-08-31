@@ -161,6 +161,8 @@ export type Database = {
           rollback_pull_request_url: string | null
           rollback_status: string | null
           rolled_back_at: string | null
+          sandbox_report: Json
+          sandbox_status: string | null
           status: string
           summary: string | null
           updated_at: string
@@ -193,6 +195,8 @@ export type Database = {
           rollback_pull_request_url?: string | null
           rollback_status?: string | null
           rolled_back_at?: string | null
+          sandbox_report?: Json
+          sandbox_status?: string | null
           status?: string
           summary?: string | null
           updated_at?: string
@@ -225,6 +229,8 @@ export type Database = {
           rollback_pull_request_url?: string | null
           rollback_status?: string | null
           rolled_back_at?: string | null
+          sandbox_report?: Json
+          sandbox_status?: string | null
           status?: string
           summary?: string | null
           updated_at?: string
