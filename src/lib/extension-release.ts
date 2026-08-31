@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.35",
+  version: "32.0.36",
   updatedAt: "31/08/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.35-safe-rollback",
-  downloadName: "superlovable-v32.0.35.zip",
+  downloadPath: "/super-lovable.zip?v=32.0.36-isolated-build",
+  downloadName: "superlovable-v32.0.36.zip",
   changelog: [
+    {
+      version: "32.0.36",
+      date: "31/08/2026",
+      changes: [
+        "Alterações agora podem passar por um build isolado antes de serem aplicadas ao projeto principal.",
+        "Falhas de instalação ou compilação mantêm a mudança em revisão sem interromper o projeto publicado.",
+        "A validação usa limites de tempo, memória e processamento para manter o serviço estável.",
+      ],
+    },
     {
       version: "32.0.35",
       date: "31/08/2026",

@@ -38,6 +38,12 @@ type ValidationReport = {
   reasons: string[];
   warnings: string[];
 };
+type SandboxValidation = {
+  status: "passed" | "failed" | "skipped" | "unavailable";
+  stage: string;
+  output: string;
+  duration_ms?: number;
+};
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -875,6 +881,62 @@ async function validateProposedChanges(
   };
 }
 
+async function validateCommitInSandbox(
+  repository: string,
+  sha: string,
+  githubToken: string,
+): Promise<SandboxValidation> {
+  const runnerUrl = String(process.env.BUILD_RUNNER_URL || "").replace(/\/$/, "");
+  const runnerSecret = String(process.env.BUILD_RUNNER_SECRET || "");
+  if (!runnerUrl || !runnerSecret) {
+    return {
+      status: "skipped",
+      stage: "configuration",
+      output: "Validador isolado ainda não configurado.",
+    };
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 210_000);
+  try {
+    const response = await fetch(`${runnerUrl}/validate`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${runnerSecret}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ repository, sha, github_token: githubToken }),
+      signal: controller.signal,
+    });
+    const raw = await response.text();
+    const result = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    if (!response.ok || result.ok === false) {
+      return {
+        status: "unavailable",
+        stage: "runner",
+        output: String(result.error || `Validador respondeu ${response.status}.`).slice(0, 4_000),
+      };
+    }
+    const status = String(result.status || "failed");
+    return {
+      status:
+        status === "passed" || status === "skipped" || status === "failed"
+          ? status
+          : "failed",
+      stage: String(result.stage || "build").slice(0, 80),
+      output: String(result.output || "").slice(-12_000),
+      duration_ms: Number(result.duration_ms || 0) || undefined,
+    };
+  } catch (error) {
+    return {
+      status: "unavailable",
+      stage: "connection",
+      output: error instanceof Error ? error.message.slice(0, 4_000) : "Validador indisponível.",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function readRepositoryFile(token: string, repo: string, branch: string, path: string) {
   const file = await githubJson<{ content?: string; encoding?: string }>(
     `${GITHUB_API}/repos/${repo}/contents/${contentPath(path)}?ref=${encodeURIComponent(branch)}`,
@@ -1197,7 +1259,7 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
   );
   const proposed = sanitizeFiles(run.proposed_files);
   if (!proposed.length) throw new Error("O plano não contém arquivos válidos para aplicar.");
-  const validation = await validateProposedChanges(token, repo, branch, proposed);
+  let validation = await validateProposedChanges(token, repo, branch, proposed);
   await supabaseAdmin
     .from("github_agent_runs")
     .update({
@@ -1256,6 +1318,32 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
     token,
     { method: "PATCH", body: JSON.stringify({ sha: commit.sha, force: false }) },
   );
+  const sandboxValidation = await validateCommitInSandbox(repo, commit.sha, token);
+  if (sandboxValidation.status !== "passed") {
+    const buildReason =
+      sandboxValidation.status === "failed"
+        ? `O build isolado falhou na etapa ${sandboxValidation.stage}.`
+        : sandboxValidation.status === "unavailable"
+          ? "O ambiente de validação isolada não respondeu."
+          : "O projeto não possui um build compatível com a validação automática.";
+    validation = {
+      ...validation,
+      riskLevel: raiseRisk(validation.riskLevel, "high"),
+      autoMerge: false,
+      reasons: [...new Set([...validation.reasons, buildReason])],
+    };
+  }
+  await supabaseAdmin
+    .from("github_agent_runs")
+    .update({
+      risk_level: validation.riskLevel,
+      validation_report: validation as never,
+      requires_review: !validation.autoMerge,
+      sandbox_status: sandboxValidation.status,
+      sandbox_report: sandboxValidation as never,
+      updated_at: new Date().toISOString(),
+    } as never)
+    .eq("id", runId);
   const pullRequest = await githubJson<{ number: number; html_url: string }>(
     `${GITHUB_API}/repos/${repo}/pulls`,
     token,
@@ -1265,7 +1353,7 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
         title: String(run.commit_message),
         head: workingBranch,
         base: branch,
-        body: `Alteração preparada pela Super Lovable.\n\n${String(run.summary || "")}`,
+        body: `Alteração preparada pela Super Lovable.\n\n${String(run.summary || "")}\n\nValidação isolada: **${sandboxValidation.status}** (${sandboxValidation.stage}).`,
       }),
     },
   );
@@ -1320,6 +1408,7 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
       requiresReview: true,
       riskLevel: validation.riskLevel,
       validationReasons: validation.reasons,
+      sandboxStatus: sandboxValidation.status,
     };
   }
   await supabaseAdmin
@@ -1344,6 +1433,7 @@ export async function commitAgentRun(auth: LicenseAuth, runId: string) {
     pullRequestUrl: pullRequest.html_url,
     merged: true,
     riskLevel: validation.riskLevel,
+    sandboxStatus: sandboxValidation.status,
   };
 }
 
