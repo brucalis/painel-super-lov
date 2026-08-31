@@ -11,6 +11,7 @@
     repositories: [],
     progressTimer: null,
     lastPrompt: "",
+    lastAppliedRunId: null,
   };
 
   const storage = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
@@ -229,6 +230,50 @@
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  function renderRollbackAction(runId) {
+    const box = document.getElementById("sl-agent-progress");
+    if (!box || !runId) return;
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "sl-agent-rollback";
+    action.textContent = "Desfazer esta alteração";
+    action.addEventListener("click", () => rollback(runId, action));
+    box.appendChild(action);
+  }
+
+  async function rollback(runId, button) {
+    if (state.busy) return;
+    state.busy = true;
+    if (button) button.disabled = true;
+    setStatus("Preparando a reversão segura…");
+    try {
+      const result = await request("/rollback", {
+        method: "POST",
+        body: JSON.stringify({ run_id: runId }),
+      });
+      if (result.requiresReview) {
+        setStatus(
+          result.conflicts?.length
+            ? "A reversão encontrou alterações posteriores e aguarda sua revisão."
+            : "A reversão foi preparada e aguarda validação do GitHub.",
+          "warning",
+        );
+        if (result.pullRequestUrl) await chrome.tabs.create({ url: result.pullRequestUrl });
+        return;
+      }
+      setStatus("Alteração desfeita com segurança. Aguarde o preview atualizar.", "success");
+      renderProgress(
+        "done",
+        `Reversão ${String(result.commitSha || "").slice(0, 7)} aplicada.`,
+      );
+    } catch (error) {
+      setStatus(error.message || "Não foi possível desfazer a alteração.", "error");
+      if (button) button.disabled = false;
+    } finally {
+      state.busy = false;
+    }
+  }
+
   async function execute(prompt, reducedContext = false, automaticAttempt = 0) {
     if (state.busy) return;
     if (!state.ready) {
@@ -287,6 +332,8 @@
         "done",
         `Alteração ${String(result.commitSha || "").slice(0, 7)} aplicada em ${result.repository || "GitHub"}.`,
       );
+      state.lastAppliedRunId = result.runId || plan.runId;
+      renderRollbackAction(state.lastAppliedRunId);
       const textarea = document.getElementById("sp-msg");
       if (textarea) textarea.value = "";
     } catch (error) {

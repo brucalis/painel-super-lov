@@ -155,6 +155,12 @@ export type Database = {
           requires_review: boolean
           repository_full_name: string
           risk_level: string | null
+          rollback_branch: string | null
+          rollback_commit_sha: string | null
+          rollback_pull_request_number: number | null
+          rollback_pull_request_url: string | null
+          rollback_status: string | null
+          rolled_back_at: string | null
           status: string
           summary: string | null
           updated_at: string
@@ -181,6 +187,12 @@ export type Database = {
           requires_review?: boolean
           repository_full_name: string
           risk_level?: string | null
+          rollback_branch?: string | null
+          rollback_commit_sha?: string | null
+          rollback_pull_request_number?: number | null
+          rollback_pull_request_url?: string | null
+          rollback_status?: string | null
+          rolled_back_at?: string | null
           status?: string
           summary?: string | null
           updated_at?: string
@@ -207,6 +219,12 @@ export type Database = {
           requires_review?: boolean
           repository_full_name?: string
           risk_level?: string | null
+          rollback_branch?: string | null
+          rollback_commit_sha?: string | null
+          rollback_pull_request_number?: number | null
+          rollback_pull_request_url?: string | null
+          rollback_status?: string | null
+          rolled_back_at?: string | null
           status?: string
           summary?: string | null
           updated_at?: string

@@ -1255,4 +1255,7 @@ body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
 .sl-agent-error-actions { display:flex; flex-wrap:wrap; gap:6px; }
 .sl-agent-error-actions button { border:1px solid rgba(251,113,133,.38); border-radius:7px; background:rgba(251,113,133,.12); color:#fecdd3; padding:6px 8px; font-size:9px; font-weight:700; cursor:pointer; }
 .sl-agent-error-actions button:first-child { border-color:rgba(168,85,247,.45); background:rgba(168,85,247,.18); color:#e9d5ff; }
+.sl-agent-rollback { margin-top:8px; width:100%; border:1px solid rgba(251,191,36,.38); border-radius:7px; background:rgba(251,191,36,.1); color:#fde68a; padding:7px 9px; font-size:9px; font-weight:700; cursor:pointer; }
+.sl-agent-rollback:hover { border-color:#fbbf24; background:rgba(251,191,36,.17); }
+.sl-agent-rollback:disabled { cursor:wait; opacity:.55; }
 @keyframes sl-agent-spin { to { transform:rotate(360deg); } }

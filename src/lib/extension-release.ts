@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.34",
+  version: "32.0.35",
   updatedAt: "31/08/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.34-automatic-validation",
-  downloadName: "superlovable-v32.0.34.zip",
+  downloadPath: "/super-lovable.zip?v=32.0.35-safe-rollback",
+  downloadName: "superlovable-v32.0.35.zip",
   changelog: [
+    {
+      version: "32.0.35",
+      date: "31/08/2026",
+      changes: [
+        "Agora é possível desfazer imediatamente a última alteração aplicada pelo agente.",
+        "A reversão modifica somente os arquivos daquela execução, preservando o restante do projeto.",
+        "Se houver alterações posteriores nos mesmos arquivos, a extensão solicita revisão antes de continuar.",
+      ],
+    },
     {
       version: "32.0.34",
       date: "31/08/2026",
