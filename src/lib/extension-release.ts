@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.36",
-  updatedAt: "31/08/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable.zip?v=32.0.36-isolated-build",
-  downloadName: "superlovable-v32.0.36.zip",
+  version: "32.0.37",
+  updatedAt: "01/09/2026 (horário de Brasília)",
+  downloadPath: "/super-lovable-v32.0.37.zip?v=32.0.37-runner-readiness",
+  downloadName: "superlovable-v32.0.37.zip",
   changelog: [
+    {
+      version: "32.0.37",
+      date: "01/09/2026",
+      changes: [
+        "A extensão verifica automaticamente se o ambiente de validação está disponível antes de iniciar uma alteração.",
+        "Quando o validador estiver temporariamente indisponível, o usuário recebe uma orientação clara para tentar novamente.",
+        "O pacote de instalação agora usa um arquivo versionado para evitar downloads antigos armazenados pelo navegador.",
+      ],
+    },
     {
       version: "32.0.36",
       date: "31/08/2026",
