@@ -45,6 +45,43 @@ type SandboxValidation = {
   duration_ms?: number;
 };
 
+export async function getBuildRunnerHealth() {
+  const runnerUrl = String(process.env.BUILD_RUNNER_URL || "").replace(/\/$/, "");
+  const configured = Boolean(runnerUrl && process.env.BUILD_RUNNER_SECRET);
+  if (!configured) return { configured: false, ok: false, error: "RUNNER_NOT_CONFIGURED" };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6_000);
+  try {
+    const response = await fetch(`${runnerUrl}/health`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!response.ok || result.ok !== true) {
+      return {
+        configured: true,
+        ok: false,
+        error: String(result.error || `RUNNER_HTTP_${response.status}`),
+      };
+    }
+    return {
+      configured: true,
+      ok: true,
+      activeBuilds: Math.max(0, Number(result.active_builds || 0)),
+      capacity: Math.max(1, Number(result.capacity || 1)),
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      ok: false,
+      error: error instanceof Error ? error.message : "RUNNER_UNAVAILABLE",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function isTransientProviderStatus(status: number) {

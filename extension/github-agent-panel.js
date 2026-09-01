@@ -96,15 +96,37 @@
     try {
       const data = await request("/status");
       const connection = data.connection || {};
+      const runner = data.runner || {};
       const configured = data.configured && (data.ai?.gemini || data.ai?.groq);
       const connect = document.getElementById("sl-agent-connect");
       const picker = document.getElementById("sl-agent-project-row");
       state.ready =
-        configured && connection.status === "ready" && Boolean(connection.repository_full_name);
+        configured &&
+        runner.ok === true &&
+        connection.status === "ready" &&
+        Boolean(connection.repository_full_name);
       if (!configured) {
         setStatus(
           "Servidor em configuração. Cadastre as chaves de IA e da GitHub App no painel.",
           "warning",
+        );
+        if (connect) connect.style.display = "none";
+        return;
+      }
+      if (!runner.configured) {
+        state.ready = false;
+        setStatus(
+          "Validador seguro ainda não configurado. Informe BUILD_RUNNER_URL e BUILD_RUNNER_SECRET.",
+          "warning",
+        );
+        if (connect) connect.style.display = "none";
+        return;
+      }
+      if (!runner.ok) {
+        state.ready = false;
+        setStatus(
+          "Validador temporariamente indisponível. Aguarde alguns instantes e clique em Atualizar.",
+          "error",
         );
         if (connect) connect.style.display = "none";
         return;
