@@ -1,13 +1,18 @@
-name: Build extension ZIP 32.0.24 visual1
+name: Build extension ZIP
+
 on:
   push:
     branches:
       - main
     paths:
+      - "extension/**"
+      - "scripts/build-extension.mjs"
       - ".github/workflows/build-extension.yml"
   workflow_dispatch:
+
 permissions:
   contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,14 +21,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - run: npm run build:extension
       - run: unzip -t public/super-lovable.zip
-      - name: Publish generated ZIP only
+      - name: Publicar pacote atualizado
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/super-lovable.zip
+          git add public/super-lovable.zip public/super-lovable-v32.0.37.zip
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "build: atualizar pacote da extensão 32.0.24"
+          git commit -m "build: atualizar pacote da extensão 32.0.37"
           git push
