@@ -1984,3 +1984,41 @@ body.ts-native-chat-active {
     transform:translateX(200%);
   }
 }
+
+
+/* ===== RESULTADO DO AGENTE GITHUB ===== */
+.sl-agent-result {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid var(--ql-border);
+  border-radius: 12px;
+  background: var(--ql-bg-surface);
+  color: var(--ql-text-primary);
+}
+.sl-agent-result.is-success { border-color: rgba(52, 211, 153, 0.35); }
+.sl-agent-result.is-review { border-color: rgba(251, 191, 36, 0.35); }
+.sl-agent-result strong { font-size: 13px; }
+.sl-agent-result p,
+.sl-agent-result small { margin: 0; color: var(--ql-text-secondary); line-height: 1.45; }
+.sl-agent-result-details { display: flex; flex-wrap: wrap; gap: 6px; }
+.sl-agent-result-details span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--ql-bg-hover);
+  color: var(--ql-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+.sl-agent-pr-link {
+  justify-self: start;
+  padding: 8px 11px;
+  border: 1px solid var(--ql-border-hover);
+  border-radius: 8px;
+  background: var(--ql-accent-subtle);
+  color: var(--ql-accent);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sl-agent-pr-link:hover { filter: brightness(1.15); }
