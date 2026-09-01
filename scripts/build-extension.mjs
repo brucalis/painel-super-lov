@@ -9,7 +9,17 @@ const sourceDir = path.join(root, "extension");
 const buildRoot = path.join(root, ".extension-dist");
 const buildDir = path.join(buildRoot, "extension");
 const outputZip = path.join(root, "public", "super-lovable.zip");
-const versionedOutputZip = path.join(root, "public", "super-lovable-v32.0.37.zip");
+const sourceManifest = JSON.parse(
+  await readFile(path.join(sourceDir, "manifest.json"), "utf8"),
+);
+const extensionVersion = String(sourceManifest.version || "").trim();
+if (!/^\d+\.\d+\.\d+$/.test(extensionVersion))
+  throw new Error("Versão inválida no manifest da extensão.");
+const versionedOutputZip = path.join(
+  root,
+  "public",
+  `super-lovable-v${extensionVersion}.zip`,
+);
 
 // Arquivos críticos que precisam permanecer no pacote exatamente como foram
 // testados. Eles compartilham funções e mensagens entre contextos diferentes
