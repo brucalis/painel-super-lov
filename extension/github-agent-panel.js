@@ -263,6 +263,62 @@
     box.appendChild(action);
   }
 
+  function renderExecutionResult(result, requiresReview = false) {
+    const box = document.getElementById("sl-agent-progress");
+    if (!box) return;
+    const sandboxLabels = {
+      passed: "Build aprovado",
+      failed: "Build reprovado",
+      unavailable: "Validador indisponível",
+      skipped: "Build não identificado",
+    };
+    const sandboxStatus = String(result.sandboxStatus || "skipped");
+    const reasons = Array.isArray(result.validationReasons)
+      ? result.validationReasons.filter(Boolean)
+      : [];
+    box.hidden = false;
+    box.innerHTML = "";
+    const card = document.createElement("div");
+    card.className = `sl-agent-result ${requiresReview ? "is-review" : "is-success"}`;
+
+    const title = document.createElement("strong");
+    title.textContent = requiresReview
+      ? "Alteração pronta para revisão"
+      : "Alteração aplicada com sucesso";
+    card.appendChild(title);
+
+    const summary = document.createElement("p");
+    summary.textContent = requiresReview
+      ? "O projeto principal foi preservado. Revise a proposta antes de aplicá-la."
+      : "O build foi validado e a alteração já entrou no projeto.";
+    card.appendChild(summary);
+
+    const details = document.createElement("div");
+    details.className = "sl-agent-result-details";
+    const build = document.createElement("span");
+    build.textContent = sandboxLabels[sandboxStatus] || `Validação: ${sandboxStatus}`;
+    const risk = document.createElement("span");
+    risk.textContent = `Risco: ${String(result.riskLevel || "baixo")}`;
+    details.append(build, risk);
+    card.appendChild(details);
+
+    if (reasons.length) {
+      const reason = document.createElement("small");
+      reason.textContent = reasons.join(" ");
+      card.appendChild(reason);
+    }
+
+    if (result.pullRequestUrl) {
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "sl-agent-pr-link";
+      link.textContent = requiresReview ? "Revisar alteração no GitHub" : "Ver detalhes no GitHub";
+      link.addEventListener("click", () => chrome.tabs.create({ url: result.pullRequestUrl }));
+      card.appendChild(link);
+    }
+    box.appendChild(card);
+  }
+
   async function rollback(runId, button) {
     if (state.busy) return;
     state.busy = true;
@@ -339,21 +395,14 @@
           `A alteração foi preparada e aguarda ${riskLabel} antes de aplicar.`,
           "warning",
         );
-        renderProgress(
-          "done",
-          `Pull Request criado com classificação ${result.riskLevel || "manual"}.`,
-        );
-        if (result.pullRequestUrl) await chrome.tabs.create({ url: result.pullRequestUrl });
+        renderExecutionResult(result, true);
         return;
       }
       setStatus(
         `Concluído. Alteração ${String(result.commitSha || "").slice(0, 7)} aplicada. Aguarde o preview da Lovable atualizar.`,
         "success",
       );
-      renderProgress(
-        "done",
-        `Alteração ${String(result.commitSha || "").slice(0, 7)} aplicada em ${result.repository || "GitHub"}.`,
-      );
+      renderExecutionResult(result, false);
       state.lastAppliedRunId = result.runId || plan.runId;
       renderRollbackAction(state.lastAppliedRunId);
       const textarea = document.getElementById("sp-msg");
