@@ -16,12 +16,6 @@ type ValidationReport = {
   warnings: string[];
   mode: "direct";
 };
-type SandboxValidation = {
-  status: "passed" | "failed" | "skipped" | "unavailable";
-  stage: string;
-  output: string;
-  duration_ms?: number;
-};
 
 const githubHeaders = (token: string) => ({
   Accept: "application/vnd.github+json",
@@ -197,75 +191,6 @@ async function validateProposedChanges(
   };
 }
 
-async function validateCommitInSandbox(
-  repository: string,
-  sha: string,
-  githubToken: string,
-): Promise<SandboxValidation> {
-  const runnerUrl = String(process.env.BUILD_RUNNER_URL || "").replace(/\/$/, "");
-  const runnerSecret = String(process.env.BUILD_RUNNER_SECRET || "");
-  if (!runnerUrl || !runnerSecret) {
-    return {
-      status: "skipped",
-      stage: "configuration",
-      output: "Validador isolado não configurado. Aplicação direta continuará com as proteções estáticas.",
-    };
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 210_000);
-  try {
-    const response = await fetch(`${runnerUrl}/validate`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${runnerSecret}`,
-        "X-Runner-Secret": runnerSecret,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ repository, sha, github_token: githubToken }),
-      signal: controller.signal,
-    });
-    const raw = await response.text();
-    const result = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-    if (!response.ok || result.ok === false) {
-      return {
-        status: "unavailable",
-        stage: "runner",
-        output: String(result.error || `Validador respondeu ${response.status}.`).slice(0, 4_000),
-      };
-    }
-    const status = String(result.status || "failed");
-    return {
-      status:
-        status === "passed" || status === "skipped" || status === "failed"
-          ? status
-          : "failed",
-      stage: String(result.stage || "build").slice(0, 80),
-      output: String(result.output || "").slice(-12_000),
-      duration_ms: Number(result.duration_ms || 0) || undefined,
-    };
-  } catch (error) {
-    return {
-      status: "unavailable",
-      stage: "connection",
-      output: error instanceof Error ? error.message.slice(0, 4_000) : "Validador indisponível.",
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function deleteRefQuietly(repo: string, token: string, branch: string) {
-  try {
-    await fetch(
-      `${GITHUB_API}/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
-      { method: "DELETE", headers: githubHeaders(token) },
-    );
-  } catch {
-    // A limpeza da referência temporária não pode impedir a aplicação principal.
-  }
-}
-
 async function getLicenseConnection(licenseId: string) {
   const { data } = await supabaseAdmin
     .from("github_license_connections")
@@ -276,10 +201,71 @@ async function getLicenseConnection(licenseId: string) {
 }
 
 async function updateRun(runId: string, values: Record<string, unknown>) {
-  await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("github_agent_runs")
     .update({ ...values, updated_at: new Date().toISOString() } as never)
     .eq("id", runId);
+  if (error) console.error("[super-lovable] falha ao atualizar execução", error);
+}
+
+async function createCommit(
+  token: string,
+  repo: string,
+  parentSha: string,
+  files: Array<{ path: string; content: string | null }>,
+  message: string,
+) {
+  const baseCommit = await githubJson<{ tree: { sha: string } }>(
+    `${GITHUB_API}/repos/${repo}/git/commits/${parentSha}`,
+    token,
+  );
+  const treeItems: Array<{
+    path: string;
+    mode: string;
+    type: string;
+    sha: string | null;
+  }> = [];
+
+  for (const file of files) {
+    if (file.content === null) {
+      treeItems.push({ path: file.path, mode: "100644", type: "blob", sha: null });
+      continue;
+    }
+    const blob = await githubJson<{ sha: string }>(
+      `${GITHUB_API}/repos/${repo}/git/blobs`,
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ content: file.content, encoding: "utf-8" }),
+      },
+    );
+    treeItems.push({ path: file.path, mode: "100644", type: "blob", sha: blob.sha });
+  }
+
+  const tree = await githubJson<{ sha: string }>(
+    `${GITHUB_API}/repos/${repo}/git/trees`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ base_tree: baseCommit.tree.sha, tree: treeItems }),
+    },
+  );
+
+  return githubJson<{ sha: string }>(`${GITHUB_API}/repos/${repo}/git/commits`, token, {
+    method: "POST",
+    body: JSON.stringify({ message, tree: tree.sha, parents: [parentSha] }),
+  });
+}
+
+async function moveBranch(token: string, repo: string, branch: string, sha: string) {
+  await githubJson(
+    `${GITHUB_API}/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
+    token,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ sha, force: false }),
+    },
+  );
 }
 
 export async function commitAgentRunDirect(auth: DirectAgentAuth, runId: string) {
@@ -315,7 +301,7 @@ export async function commitAgentRunDirect(auth: DirectAgentAuth, runId: string)
   );
   if (ref.object.sha !== run.base_sha) {
     throw new Response(
-      "O projeto mudou depois do plano. Gere a alteração novamente para evitar conflito.",
+      "O projeto mudou depois do plano. Gere a alteração novamente para evitar sobrescrever mudanças mais recentes.",
       { status: 409 },
     );
   }
@@ -323,118 +309,45 @@ export async function commitAgentRunDirect(auth: DirectAgentAuth, runId: string)
   const validation = await validateProposedChanges(token, repo, branch, proposed);
   await updateRun(runId, {
     risk_level: validation.riskLevel,
-    validation_report: validation,
+    validation_report: { ...validation, directApply: true, targetBranch: branch },
     requires_review: false,
+    pull_request_number: null,
+    pull_request_url: null,
   });
 
   if (validation.riskLevel === "blocked") {
-    const reason = validation.reasons.join(" ") || "A alteração foi bloqueada pela validação de segurança.";
+    const reason =
+      validation.reasons.join(" ") || "A alteração foi bloqueada pela validação de segurança.";
     await updateRun(runId, { status: "blocked", error: reason });
     throw new Response(reason, { status: 422 });
   }
 
-  const baseCommit = await githubJson<{ tree: { sha: string } }>(
-    `${GITHUB_API}/repos/${repo}/git/commits/${ref.object.sha}`,
+  const commit = await createCommit(
     token,
+    repo,
+    ref.object.sha,
+    proposed,
+    String(run.commit_message || "aplicar alteração pela Super Lovable"),
   );
-  const elements: Array<{ path: string; mode: string; type: string; sha: string }> = [];
-
-  for (const file of proposed) {
-    const blob = await githubJson<{ sha: string }>(
-      `${GITHUB_API}/repos/${repo}/git/blobs`,
-      token,
-      {
-        method: "POST",
-        body: JSON.stringify({ content: file.content, encoding: "utf-8" }),
-      },
-    );
-    elements.push({ path: file.path, mode: "100644", type: "blob", sha: blob.sha });
-  }
-
-  const tree = await githubJson<{ sha: string }>(
-    `${GITHUB_API}/repos/${repo}/git/trees`,
-    token,
-    {
-      method: "POST",
-      body: JSON.stringify({ base_tree: baseCommit.tree.sha, tree: elements }),
-    },
-  );
-  const commit = await githubJson<{ sha: string }>(
-    `${GITHUB_API}/repos/${repo}/git/commits`,
-    token,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        message: String(run.commit_message || "aplicar alteração pela Super Lovable"),
-        tree: tree.sha,
-        parents: [ref.object.sha],
-      }),
-    },
-  );
-
-  const runnerConfigured = Boolean(process.env.BUILD_RUNNER_URL && process.env.BUILD_RUNNER_SECRET);
-  const validationBranch = `super-lovable/validate-${runId.slice(0, 8)}-${Date.now().toString(36)}`;
-  let sandboxValidation: SandboxValidation;
-
-  if (runnerConfigured) {
-    await githubJson(`${GITHUB_API}/repos/${repo}/git/refs`, token, {
-      method: "POST",
-      body: JSON.stringify({ ref: `refs/heads/${validationBranch}`, sha: commit.sha }),
-    });
-    try {
-      sandboxValidation = await validateCommitInSandbox(repo, commit.sha, token);
-    } finally {
-      await deleteRefQuietly(repo, token, validationBranch);
-    }
-  } else {
-    sandboxValidation = await validateCommitInSandbox(repo, commit.sha, token);
-  }
-
-  const validationReasons = [...validation.reasons];
-  if (sandboxValidation.status === "failed") {
-    const reason = `O build isolado falhou na etapa ${sandboxValidation.stage}. A alteração não foi enviada para ${branch}.`;
-    await updateRun(runId, {
-      status: "blocked",
-      sandbox_status: sandboxValidation.status,
-      sandbox_report: sandboxValidation,
-      error: reason,
-    });
-    throw new Response(reason, { status: 422 });
-  }
-  if (sandboxValidation.status === "unavailable") {
-    validationReasons.push(
-      "O validador isolado ficou indisponível; a aplicação direta continuou com as proteções estáticas.",
-    );
-  } else if (sandboxValidation.status === "skipped") {
-    validationReasons.push(
-      "O projeto não pôde ser validado pelo runner; a aplicação direta continuou com as proteções estáticas.",
-    );
-  }
 
   try {
-    await githubJson(
-      `${GITHUB_API}/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
-      token,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ sha: commit.sha, force: false }),
-      },
-    );
+    await moveBranch(token, repo, branch, commit.sha);
   } catch (error) {
     const message =
       error instanceof Error
-        ? `O GitHub não permitiu atualizar ${branch} diretamente: ${error.message}`
-        : `O GitHub não permitiu atualizar ${branch} diretamente.`;
-    await updateRun(runId, {
-      status: "failed",
-      sandbox_status: sandboxValidation.status,
-      sandbox_report: sandboxValidation,
-      error: message,
-    });
+        ? `O GitHub não permitiu gravar diretamente em ${branch}: ${error.message}`
+        : `O GitHub não permitiu gravar diretamente em ${branch}.`;
+    await updateRun(runId, { status: "failed", error: message });
     throw new Response(message, { status: 409 });
   }
 
   const completedAt = new Date().toISOString();
+  const validationReasons = [
+    ...validation.reasons,
+    ...validation.warnings,
+    "Alteração aplicada diretamente na branch principal, sem Pull Request.",
+  ];
+
   await updateRun(runId, {
     status: "merged",
     commit_sha: commit.sha,
@@ -449,10 +362,15 @@ export async function commitAgentRunDirect(auth: DirectAgentAuth, runId: string)
       reasons: validationReasons,
       directApply: true,
       targetBranch: branch,
+      pullRequestsDisabled: true,
     },
     requires_review: false,
-    sandbox_status: sandboxValidation.status,
-    sandbox_report: sandboxValidation,
+    sandbox_status: "skipped",
+    sandbox_report: {
+      status: "skipped",
+      stage: "direct-main",
+      output: "Fluxo direto ativado: nenhuma branch temporária ou Pull Request foi criada.",
+    },
     error: null,
   });
 
@@ -467,6 +385,91 @@ export async function commitAgentRunDirect(auth: DirectAgentAuth, runId: string)
     requiresReview: false,
     riskLevel: validation.riskLevel,
     validationReasons,
-    sandboxStatus: sandboxValidation.status,
+    sandboxStatus: "skipped",
+    flowMode: "direct-main-v3",
+  };
+}
+
+export async function rollbackAgentRunDirect(auth: DirectAgentAuth, runId: string) {
+  const { data } = await supabaseAdmin
+    .from("github_agent_runs")
+    .select("*")
+    .eq("id", runId)
+    .eq("license_id", auth.license.id)
+    .maybeSingle();
+
+  const run = data as Record<string, unknown> | null;
+  if (!run || run.status !== "merged") {
+    throw new Response("Somente alterações já aplicadas podem ser desfeitas.", { status: 422 });
+  }
+  if (run.rollback_status === "merged") {
+    throw new Response("Essa alteração já foi desfeita.", { status: 409 });
+  }
+
+  const connection = await getLicenseConnection(auth.license.id);
+  const installationId = Number(connection?.installation_id || 0);
+  if (!installationId) throw new Response("Conexão GitHub indisponível.", { status: 422 });
+
+  const token = await createInstallationToken(installationId);
+  const repo = String(run.repository_full_name || "");
+  const branch = String(run.branch || connection?.branch || "main");
+  const baseSha = String(run.base_sha || "");
+  const appliedSha = String(run.merge_commit_sha || run.commit_sha || "");
+  const proposed = sanitizeFiles(run.proposed_files);
+
+  if (!baseSha || !appliedSha || !proposed.length) {
+    throw new Response("Não existem dados suficientes para desfazer essa alteração.", { status: 422 });
+  }
+
+  const currentRef = await githubJson<{ object: { sha: string } }>(
+    `${GITHUB_API}/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
+    token,
+  );
+
+  const conflicts: string[] = [];
+  const rollbackFiles: Array<{ path: string; content: string | null }> = [];
+
+  for (const file of proposed) {
+    const [original, applied, current] = await Promise.all([
+      readRepositoryFileOptional(token, repo, baseSha, file.path),
+      readRepositoryFileOptional(token, repo, appliedSha, file.path),
+      readRepositoryFileOptional(token, repo, branch, file.path),
+    ]);
+
+    if (current !== applied) conflicts.push(file.path);
+    rollbackFiles.push({ path: file.path, content: original });
+  }
+
+  if (conflicts.length) {
+    const message = `Não foi possível desfazer automaticamente porque estes arquivos mudaram depois: ${conflicts.join(", ")}.`;
+    await updateRun(runId, { rollback_status: "blocked", error: message });
+    throw new Response(message, { status: 409 });
+  }
+
+  const rollbackCommit = await createCommit(
+    token,
+    repo,
+    currentRef.object.sha,
+    rollbackFiles,
+    `desfazer: ${String(run.commit_message || "alteração da Super Lovable")}`,
+  );
+
+  await moveBranch(token, repo, branch, rollbackCommit.sha);
+  const completedAt = new Date().toISOString();
+  await updateRun(runId, {
+    rollback_status: "merged",
+    rollback_commit_sha: rollbackCommit.sha,
+    rollback_merged_at: completedAt,
+    error: null,
+  });
+
+  return {
+    runId,
+    commitSha: rollbackCommit.sha,
+    repository: repo,
+    branch,
+    direct: true,
+    requiresReview: false,
+    conflicts: [],
   };
 }
