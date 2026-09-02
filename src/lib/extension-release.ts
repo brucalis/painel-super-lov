@@ -5,7 +5,8 @@
 export const EXTENSION_RELEASE = {
   version: "32.0.42",
   updatedAt: "02/09/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable-v32.0.42.zip?v=32.0.42-batches",
+  downloadPath:
+    "https://raw.githubusercontent.com/brucalis/painel-super-lov/main/public/super-lovable-v32.0.42.zip?v=32.0.42-batches",
   downloadName: "superlovable-v32.0.42.zip",
   changelog: [
     {
