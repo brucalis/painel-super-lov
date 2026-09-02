@@ -30,6 +30,7 @@ jobs:
       - name: Verificar sintaxe dos scripts da extensão
         run: |
           node --check extension/github-agent-panel.js
+          node --check extension/agent-autorecovery.js
           node --check extension/agent-history.js
       - name: Compilar aplicação e rotas do agente
         run: npm run build
