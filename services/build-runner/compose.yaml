@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8080"
-      RUNNER_SECRET: ${RUNNER_SECRET}
+      RUNNER_SECRET: ${RUNNER_SECRET_V2}
       MAX_CONCURRENT_BUILDS: ${MAX_CONCURRENT_BUILDS:-1}
       BUILD_TIMEOUT_MS: ${BUILD_TIMEOUT_MS:-180000}
       BUILD_MEMORY: ${BUILD_MEMORY:-1g}
