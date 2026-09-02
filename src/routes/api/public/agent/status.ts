@@ -29,6 +29,7 @@ export const Route = createFileRoute("/api/public/agent/status")({
 
           return json({
             ok: true,
+            flow_mode: "direct-main-v2",
             configured: Boolean(
               process.env.GITHUB_APP_ID &&
                 process.env.GITHUB_CLIENT_ID &&
