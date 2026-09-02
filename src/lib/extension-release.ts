@@ -4,11 +4,20 @@
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho. Detalhes
 // internos de backend, APIs, infraestrutura e painel administrativo não entram.
 export const EXTENSION_RELEASE = {
-  version: "32.0.38",
+  version: "32.0.39",
   updatedAt: "01/09/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable-v32.0.38.zip?v=32.0.38-execution-result",
-  downloadName: "superlovable-v32.0.38.zip",
+  downloadPath: "/super-lovable-v32.0.39.zip?v=32.0.39-runner-auth",
+  downloadName: "superlovable-v32.0.39.zip",
   changelog: [
+    {
+      version: "32.0.39",
+      date: "01/09/2026",
+      changes: [
+        "A conexão segura com o validador agora é conferida antes de iniciar qualquer alteração.",
+        "A comunicação com a VPS ficou mais resistente a proxies que removem cabeçalhos de autorização.",
+        "Alterações visuais em páginas deixam de exigir revisão apenas por estarem dentro da pasta de rotas.",
+      ],
+    },
     {
       version: "32.0.38",
       date: "01/09/2026",
