@@ -207,7 +207,9 @@ async function tryLovableGateway(prompt: string) {
   });
   const raw = await response.text();
   if (!response.ok) throw new Error(`LOVABLE_GATEWAY_${response.status}`);
-  const data = JSON.parse(raw) as { choices?: Array<{ message?: { content?: string }> }> };
+  const data = JSON.parse(raw) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
   return {
     provider: "lovable-gateway",
     raw: String(data.choices?.[0]?.message?.content || ""),
@@ -233,7 +235,9 @@ async function tryGroq(prompt: string) {
   });
   const raw = await response.text();
   if (!response.ok) throw new Error(`GROQ_${response.status}`);
-  const data = JSON.parse(raw) as { choices?: Array<{ message?: { content?: string }> }> };
+  const data = JSON.parse(raw) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
   return {
     provider: "groq",
     raw: String(data.choices?.[0]?.message?.content || ""),
