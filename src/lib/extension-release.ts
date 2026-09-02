@@ -3,12 +3,22 @@
 // O changelog exibido na home é voltado ao cliente: registre apenas mudanças
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho.
 export const EXTENSION_RELEASE = {
-  version: "32.0.42",
+  version: "32.0.43",
   updatedAt: "02/09/2026 (horário de Brasília)",
   downloadPath:
-    "https://raw.githubusercontent.com/brucalis/painel-super-lov/main/public/super-lovable-v32.0.42.zip?v=32.0.42-batches",
-  downloadName: "superlovable-v32.0.42.zip",
+    "https://raw.githubusercontent.com/brucalis/painel-super-lov/main/public/super-lovable-v32.0.43.zip?v=32.0.43-resilient",
+  downloadName: "superlovable-v32.0.43.zip",
   changelog: [
+    {
+      version: "32.0.43",
+      date: "02/09/2026",
+      changes: [
+        "Falhas recuperáveis durante a execução agora são tratadas automaticamente, sem exigir que o usuário clique para retomar a tarefa.",
+        "O agente relê a main e refaz edições quando um trecho mudou, ficou ambíguo ou a IA devolveu uma resposta incompleta.",
+        "Commits diretos ficaram idempotentes: se a resposta se perder depois da gravação, a extensão reconhece o commit já aplicado em vez de duplicar a alteração.",
+        "Limites temporários e falhas de comunicação recebem novas tentativas com espera progressiva e preservação das etapas já concluídas.",
+      ],
+    },
     {
       version: "32.0.42",
       date: "02/09/2026",
@@ -43,14 +53,6 @@ export const EXTENSION_RELEASE = {
         "A conexão segura com o validador passou a ser conferida antes de iniciar alterações.",
         "A comunicação com a VPS ficou mais resistente a falhas de autenticação.",
         "Alterações visuais simples deixaram de exigir revisão apenas pela localização dos arquivos.",
-      ],
-    },
-    {
-      version: "32.0.38",
-      date: "01/09/2026",
-      changes: [
-        "O resultado de cada alteração passou a informar o estado da validação com mais clareza.",
-        "Melhorias na apresentação dos detalhes de cada execução.",
       ],
     },
   ],
