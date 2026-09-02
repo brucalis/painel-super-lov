@@ -1,4 +1,4 @@
-// Super Lovable GitHub Agent — fluxo simples: conectar uma vez, escrever e enviar.
+// Super Lovable GitHub Agent — fluxo direto: conectar uma vez, escrever e aplicar na main.
 (() => {
   if (globalThis.__superlovableGithubAgentLoaded) return;
   globalThis.__superlovableGithubAgentLoaded = true;
@@ -43,9 +43,8 @@
   const progressSteps = [
     ["context", "Lendo estrutura e arquivos do projeto"],
     ["ai", "Analisando o pedido com a inteligência artificial"],
-    ["plan", "Preparando o plano e os arquivos"],
-    ["confirm", "Aguardando sua confirmação"],
-    ["commit", "Criando alteração segura no GitHub"],
+    ["plan", "Preparando os arquivos da alteração"],
+    ["commit", "Aplicando alteração diretamente na main"],
     ["done", "Alteração concluída"],
   ];
   const renderProgress = (active, detail = "") => {
@@ -79,7 +78,7 @@
     const stages = [
       ["context", "Conectando ao repositório…"],
       ["ai", "Gemini em uso; Groq assume automaticamente se necessário…"],
-      ["plan", "Organizando as alterações propostas…"],
+      ["plan", "Organizando os arquivos que serão gravados…"],
     ];
     let index = 0;
     renderProgress(...stages[index]);
@@ -96,37 +95,17 @@
     try {
       const data = await request("/status");
       const connection = data.connection || {};
-      const runner = data.runner || {};
       const configured = data.configured && (data.ai?.gemini || data.ai?.groq);
       const connect = document.getElementById("sl-agent-connect");
       const picker = document.getElementById("sl-agent-project-row");
       state.ready =
         configured &&
-        runner.ok === true &&
         connection.status === "ready" &&
         Boolean(connection.repository_full_name);
       if (!configured) {
         setStatus(
           "Servidor em configuração. Cadastre as chaves de IA e da GitHub App no painel.",
           "warning",
-        );
-        if (connect) connect.style.display = "none";
-        return;
-      }
-      if (!runner.configured) {
-        state.ready = false;
-        setStatus(
-          "Validador seguro ainda não configurado. Informe BUILD_RUNNER_URL e BUILD_RUNNER_SECRET.",
-          "warning",
-        );
-        if (connect) connect.style.display = "none";
-        return;
-      }
-      if (!runner.ok) {
-        state.ready = false;
-        setStatus(
-          "Validador temporariamente indisponível. Aguarde alguns instantes e clique em Atualizar.",
-          "error",
         );
         if (connect) connect.style.display = "none";
         return;
@@ -145,7 +124,7 @@
       if (connect) connect.style.display = "none";
       if (connection.repository_full_name) {
         setStatus(
-          `Projeto conectado: ${connection.repository_full_name} (${connection.branch || "main"})`,
+          `Projeto conectado: ${connection.repository_full_name} (main)`,
           "success",
         );
         if (picker) picker.style.display = "none";
@@ -207,7 +186,7 @@
     try {
       const select = document.getElementById("sl-agent-repository");
       if (!select?.value) throw new Error("Escolha um repositório.");
-      setStatus("Salvando projeto…");
+      setStatus("Salvando projeto na branch main…");
       await request("/github/repositories", {
         method: "POST",
         body: JSON.stringify({ repository: select.value }),
@@ -219,7 +198,6 @@
   }
 
   const renderFailure = (error) => {
-    renderProgress("error", "Falha no processamento");
     const box = document.getElementById("sl-agent-progress");
     if (!box) return;
     box.hidden = false;
@@ -263,43 +241,32 @@
     box.appendChild(action);
   }
 
-  function renderExecutionResult(result, requiresReview = false) {
+  function renderExecutionResult(result) {
     const box = document.getElementById("sl-agent-progress");
     if (!box) return;
-    const sandboxLabels = {
-      passed: "Build aprovado",
-      failed: "Build reprovado",
-      unavailable: "Validador indisponível",
-      skipped: "Build não identificado",
-    };
-    const sandboxStatus = String(result.sandboxStatus || "skipped");
     const reasons = Array.isArray(result.validationReasons)
       ? result.validationReasons.filter(Boolean)
       : [];
     box.hidden = false;
     box.innerHTML = "";
     const card = document.createElement("div");
-    card.className = `sl-agent-result ${requiresReview ? "is-review" : "is-success"}`;
+    card.className = "sl-agent-result is-success";
 
     const title = document.createElement("strong");
-    title.textContent = requiresReview
-      ? "Alteração pronta para revisão"
-      : "Alteração aplicada com sucesso";
+    title.textContent = "Alteração aplicada com sucesso";
     card.appendChild(title);
 
     const summary = document.createElement("p");
-    summary.textContent = requiresReview
-      ? "O projeto principal foi preservado. Revise a proposta antes de aplicá-la."
-      : "O build foi validado e a alteração já entrou no projeto.";
+    summary.textContent = "Os arquivos foram gravados diretamente na main. Nenhum Pull Request foi criado.";
     card.appendChild(summary);
 
     const details = document.createElement("div");
     details.className = "sl-agent-result-details";
-    const build = document.createElement("span");
-    build.textContent = sandboxLabels[sandboxStatus] || `Validação: ${sandboxStatus}`;
+    const commit = document.createElement("span");
+    commit.textContent = `Commit: ${String(result.commitSha || "").slice(0, 7) || "concluído"}`;
     const risk = document.createElement("span");
-    risk.textContent = `Risco: ${String(result.riskLevel || "baixo")}`;
-    details.append(build, risk);
+    risk.textContent = `Risco estático: ${String(result.riskLevel || "baixo")}`;
+    details.append(commit, risk);
     card.appendChild(details);
 
     if (reasons.length) {
@@ -308,14 +275,6 @@
       card.appendChild(reason);
     }
 
-    if (result.pullRequestUrl) {
-      const link = document.createElement("button");
-      link.type = "button";
-      link.className = "sl-agent-pr-link";
-      link.textContent = requiresReview ? "Revisar alteração no GitHub" : "Ver detalhes no GitHub";
-      link.addEventListener("click", () => chrome.tabs.create({ url: result.pullRequestUrl }));
-      card.appendChild(link);
-    }
     box.appendChild(card);
   }
 
@@ -323,26 +282,16 @@
     if (state.busy) return;
     state.busy = true;
     if (button) button.disabled = true;
-    setStatus("Preparando a reversão segura…");
+    setStatus("Desfazendo a alteração diretamente na main…");
     try {
       const result = await request("/rollback", {
         method: "POST",
         body: JSON.stringify({ run_id: runId }),
       });
-      if (result.requiresReview) {
-        setStatus(
-          result.conflicts?.length
-            ? "A reversão encontrou alterações posteriores e aguarda sua revisão."
-            : "A reversão foi preparada e aguarda validação do GitHub.",
-          "warning",
-        );
-        if (result.pullRequestUrl) await chrome.tabs.create({ url: result.pullRequestUrl });
-        return;
-      }
-      setStatus("Alteração desfeita com segurança. Aguarde o preview atualizar.", "success");
+      setStatus("Alteração desfeita. Aguarde o preview atualizar.", "success");
       renderProgress(
         "done",
-        `Reversão ${String(result.commitSha || "").slice(0, 7)} aplicada.`,
+        `Reversão ${String(result.commitSha || "").slice(0, 7)} aplicada na main.`,
       );
     } catch (error) {
       setStatus(error.message || "Não foi possível desfazer a alteração.", "error");
@@ -374,35 +323,20 @@
       stopProgressTimer();
       state.pendingRunId = plan.runId;
       const files = (plan.files || []).join(", ");
+      setStatus("Aplicando a alteração diretamente na main…");
       renderProgress(
-        "confirm",
+        "commit",
         `${plan.provider === "groq" ? "Groq" : "Gemini"} preparou ${plan.files?.length || 0} arquivo(s): ${files}`,
       );
-      setStatus("Enviando a alteração para o GitHub…");
-      renderProgress("commit", `${plan.files?.length || 0} arquivo(s) aprovado(s).`);
       const result = await request("/commit", {
         method: "POST",
         body: JSON.stringify({ run_id: plan.runId }),
       });
-      if (result.requiresReview) {
-        const riskLabel =
-          result.riskLevel === "high"
-            ? "revisão de risco alto"
-            : result.riskLevel === "medium"
-              ? "revisão preventiva"
-              : "validação do GitHub";
-        setStatus(
-          `A alteração foi preparada e aguarda ${riskLabel} antes de aplicar.`,
-          "warning",
-        );
-        renderExecutionResult(result, true);
-        return;
-      }
       setStatus(
-        `Concluído. Alteração ${String(result.commitSha || "").slice(0, 7)} aplicada. Aguarde o preview da Lovable atualizar.`,
+        `Concluído. Commit ${String(result.commitSha || "").slice(0, 7)} aplicado na main. Aguarde o preview da Lovable atualizar.`,
         "success",
       );
-      renderExecutionResult(result, false);
+      renderExecutionResult(result);
       state.lastAppliedRunId = result.runId || plan.runId;
       renderRollbackAction(state.lastAppliedRunId);
       const textarea = document.getElementById("sp-msg");
@@ -433,7 +367,7 @@
     const panel = document.createElement("section");
     panel.id = "sl-github-agent";
     panel.innerHTML = `
-      <div class="sl-agent-title"><span>Agente Super Lovable</span><span>GITHUB SYNC</span></div>
+      <div class="sl-agent-title"><span>Agente Super Lovable</span><span>MAIN DIRETA</span></div>
       <p id="sl-agent-status" data-kind="info">Verificando conexão…</p>
       <div class="sl-agent-actions">
         <button type="button" id="sl-agent-connect">Conectar GitHub</button>
