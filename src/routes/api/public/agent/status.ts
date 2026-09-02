@@ -13,6 +13,7 @@ export const Route = createFileRoute("/api/public/agent/status")({
             agent.getLicenseConnection(auth.license.id),
             agent.getBuildRunnerHealth(),
           ]);
+          const runnerError = "error" in runnerHealth ? runnerHealth.error : null;
 
           // O runner é uma camada de validação, não uma etapa de autorização.
           // A extensão permanece operacional se ele estiver temporariamente indisponível.
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/api/public/agent/status")({
             ...runnerHealth,
             validation_configured: runnerHealth.configured,
             validation_ok: runnerHealth.ok,
-            validation_error: runnerHealth.ok ? null : runnerHealth.error || null,
+            validation_error: runnerHealth.ok ? null : runnerError,
             configured: true,
             ok: true,
             advisory: true,
