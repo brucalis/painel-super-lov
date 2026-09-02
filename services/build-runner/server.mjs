@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { classifyCloneFailure, createGitHubCloneEnv } from "./github-clone-auth.mjs";
 
 const runFile = promisify(execFile);
 const port = Number(process.env.PORT || 8080);
@@ -101,16 +102,16 @@ async function validateBuild({ repository, sha, github_token: githubToken }) {
       "git",
       ["clone", "--quiet", "--filter=blob:none", "--no-checkout", `https://github.com/${repository}.git`, repositoryDir],
       {
-        env: {
-          ...process.env,
-          GIT_TERMINAL_PROMPT: "0",
-          GIT_CONFIG_COUNT: "1",
-          GIT_CONFIG_KEY_0: "http.extraHeader",
-          GIT_CONFIG_VALUE_0: `Authorization: Bearer ${githubToken}`,
-        },
+        env: createGitHubCloneEnv(githubToken, process.env),
       },
     );
-    if (!clone.ok) return { status: "failed", stage: "clone", output: clone.output, duration_ms: Date.now() - startedAt };
+    if (!clone.ok)
+      return {
+        status: "failed",
+        stage: "clone",
+        output: classifyCloneFailure(clone.output),
+        duration_ms: Date.now() - startedAt,
+      };
     const checkout = await command("git", ["checkout", "--quiet", sha], { cwd: repositoryDir });
     if (!checkout.ok)
       return { status: "failed", stage: "checkout", output: checkout.output, duration_ms: Date.now() - startedAt };

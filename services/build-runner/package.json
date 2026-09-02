@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check server.mjs"
+    "check": "node --check server.mjs && node --test",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=22"
