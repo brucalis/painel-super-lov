@@ -3,11 +3,20 @@
 // O changelog exibido na home é voltado ao cliente: registre apenas mudanças
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho.
 export const EXTENSION_RELEASE = {
-  version: "32.0.41",
+  version: "32.0.42",
   updatedAt: "02/09/2026 (horário de Brasília)",
-  downloadPath: "/super-lovable-v32.0.41.zip?v=32.0.41-history",
-  downloadName: "superlovable-v32.0.41.zip",
+  downloadPath: "/super-lovable-v32.0.42.zip?v=32.0.42-batches",
+  downloadName: "superlovable-v32.0.42.zip",
   changelog: [
+    {
+      version: "32.0.42",
+      date: "02/09/2026",
+      changes: [
+        "Pedidos complexos agora são divididos automaticamente em etapas menores e coordenadas antes da execução.",
+        "Cada etapa é aplicada sequencialmente na main, reduzindo respostas muito grandes da IA e melhorando a estabilidade em projetos com muitos arquivos.",
+        "Se uma tarefa em etapas for interrompida, a extensão preserva o progresso e permite continuar do ponto em que parou.",
+      ],
+    },
     {
       version: "32.0.41",
       date: "02/09/2026",
