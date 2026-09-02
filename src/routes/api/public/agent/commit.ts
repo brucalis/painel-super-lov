@@ -13,6 +13,7 @@ export const Route = createFileRoute("/api/public/agent/commit")({
           const body = (await request.json()) as { run_id?: string };
           return json({
             ok: true,
+            flow_mode: "direct-main-v2",
             ...(await direct.commitAgentRunDirect(auth, String(body.run_id || ""))),
           });
         } catch (error) {
