@@ -9,6 +9,22 @@ Este repositório (`brucalis/painel-super-lov`) é a fonte oficial de produção
 
 O repositório `brucalis/superlovable-app` deve ser tratado apenas como histórico de origem. Novas alterações de produção devem ser feitas aqui.
 
+## Fluxo de alteração dos projetos
+
+O fluxo padrão da Super Lovable é **aplicação direta na branch selecionada** (normalmente `main`):
+
+1. a extensão recebe o pedido;
+2. o backend lê o repositório e prepara alterações cirúrgicas;
+3. arquivos e conteúdos protegidos continuam bloqueados pela validação estática;
+4. quando o Build Runner estiver disponível, o commit é validado em uma referência temporária;
+5. se o build falhar, a alteração não entra na branch principal;
+6. se o runner estiver indisponível ou não se aplicar ao projeto, o fluxo continua sem exigir confirmação do usuário;
+7. o backend atualiza `main` por fast-forward usando o token da GitHub App;
+8. **não é criado Pull Request no fluxo normal**;
+9. a Lovable recebe a atualização pelo GitHub Sync e o usuário só precisa revisar o preview e publicar.
+
+Se o GitHub impedir escrita direta por regra de proteção da branch, a execução deve falhar com uma mensagem clara. Não criar PR automaticamente como contingência, pois isso reintroduziria uma etapa manual no fluxo principal.
+
 ## Publicação de uma nova versão
 
 1. Alterar somente os arquivos necessários dentro de `extension/`.
