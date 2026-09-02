@@ -1,0 +1,39 @@
+name: Validate Super Lovable Agent
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/lib/github-agent*.ts"
+      - "src/routes/api/public/agent/**"
+      - "extension/**"
+      - ".github/workflows/agent-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: validate-super-lovable-agent
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Verificar sintaxe dos scripts da extensão
+        run: |
+          node --check extension/github-agent-panel.js
+          node --check extension/agent-history.js
+      - name: Compilar aplicação e rotas do agente
+        run: npm run build
+      - name: Gerar e validar pacote da extensão
+        run: |
+          npm run build:extension
+          unzip -t public/super-lovable.zip
