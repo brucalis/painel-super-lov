@@ -54,15 +54,21 @@ export async function getBuildRunnerHealth() {
   const timeout = setTimeout(() => controller.abort(), 6_000);
   try {
     const response = await fetch(`${runnerUrl}/health`, {
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "X-Runner-Secret": String(process.env.BUILD_RUNNER_SECRET || ""),
+      },
       signal: controller.signal,
     });
     const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!response.ok || result.ok !== true) {
+    if (!response.ok || result.ok !== true || result.secret_valid !== true) {
       return {
         configured: true,
         ok: false,
-        error: String(result.error || `RUNNER_HTTP_${response.status}`),
+        error:
+          result.secret_valid === false
+            ? "RUNNER_UNAUTHORIZED"
+            : String(result.error || `RUNNER_HTTP_${response.status}`),
       };
     }
     return {
@@ -815,7 +821,7 @@ const BLOCKED_AGENT_PATH =
 const HIGH_RISK_AGENT_PATH =
   /(^|\/)(?:auth|authentication|billing|payment|checkout|license|security)(\/|\.|-|$)|(^|\/)supabase\/(?:migrations|functions)(\/|$)|(^|\/)(?:api|server)(\/|\.|-|$)|package\.json$/i;
 const MEDIUM_RISK_AGENT_PATH =
-  /(^|\/)(?:config|routes?|middleware)(\/|\.|-|$)|(?:manifest|vite\.config|tsconfig)\.(?:json|js|ts)$/i;
+  /(^|\/)(?:config|middleware)(\/|\.|-|$)|(^|\/)(?:router|route-tree|routeTree)(?:\.|-|$)|(?:manifest|vite\.config|tsconfig)\.(?:json|js|ts)$/i;
 const SECRET_CONTENT =
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:ghp|github_pat|sk_live|sk_test)_[A-Za-z0-9_-]{16,}|\bAKIA[0-9A-Z]{16}\b/i;
 const DESTRUCTIVE_SQL = /\b(?:drop\s+(?:table|schema|database)|truncate\s+table)\b/i;
@@ -939,6 +945,7 @@ async function validateCommitInSandbox(
       method: "POST",
       headers: {
         Authorization: `Bearer ${runnerSecret}`,
+        "X-Runner-Secret": runnerSecret,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ repository, sha, github_token: githubToken }),
