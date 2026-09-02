@@ -13,7 +13,8 @@ export const Route = createFileRoute("/api/public/agent/commit")({
           const body = (await request.json()) as { run_id?: string };
           return json({
             ok: true,
-            flow_mode: "direct-main-v2",
+            flow_mode: "direct-main-v3",
+            creates_pull_requests: false,
             ...(await direct.commitAgentRunDirect(auth, String(body.run_id || ""))),
           });
         } catch (error) {
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/api/public/agent/commit")({
           return json(
             {
               ok: false,
-              error: error instanceof Error ? error.message : "Falha ao enviar alteração.",
+              error: error instanceof Error ? error.message : "Falha ao aplicar alteração.",
             },
             500,
           );
