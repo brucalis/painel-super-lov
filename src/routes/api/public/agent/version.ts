@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const FLOW_MODE = "direct-main-v2";
+const FLOW_MODE = "direct-main-v3";
 
 export const Route = createFileRoute("/api/public/agent/version")({
   server: {
@@ -13,7 +13,8 @@ export const Route = createFileRoute("/api/public/agent/version")({
           service: "super-lovable-agent",
           flow_mode: FLOW_MODE,
           creates_pull_requests: false,
-          runner_is_advisory: true,
+          target_branch: "main",
+          validation_mode: "static-before-direct-commit",
         });
       },
     },
