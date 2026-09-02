@@ -38,5 +38,6 @@ jobs:
           git add public/super-lovable.zip "public/super-lovable-v${VERSION}.zip"
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "build: atualizar pacote da extensão ${VERSION}"
+          git reset --hard HEAD
           git pull --rebase origin main
           git push origin main
