@@ -35,6 +35,7 @@ const requiredScripts = [
   "composer-bridge.js",
   "fnx-license.js",
   "github-agent-panel.js",
+  "agent-history.js",
   "hwFingerprint.js",
   "overlay.js",
   "pageHook.js",
