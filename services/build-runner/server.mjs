@@ -25,7 +25,10 @@ function json(response, status, value) {
 }
 
 function authorized(request) {
-  const supplied = String(request.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const supplied = String(
+    request.headers["x-runner-secret"] ||
+      String(request.headers.authorization || "").replace(/^Bearer\s+/i, ""),
+  );
   if (!runnerSecret || supplied.length !== runnerSecret.length) return false;
   return timingSafeEqual(Buffer.from(supplied), Buffer.from(runnerSecret));
 }
@@ -35,7 +38,7 @@ async function bodyJson(request) {
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 24_000) throw new Error("REQUEST_TOO_LARGE");
+    if (size > 64_000) throw new Error("REQUEST_TOO_LARGE");
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -158,7 +161,12 @@ async function validateBuild({ repository, sha, github_token: githubToken }) {
 
 const server = createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/health")
-    return json(response, 200, { ok: true, active_builds: activeBuilds, capacity: maxConcurrent });
+    return json(response, 200, {
+      ok: true,
+      secret_valid: authorized(request),
+      active_builds: activeBuilds,
+      capacity: maxConcurrent,
+    });
   if (request.method !== "POST" || request.url !== "/validate")
     return json(response, 404, { ok: false, error: "NOT_FOUND" });
   if (!authorized(request)) return json(response, 401, { ok: false, error: "UNAUTHORIZED" });
