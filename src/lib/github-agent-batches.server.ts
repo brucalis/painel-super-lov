@@ -1,3 +1,5 @@
+import type { AgentAiProvider } from "@/lib/github-agent.server";
+
 const MAX_BATCHES = 6;
 const MAX_BATCH_INSTRUCTION_CHARS = 2200;
 const DECOMPOSER_TIMEOUT_MS = 35_000;
@@ -153,6 +155,31 @@ Regras obrigatórias:
 - não inclua código completo, apenas objetivos claros de implementação;
 - o último lote deve incluir a validação final necessária, mas não deve desfazer nem reescrever o que já foi implementado.`;
 
+async function tryCustomerOpenAi(prompt: string, provider: AgentAiProvider) {
+  const response = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${provider.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: provider.model,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: decompositionPrompt },
+        { role: "user", content: prompt.slice(0, 12_000) },
+      ],
+    }),
+  });
+  if (!response.ok) throw new Error(`OPENAI_${response.status}`);
+  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  return {
+    provider: "openai-customer",
+    raw: String(data.choices?.[0]?.message?.content || ""),
+  };
+}
+
 async function tryGemini(prompt: string) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_NOT_CONFIGURED");
@@ -244,7 +271,8 @@ async function tryGroq(prompt: string) {
   };
 }
 
-async function decomposeWithAi(prompt: string) {
+async function decomposeWithAi(prompt: string, customerAi?: AgentAiProvider) {
+  if (customerAi) return tryCustomerOpenAi(prompt, customerAi);
   const providers = [tryGemini, tryLovableGateway, tryGroq];
   for (const provider of providers) {
     try {
@@ -262,7 +290,7 @@ async function decomposeWithAi(prompt: string) {
   return null;
 }
 
-export async function decomposeAgentPrompt(prompt: string): Promise<DecompositionResult> {
+export async function decomposeAgentPrompt(prompt: string, customerAi?: AgentAiProvider): Promise<DecompositionResult> {
   const normalized = String(prompt || "").trim();
   const score = complexityScore(normalized);
   if (!shouldBatch(normalized)) {
@@ -275,7 +303,7 @@ export async function decomposeAgentPrompt(prompt: string): Promise<Decompositio
     };
   }
 
-  const ai = await decomposeWithAi(normalized);
+  const ai = await decomposeWithAi(normalized, customerAi);
   const batches = ai?.batches?.length ? ai.batches : explicitStageFallback(normalized);
   if (batches.length < 2) {
     return {
