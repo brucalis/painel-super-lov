@@ -5,7 +5,13 @@
 
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
-  const MAX_AUTOMATIC_ATTEMPTS = 2;
+  const MAX_AUTOMATIC_ATTEMPTS = 4;
+  const MAX_BATCH_REPARTITIONS = 2;
+  const RETRY_DELAYS_MS = [700, 1_500, 3_500, 7_000];
+  const RATE_LIMIT_DELAYS_MS = [5_000, 12_000, 25_000, 45_000];
+  const TERMINAL_ERROR_CODES = new Set(["INVALID_SESSION", "LICENSE_INACTIVE", "GITHUB_NOT_CONNECTED", "GITHUB_REPOSITORY_NOT_ALLOWED", "GITHUB_PERMISSION_DENIED", "INVALID_GITHUB_TOKEN", "HTTP_401", "HTTP_403"]);
+  const CONTEXT_ERROR_CODES = new Set(["AI_CONTEXT_TOO_LARGE", "AI_PLAN_TRUNCATED", "AI_TRUNCATED_CONTENT_BLOCKED", "CONTEXT_ROUNDS_EXHAUSTED"]);
+  const REPLAN_ERROR_CODES = new Set(["AI_EDIT_NOT_UNIQUE", "AI_INVALID_EDIT_PATH", "AI_CHANGE_TOO_BROAD", "BASE_BRANCH_MOVED", "STALE_BASE_SHA", "GITHUB_CONFLICT", "HTTP_409", ...CONTEXT_ERROR_CODES]);
 
   let state = {
     ready: false,
@@ -36,7 +42,9 @@
     if (!response.ok || data.ok === false) {
       const error = new Error(data.error || `Servidor respondeu ${response.status}.`);
       error.code = data.code || `HTTP_${response.status}`;
-      error.retryable = Boolean(data.retryable);
+      error.status = response.status;
+      error.retryAfter = Number(response.headers.get("retry-after") || 0);
+      error.retryable = Boolean(data.retryable) || [408, 409, 425, 429].includes(response.status) || response.status >= 500;
       throw error;
     }
     return data;
@@ -297,22 +305,9 @@
     const actions = document.createElement("div");
     actions.className = "sl-agent-error-actions";
 
-    if (task && task.nextIndex < task.batches.length) {
-      const resume = document.createElement("button");
-      resume.type = "button";
-      resume.textContent = `Retomar da etapa ${task.nextIndex + 1}`;
-      resume.addEventListener("click", () => {
-        state.busy = false;
-        runBatchTask(task);
-      });
-      actions.appendChild(resume);
-    } else if (error.retryable) {
-      const retry = document.createElement("button");
-      retry.type = "button";
-      retry.textContent = "Tentar novamente com contexto reduzido";
-      retry.addEventListener("click", () => execute(state.lastPrompt, true));
-      actions.appendChild(retry);
-    }
+    const exhausted = document.createElement("small");
+    exhausted.textContent = "A tarefa foi preservada no último ponto seguro. Nenhuma confirmação é necessária durante as recuperações automáticas.";
+    actions.appendChild(exhausted);
 
     const cancel = document.createElement("button");
     cancel.type = "button";
@@ -347,41 +342,103 @@
     }
   }
 
+  function recoveryKind(error) {
+    const code = String(error?.code || "");
+    const message = String(error?.message || error || "");
+    if (TERMINAL_ERROR_CODES.has(code)) return "terminal";
+    if (CONTEXT_ERROR_CODES.has(code) || /context|token limit|truncad|json incompleto/i.test(message)) return "context";
+    if (REPLAN_ERROR_CODES.has(code) || /branch.*mudou|conflito|trecho.*único/i.test(message)) return "replan";
+    if (error?.retryable || Number(error?.status) >= 500 || /timeout|temporar|network|fetch|rate limit|429|indisponível/i.test(message)) {
+      return /rate limit|429/i.test(message) || Number(error?.status) === 429 ? "rate-limit" : "transient";
+    }
+    return "logical";
+  }
+
+  function retryDelay(error, attempt) {
+    const delays = recoveryKind(error) === "rate-limit" ? RATE_LIMIT_DELAYS_MS : RETRY_DELAYS_MS;
+    const serverDelay = Math.max(0, Number(error?.retryAfter || 0) * 1_000);
+    const base = Math.max(serverDelay, delays[Math.min(attempt, delays.length - 1)]);
+    return base + Math.floor(Math.random() * Math.min(700, Math.max(100, base * 0.15)));
+  }
+
   async function planAndCommit(prompt, batchLabel = "", reducedContext = false) {
     let reduced = reducedContext;
     let lastError = null;
+    let planned = null;
 
     for (let attempt = 0; attempt <= MAX_AUTOMATIC_ATTEMPTS; attempt += 1) {
       try {
-        startPlanningProgress(batchLabel);
-        const plan = await request("/plan", {
-          method: "POST",
-          body: JSON.stringify({ prompt, reduced_context: reduced }),
-        });
-        stopProgressTimer();
-        state.pendingRunId = plan.runId;
-        const files = (plan.files || []).join(", ");
-        renderProgress(
-          "commit",
-          `${plan.provider === "groq" ? "Groq" : "IA"} preparou ${plan.files?.length || 0} arquivo(s)${files ? `: ${files}` : ""}`,
-          batchLabel,
-        );
+        if (!planned) {
+          startPlanningProgress(batchLabel);
+          planned = await request("/plan", {
+            method: "POST",
+            body: JSON.stringify({ prompt, reduced_context: reduced }),
+          });
+          stopProgressTimer();
+          state.pendingRunId = planned.runId;
+        }
+        const files = (planned.files || []).join(", ");
+        renderProgress("commit", `${planned.provider === "groq" ? "Groq" : "IA"} preparou ${planned.files?.length || 0} arquivo(s)${files ? `: ${files}` : ""}`, batchLabel);
         const result = await request("/commit", {
           method: "POST",
-          body: JSON.stringify({ run_id: plan.runId }),
+          body: JSON.stringify({ run_id: planned.runId }),
         });
-        return { plan, result };
+        return { plan: planned, result };
       } catch (error) {
         stopProgressTimer();
         lastError = error;
-        if (!error.retryable || attempt >= MAX_AUTOMATIC_ATTEMPTS) throw error;
-        reduced = true;
-        setStatus(`Ajustando o contexto${batchLabel ? ` de ${batchLabel}` : ""} e tentando novamente…`, "warning");
-        renderProgress("context", "Nova leitura automática do projeto…", batchLabel);
-        await wait(900 + Math.floor(Math.random() * 900));
+        const kind = recoveryKind(error);
+        if (kind === "terminal" || attempt >= MAX_AUTOMATIC_ATTEMPTS) throw error;
+
+        if (planned && !["context", "replan"].includes(kind)) {
+          setStatus(`Confirmando automaticamente a aplicação${batchLabel ? ` de ${batchLabel}` : ""}…`, "warning");
+        } else {
+          planned = null;
+          reduced = reduced || kind === "context";
+          setStatus(`Replanejando automaticamente${batchLabel ? ` ${batchLabel}` : ""} com o estado atual da main…`, "warning");
+          renderProgress(kind === "context" ? "context" : "ai", kind === "context" ? "Reduzindo somente o contexto excedente…" : "Reconciliando arquivos e alterações já aplicadas…", batchLabel);
+        }
+        await wait(retryDelay(error, attempt));
       }
     }
     throw lastError || new Error("Não foi possível concluir a alteração.");
+  }
+
+  function canRepartition(error, batch) {
+    return Number(batch?.depth || 0) < MAX_BATCH_REPARTITIONS && ["context", "replan", "logical"].includes(recoveryKind(error));
+  }
+
+  async function repartitionFailedBatch(task, batch, index, error) {
+    if (!canRepartition(error, batch)) return false;
+    setStatus(`A etapa ${index + 1} ficou grande demais. Subdividindo e continuando automaticamente…`, "warning");
+    try {
+      const decomposition = await request("/decompose", {
+        method: "POST",
+        body: JSON.stringify({ prompt: [
+          batch.instruction, "", "RECUPERAÇÃO AUTOMÁTICA:",
+          "Divida somente esta etapa em subtarefas menores, sequenciais e independentes.",
+          "Cada subtarefa deve modificar no máximo 2 arquivos e fazer apenas uma responsabilidade.",
+          "Não repita etapas já concluídas e não peça confirmação ao usuário.",
+          `Falha sanitizada anterior: ${String(error?.code || "UNKNOWN")}`,
+        ].join("\n") }),
+      });
+      if (!decomposition.batched || !Array.isArray(decomposition.batches) || decomposition.batches.length < 2) return false;
+      const depth = Number(batch.depth || 0) + 1;
+      const replacements = decomposition.batches.slice(0, 6).map((item, childIndex) => ({
+        ...item,
+        id: `${batch.id || `batch-${index + 1}`}-${depth}-${childIndex + 1}`,
+        depth,
+        parentId: batch.id || null,
+      }));
+      task.batches.splice(index, 1, ...replacements);
+      task.status = "running";
+      task.error = null;
+      task.updatedAt = new Date().toISOString();
+      await saveBatchTask(task);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function buildCoordinatedBatchPrompt(task, batch, index) {
@@ -411,7 +468,17 @@
 
         setStatus(`${label} — preparando alterações…`);
         const batchPrompt = buildCoordinatedBatchPrompt(task, batch, index);
-        const { plan, result } = await planAndCommit(batchPrompt, label, false);
+        let plan;
+        let result;
+        try {
+          ({ plan, result } = await planAndCommit(batchPrompt, label, false));
+        } catch (error) {
+          if (await repartitionFailedBatch(task, batch, index, error)) {
+            index -= 1;
+            continue;
+          }
+          throw error;
+        }
 
         task.completed.push({
           id: batch.id,
@@ -455,7 +522,7 @@
       task.updatedAt = new Date().toISOString();
       await saveBatchTask(task);
       setStatus(
-        `A tarefa parou na etapa ${task.nextIndex + 1}/${task.batches.length}. As etapas anteriores permanecem salvas.`,
+        `Não foi possível concluir a etapa ${task.nextIndex + 1}/${task.batches.length} após todas as recuperações automáticas. As etapas anteriores permanecem salvas.`,
         "error",
       );
       renderFailure(error, task);
@@ -512,10 +579,23 @@
     renderProgress("ai", "Decidindo se a tarefa deve ser dividida em etapas…");
 
     try {
-      const decomposition = await request("/decompose", {
-        method: "POST",
-        body: JSON.stringify({ prompt: normalized }),
-      });
+      let decomposition = null;
+      let decompositionError = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          decomposition = await request("/decompose", {
+            method: "POST",
+            body: JSON.stringify({ prompt: normalized }),
+          });
+          break;
+        } catch (error) {
+          decompositionError = error;
+          if (recoveryKind(error) === "terminal" || attempt >= 2) break;
+          setStatus("Reorganizando automaticamente o pedido complexo…", "warning");
+          await wait(retryDelay(error, attempt));
+        }
+      }
+      if (!decomposition) throw decompositionError || new Error("Não foi possível organizar o pedido.");
 
       if (!decomposition.batched || !Array.isArray(decomposition.batches) || decomposition.batches.length < 2) {
         state.busy = false;
@@ -546,8 +626,8 @@
         await executeSingle(normalized, false);
         return;
       }
-      setStatus("Não foi possível organizar o pedido complexo em etapas.", "error");
-      renderFailure(error);
+      setStatus("O coordenador não conseguiu dividir o pedido; executando uma recuperação compacta automaticamente…", "warning");
+      await executeSingle(normalized, true);
     }
   }
 
@@ -559,19 +639,11 @@
     if (!box) return;
     box.hidden = false;
     box.innerHTML = "";
-    const card = document.createElement("div");
-    card.className = "sl-agent-result is-review";
-    const title = document.createElement("strong");
-    title.textContent = "Tarefa em etapas encontrada";
-    const summary = document.createElement("p");
-    summary.textContent = `${task.completed?.length || 0} de ${task.batches.length} etapas já foram concluídas. Você pode continuar do ponto em que parou.`;
-    const resume = document.createElement("button");
-    resume.type = "button";
-    resume.className = "sl-agent-rollback";
-    resume.textContent = `Continuar da etapa ${task.nextIndex + 1}`;
-    resume.addEventListener("click", () => runBatchTask(task));
-    card.append(title, summary, resume);
-    box.appendChild(card);
+    renderProgress("context", `Retomando automaticamente da etapa ${task.nextIndex + 1}; ${task.completed?.length || 0} já concluída(s)…`, `Etapa ${task.nextIndex + 1}/${task.batches.length}`);
+    setStatus("Execução interrompida encontrada. Retomando automaticamente do último ponto seguro…", "warning");
+    setTimeout(() => {
+      if (!state.busy) void runBatchTask(task);
+    }, 350);
   }
 
   function mount() {
@@ -605,6 +677,14 @@
     document.getElementById("sl-agent-repository-search")?.addEventListener("input", (event) => filterRepositories(event.target.value));
     refresh();
   }
+
+  globalThis.superLovableGithubAgentResumePending = async () => {
+    if (state.busy || !state.ready) return false;
+    const task = await loadBatchTask();
+    if (!task || !Array.isArray(task.batches) || task.nextIndex >= task.batches.length) return false;
+    void runBatchTask(task);
+    return true;
+  };
 
   globalThis.superLovableGithubAgentExecute = (prompt) => {
     if (!document.getElementById("sl-github-agent")) return false;
