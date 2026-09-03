@@ -4,6 +4,7 @@
   globalThis.__superlovableGithubAgentLoaded = true;
 
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
+  const CUSTOMER_EDITION = globalThis.SUPER_LOVABLE_EDITION?.mode === "customer";
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
   const MAX_AUTOMATIC_ATTEMPTS = 4;
   const MAX_BATCH_REPARTITIONS = 2;
@@ -30,7 +31,11 @@
   const auth = async () => {
     const data = await storage(["ql_session_id"]);
     if (!data.ql_session_id) throw new Error("Valide sua chave de ativação novamente.");
-    return { Authorization: `Bearer ${data.ql_session_id}`, "Content-Type": "application/json" };
+    return {
+      Authorization: `Bearer ${data.ql_session_id}`,
+      "Content-Type": "application/json",
+      ...(CUSTOMER_EDITION ? { "X-Super-Lovable-Edition": "customer-s1" } : {}),
+    };
   };
 
   const request = async (path, options = {}) => {
@@ -125,13 +130,13 @@
     try {
       const data = await request("/status");
       const connection = data.connection || {};
-      const configured = data.configured && (data.ai?.gemini || data.ai?.groq);
+      const configured = data.configured && (CUSTOMER_EDITION ? data.ai?.customerConfigured : (data.ai?.gemini || data.ai?.groq));
       const connect = document.getElementById("sl-agent-connect");
       const picker = document.getElementById("sl-agent-project-row");
       state.ready = configured && connection.status === "ready" && Boolean(connection.repository_full_name);
 
       if (!configured) {
-        setStatus("Servidor em configuração. Cadastre as chaves de IA e da GitHub App no painel.", "warning");
+        setStatus(CUSTOMER_EDITION ? "Conecte sua chave da OpenAI acima para liberar os comandos." : "Servidor em configuração. Cadastre as chaves de IA e da GitHub App no painel.", "warning");
         if (connect) connect.style.display = "none";
         return;
       }
@@ -677,6 +682,8 @@
     document.getElementById("sl-agent-repository-search")?.addEventListener("input", (event) => filterRepositories(event.target.value));
     refresh();
   }
+
+  globalThis.superLovableGithubAgentRefresh = refresh;
 
   globalThis.superLovableGithubAgentResumePending = async () => {
     if (state.busy || !state.ready) return false;

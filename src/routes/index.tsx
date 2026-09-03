@@ -29,7 +29,8 @@ const steps = [
   "Ative o Modo do desenvolvedor no canto superior direito.",
   "Clique em Carregar sem compactação e selecione a pasta descompactada.",
   "Abra um projeto em lovable.dev e clique no ícone de raio da Super Lovable.",
-  "Na tela de ativação, informe sua chave de licença ou o mesmo e-mail usado na compra e clique para validar.",
+  "Na tela de ativação, informe sua chave de licença ou o mesmo e-mail usado na compra.",
+  "Conecte seu GitHub e cole uma única vez a chave da API OpenAI criada em platform.openai.com.",
   "Pronto: use sempre o chat da Super Lovable para enviar os comandos ao seu projeto.",
 ];
 
@@ -37,7 +38,7 @@ const features = [
   "Chat próprio da Super Lovable para enviar comandos ao projeto",
   "Envio de imagens e arquivos junto com seus prompts",
   "Ditado por voz direto no campo de comando",
-  "Melhoria de prompts com inteligência artificial antes do envio",
+  "Uso da sua própria conta OpenAI, com chave protegida e consumo independente",
   "Histórico dos comandos enviados para consultar e reutilizar",
   "Skills e prompts reutilizáveis para tarefas frequentes",
   "Download dos arquivos do projeto em formato ZIP",

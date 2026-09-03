@@ -59,8 +59,8 @@ export function json(data: unknown, status = 200): Response {
     headers: {
       "content-type": "application/json",
       "access-control-allow-origin": "*",
-      "access-control-allow-headers": "authorization, content-type",
-      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "authorization, content-type, x-super-lovable-edition",
+      "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
     },
   });
 }
@@ -70,8 +70,8 @@ export function preflight(): Response {
     status: 204,
     headers: {
       "access-control-allow-origin": "*",
-      "access-control-allow-headers": "authorization, content-type",
-      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "authorization, content-type, x-super-lovable-edition",
+      "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
     },
   });
 }

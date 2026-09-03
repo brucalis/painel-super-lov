@@ -526,7 +526,43 @@ async function requestedRepoContext(
   return { files, missing, resolved };
 }
 
+export type AgentAiProvider = {
+  kind: "openai";
+  apiKey: string;
+  model: string;
+};
+
 const systemPrompt = `Você é um agente de programação geral. O pedido pode se referir a qualquer projeto. "available_files" é o mapa de caminhos reais do repositório e "files" contém trechos de arquivos já carregados. Não invente caminhos. Retorne SOMENTE JSON válido no formato {"summary":"resumo em português","commit_message":"mensagem curta em português","edits":[{"path":"caminho existente","search":"trecho EXATO atual","replace":"novo trecho"}],"new_files":[{"path":"novo caminho","content":"conteúdo completo"}]}. Para arquivos existentes, NUNCA devolva o arquivo completo: use somente edits cirúrgicos com o menor trecho único possível. Preserve tudo que não foi solicitado. Nunca use nem copie o marcador "trecho reduzido automaticamente". Nunca inclua segredos, .env, lockfiles, arquivos gerados ou binários. No máximo 12 edições e 4 arquivos novos. Se precisar ler outros arquivos antes de editar, escolha caminhos EXATOS de "available_files" e retorne {"summary":"CONTEXT_REQUIRED","commit_message":"","edits":[],"new_files":[],"context_request":{"paths":["caminho/real"]}}.`;
+
+async function callCustomerOpenAi(prompt: string, provider: AgentAiProvider) {
+  const response = await providerFetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${provider.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: provider.model,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt },
+      ],
+    }),
+  });
+  const raw = await response.text();
+  if (!response.ok) {
+    // Nunca propague o corpo bruto: respostas de provedores podem conter dados sensíveis.
+    throw new Error(`OPENAI_${response.status}`);
+  }
+  const data = JSON.parse(raw) as { choices?: Array<{ message?: { content?: string } }> };
+  return {
+    provider: "openai-customer",
+    model: provider.model,
+    raw: String(data.choices?.[0]?.message?.content || ""),
+  };
+}
 
 async function callGeminiModel(prompt: string, model: string) {
   const key = process.env.GEMINI_API_KEY;
@@ -711,7 +747,22 @@ async function callGroq(prompt: string, reducedContext: boolean) {
   return { provider: "groq", model, raw: String(data.choices?.[0]?.message?.content || "") };
 }
 
-async function generatePlan(payload: string, forceReduced = false) {
+async function generatePlan(payload: string, forceReduced = false, customerAi?: AgentAiProvider) {
+  if (customerAi) {
+    const compact = forceReduced ? compactPayload(payload, GROQ_RETRY_CONTEXT_CHARS) : payload;
+    try {
+      return await callCustomerOpenAi(compact, customerAi);
+    } catch (error) {
+      const status = Number((error instanceof Error ? error.message : "").match(/OPENAI_(\d{3})/)?.[1] || 0);
+      if (status === 401 || status === 403)
+        throw new AgentPlanError("A chave OpenAI conectada é inválida ou perdeu acesso. Substitua a chave nas configurações.", "CUSTOMER_AI_UNAUTHORIZED", false, 401);
+      if (status === 429)
+        throw new AgentPlanError("Sua conta OpenAI atingiu o limite de uso ou precisa de créditos de API.", "AI_RATE_LIMITED", true, 429);
+      if (status === 400 || status === 413)
+        throw new AgentPlanError("O contexto ficou grande demais para o modelo OpenAI selecionado.", "AI_CONTEXT_TOO_LARGE", !forceReduced, 413);
+      throw new AgentPlanError("A OpenAI está temporariamente indisponível. A tarefa será preservada para nova tentativa.", "AI_PROVIDER_UNAVAILABLE", true, 503);
+    }
+  }
   try {
     return await callGemini(payload);
   } catch (geminiError) {
@@ -1081,6 +1132,7 @@ async function forcePlanWithFocusedContext(
   branch: string,
   prompt: string,
   reducedContext: boolean,
+  customerAi?: AgentAiProvider,
 ) {
   const requested = contextRequestPaths(parsed);
   const rankedPaths = [
@@ -1124,7 +1176,7 @@ async function forcePlanWithFocusedContext(
     approximateTokens: estimateTokens(focusedPayload),
     reducedContext,
   });
-  const ai = await generatePlan(focusedPayload, reducedContext);
+  const ai = await generatePlan(focusedPayload, reducedContext, customerAi);
   const focusedParsed = extractJson(ai.raw);
   const files = await materializePlanFiles(
     focusedParsed,
@@ -1139,7 +1191,7 @@ async function forcePlanWithFocusedContext(
 export async function planAgentRun(
   auth: LicenseAuth,
   prompt: string,
-  options: { reducedContext?: boolean } = {},
+  options: { reducedContext?: boolean; ai?: AgentAiProvider } = {},
 ) {
   const connection = await getLicenseConnection(auth.license.id);
   const installationId = Number(connection?.installation_id || 0);
@@ -1163,7 +1215,7 @@ export async function planAgentRun(
     approximateTokens: estimateTokens(payload),
     reducedContext,
   });
-  let ai = await generatePlan(payload, reducedContext);
+  let ai = await generatePlan(payload, reducedContext, options.ai);
   let parsed = extractJson(ai.raw);
   let files = await materializePlanFiles(parsed, token, repo, branch, context.repositoryPaths);
   let accumulatedFiles: ContextFile[] = [...context.files];
@@ -1209,7 +1261,7 @@ export async function planAgentRun(
       available_files: context.availableFiles,
       files: accumulatedFiles,
     });
-    ai = await generatePlan(payload, reducedContext);
+    ai = await generatePlan(payload, reducedContext, options.ai);
     parsed = extractJson(ai.raw);
     files = await materializePlanFiles(parsed, token, repo, branch, context.repositoryPaths);
   }
@@ -1224,6 +1276,7 @@ export async function planAgentRun(
         branch,
         prompt,
         reducedContext,
+        options.ai,
       );
       if (focused?.files.length) {
         ai = focused.ai;
