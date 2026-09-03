@@ -155,35 +155,10 @@ Regras obrigatórias:
 - não inclua código completo, apenas objetivos claros de implementação;
 - o último lote deve incluir a validação final necessária, mas não deve desfazer nem reescrever o que já foi implementado.`;
 
-async function tryCustomerOpenAi(prompt: string, provider: AgentAiProvider) {
-  const response = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${provider.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: provider.model,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: decompositionPrompt },
-        { role: "user", content: prompt.slice(0, 12_000) },
-      ],
-    }),
-  });
-  if (!response.ok) throw new Error(`OPENAI_${response.status}`);
-  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return {
-    provider: "openai-customer",
-    raw: String(data.choices?.[0]?.message?.content || ""),
-  };
-}
-
-async function tryGemini(prompt: string) {
-  const key = process.env.GEMINI_API_KEY;
+async function tryGemini(prompt: string, customer?: { apiKey: string; model: string }) {
+  const key = customer?.apiKey || process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_NOT_CONFIGURED");
-  const model = process.env.GEMINI_CODE_MODEL || "gemini-2.5-flash";
+  const model = customer?.model || process.env.GEMINI_CODE_MODEL || "gemini-2.5-flash";
   const response = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
     {
@@ -243,8 +218,8 @@ async function tryLovableGateway(prompt: string) {
   };
 }
 
-async function tryGroq(prompt: string) {
-  const key = process.env.GROQ_API_KEY;
+async function tryGroq(prompt: string, customer?: { apiKey: string; model: string }) {
+  const key = customer?.apiKey || process.env.GROQ_API_KEY;
   if (!key) throw new Error("GROQ_NOT_CONFIGURED");
   const response = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -272,7 +247,13 @@ async function tryGroq(prompt: string) {
 }
 
 async function decomposeWithAi(prompt: string, customerAi?: AgentAiProvider) {
-  if (customerAi) return tryCustomerOpenAi(prompt, customerAi);
+  if (customerAi) {
+    if (customerAi.groq) {
+      try { return await tryGroq(prompt, customerAi.groq); } catch {}
+    }
+    if (customerAi.gemini) return tryGemini(prompt, customerAi.gemini);
+    throw new Error("Conecte Groq ou Gemini.");
+  }
   const providers = [tryGemini, tryLovableGateway, tryGroq];
   for (const provider of providers) {
     try {

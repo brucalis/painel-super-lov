@@ -9,9 +9,9 @@ export const CUSTOMER_EXTENSION_RELEASE = {
       version: "03.09.S1",
       date: "03/09/2026",
       changes: [
-        "Edição comercial com conexão única da chave de API OpenAI de cada cliente.",
-        "A chave é validada e criptografada no servidor; nunca fica salva no navegador nem aparece nos logs.",
-        "Cada cliente utiliza os créditos e limites da própria conta OpenAI.",
+        "Edição comercial com conexão única das APIs Groq e Gemini de cada cliente.",
+        "As chaves são validadas e criptografadas no servidor; nunca ficam salvas no navegador nem aparecem nos logs.",
+        "O Groq é utilizado como provedor principal e o Gemini assume automaticamente como contingência.",
         "Integração GitHub, execução automática de prompts complexos, commits diretos na main e histórico preservados.",
       ],
     },

@@ -1,92 +1,92 @@
 (() => {
   if (globalThis.SUPER_LOVABLE_EDITION?.mode !== "customer") return;
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
-  const headers = async () => {
+  const request = async (path = "", options = {}) => {
     const session = await new Promise((resolve) => chrome.storage.local.get(["ql_session_id"], resolve));
     if (!session.ql_session_id) throw new Error("Valide sua licença novamente.");
-    return {
-      Authorization: `Bearer ${session.ql_session_id}`,
-      "Content-Type": "application/json",
-      "X-Super-Lovable-Edition": "customer-s1",
-    };
-  };
-  const request = async (options = {}) => {
-    const response = await fetch(`${API}/ai-credentials`, {
+    const response = await fetch(`${API}/ai-credentials${path}`, {
       ...options,
-      headers: { ...(await headers()), ...(options.headers || {}) },
+      headers: {
+        Authorization: `Bearer ${session.ql_session_id}`,
+        "Content-Type": "application/json",
+        "X-Super-Lovable-Edition": "customer-s1",
+      },
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.error || "Não foi possível configurar a OpenAI.");
+    if (!response.ok || data.ok === false) throw new Error(data.error || "Não foi possível configurar a inteligência artificial.");
     return data;
   };
-  const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
-  })[char]);
+  const label = { groq: "Groq", gemini: "Gemini" };
 
+  function updateProvider(provider, data) {
+    const status = document.getElementById(`sl-ai-${provider}-status`);
+    const button = document.getElementById(`sl-ai-${provider}-save`);
+    const remove = document.getElementById(`sl-ai-${provider}-remove`);
+    if (!status) return;
+    status.dataset.kind = data?.configured ? "success" : "warning";
+    status.textContent = data?.configured
+      ? `${label[provider]} conectado (${data.keyHint || "chave protegida"})`
+      : provider === "groq" ? "Principal: conecte sua API key gratuita do Groq." : "Contingência: conecte sua API key gratuita do Gemini.";
+    button.textContent = data?.configured ? "Substituir" : "Conectar";
+    remove.style.display = data?.configured ? "inline-flex" : "none";
+  }
   async function refresh() {
-    const status = document.getElementById("sl-customer-ai-status");
-    const form = document.getElementById("sl-customer-ai-form");
-    if (!status || !form) return;
     try {
       const data = await request();
-      status.dataset.kind = data.configured ? "success" : "warning";
-      status.textContent = data.configured
-        ? `OpenAI conectada (${data.keyHint || "chave protegida"}) · ${data.model || "modelo automático"}`
-        : "Conecte sua chave da API OpenAI uma única vez.";
-      form.dataset.configured = data.configured ? "true" : "false";
-      document.getElementById("sl-customer-ai-remove").style.display = data.configured ? "inline-flex" : "none";
-      document.getElementById("sl-customer-ai-save").textContent = data.configured ? "Substituir chave" : "Conectar OpenAI";
+      updateProvider("groq", data.groq);
+      updateProvider("gemini", data.gemini);
     } catch (error) {
-      status.dataset.kind = "error";
-      status.textContent = error.message;
+      ["groq", "gemini"].forEach((provider) => {
+        const status = document.getElementById(`sl-ai-${provider}-status`);
+        if (status) { status.dataset.kind = "error"; status.textContent = error.message; }
+      });
     }
   }
-
-  async function save(event) {
+  async function save(event, provider) {
     event.preventDefault();
-    const input = document.getElementById("sl-customer-ai-key");
-    const status = document.getElementById("sl-customer-ai-status");
-    const value = String(input?.value || "").trim();
-    if (!value) return;
+    const input = document.getElementById(`sl-ai-${provider}-key`);
+    const status = document.getElementById(`sl-ai-${provider}-status`);
+    const apiKey = String(input?.value || "").trim();
+    if (!apiKey) return;
     status.dataset.kind = "warning";
-    status.textContent = "Validando a chave diretamente com a OpenAI…";
+    status.textContent = `Validando ${label[provider]}…`;
     try {
-      await request({ method: "PUT", body: JSON.stringify({ api_key: value }) });
+      await request("", { method: "PUT", body: JSON.stringify({ provider, api_key: apiKey }) });
       input.value = "";
       await refresh();
       await globalThis.superLovableGithubAgentRefresh?.();
-    } catch (error) {
-      status.dataset.kind = "error";
-      status.textContent = error.message;
-    }
+    } catch (error) { status.dataset.kind = "error"; status.textContent = error.message; }
   }
-
-  async function remove() {
-    if (!confirm("Remover a chave OpenAI conectada a esta licença?")) return;
-    await request({ method: "DELETE" });
+  async function remove(provider) {
+    if (!confirm(`Remover a chave ${label[provider]} desta licença?`)) return;
+    await request(`?provider=${provider}`, { method: "DELETE" });
     await refresh();
     await globalThis.superLovableGithubAgentRefresh?.();
   }
-
+  function providerForm(provider, placeholder) {
+    return `<form id="sl-ai-${provider}-form" class="sl-agent-project">
+      <p id="sl-ai-${provider}-status" data-kind="info">Verificando ${label[provider]}…</p>
+      <input id="sl-ai-${provider}-key" type="password" autocomplete="off" spellcheck="false" placeholder="${placeholder}">
+      <div class="sl-agent-actions">
+        <button type="submit" id="sl-ai-${provider}-save">Conectar</button>
+        <button type="button" id="sl-ai-${provider}-remove" style="display:none">Remover</button>
+      </div>
+    </form>`;
+  }
   function mount() {
     if (document.getElementById("sl-customer-ai") || !document.getElementById("sl-github-agent")) return;
     const section = document.createElement("section");
     section.id = "sl-customer-ai";
-    section.innerHTML = `
-      <div class="sl-agent-title"><span>Inteligência artificial</span><span>VERSÃO 03.09.S1</span></div>
-      <p id="sl-customer-ai-status" data-kind="info">Verificando OpenAI…</p>
-      <form id="sl-customer-ai-form" class="sl-agent-project">
-        <input id="sl-customer-ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="Cole sua API key da OpenAI (sk-…)">
-        <small>A chave é criptografada no servidor e nunca é salva no navegador. A cobrança da API é feita pela OpenAI na sua própria conta.</small>
-        <div class="sl-agent-actions">
-          <button type="submit" id="sl-customer-ai-save">Conectar OpenAI</button>
-          <button type="button" id="sl-customer-ai-remove" style="display:none">Remover</button>
-        </div>
-      </form>`;
+    section.innerHTML = `<div class="sl-agent-title"><span>Suas inteligências artificiais</span><span>03.09.S1</span></div>
+      <small>O Groq é usado primeiro. Se atingir o limite, o Gemini assume automaticamente. As chaves são criptografadas no servidor e nunca ficam salvas no navegador.</small>
+      ${providerForm("groq", "API key do Groq (gsk_…)")}
+      ${providerForm("gemini", "API key do Gemini (AIza…)")}`;
     const agent = document.getElementById("sl-github-agent");
     agent.parentElement?.insertBefore(section, agent);
-    section.querySelector("form")?.addEventListener("submit", save);
-    section.querySelector("#sl-customer-ai-remove")?.addEventListener("click", remove);
+    ["groq", "gemini"].forEach((provider) => {
+      document.getElementById(`sl-ai-${provider}-form`)?.addEventListener("submit", (event) => save(event, provider));
+      document.getElementById(`sl-ai-${provider}-remove`)?.addEventListener("click", () => remove(provider));
+    });
     refresh();
   }
   new MutationObserver(mount).observe(document.documentElement, { childList: true, subtree: true });
