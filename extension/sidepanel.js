@@ -1291,10 +1291,30 @@ licenseKey = resolvedKey;
       '<a class="sp-renewal-btn" href="https://superlovable-lp.lovable.app/" target="_blank" rel="noopener noreferrer">Renovar licença</a></div>';
   }
 
+  function getLicenseDisplayLabel() {
+    if (licenseLifetime) return 'Vitalício';
+    if (isTrialLicense()) return 'Teste';
+    const plan = String(licensePlan || licenseType || '').toLowerCase();
+    const labels = {
+      weekly: '7 dias',
+      monthly: '30 dias',
+      annual: '12 meses',
+      yearly: '12 meses',
+      reseller: 'Revenda',
+      revenda: 'Revenda',
+      paid: 'Ativa'
+    };
+    return labels[plan] || (plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : 'Ativa');
+  }
+
   // --- Main UI ---
   function showMainUI() {
   const greeting = spEscapeHtml(userName || 'User');
-  const statusBadge = spTemplateStatusBadge(licenseStatus);
+  const customerEdition = globalThis.SUPER_LOVABLE_EDITION?.mode === 'customer';
+  const statusBadge = customerEdition ? '' : spTemplateStatusBadge(licenseStatus);
+  const customerProfile = customerEdition
+    ? '<div class="sp-customer-identity"><span><strong>Usuário:</strong> ' + greeting + '</span><span><strong>Licença:</strong> ' + spEscapeHtml(getLicenseDisplayLabel()) + '</span></div>'
+    : '<div class="sp-profile-name-row"><span class="sp-profile-name" id="sp-name">' + greeting + '</span>' + statusBadge + '</div>';
   const body = document.getElementById('sp-body');
   const renewalHtml = getRenewalNoticeHtml();
 
@@ -1305,10 +1325,7 @@ licenseKey = resolvedKey;
         '<div class="sp-profile-top">' +
 
           '<div class="sp-profile-left">' +
-            '<div class="sp-profile-name-row">' +
-              '<span class="sp-profile-name" id="sp-name">' + greeting + '</span>' +
-              statusBadge +
-            '</div>' +
+            customerProfile +
           '</div>' +
 
           '<div class="sp-profile-actions">' +
@@ -1382,8 +1399,10 @@ licenseKey = resolvedKey;
         '</div>' +
 
         '<div class="sp-sync-status" id="sp-sync"><span style="vertical-align:middle;display:inline-flex">' + SP_SVG.clock + '</span> Aguardando sincronização...</div>' +
-        '<div class="sp-trial-countdown" id="sp-countdown" style="display:none"></div>' +
-      '</div>' + renewalHtml +
+        (customerEdition ? '' : '<div class="sp-trial-countdown" id="sp-countdown" style="display:none"></div>') +
+      '</div>' +
+      (customerEdition ? '<div id="sl-connection-status-host"></div>' : '') +
+      renewalHtml +
 
       '<div id="sp-reseller-btn" style="display:none;margin-bottom:14px">' +
         '<a href="https://extensaosorax.lovable.app/painelrevenda" target="_blank" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(var(--ts-brand-primary-rgb),0.3);background:rgba(var(--ts-brand-primary-rgb),0.06);color:var(--ql-accent);text-decoration:none;font-size:12px;font-weight:700;transition:all 0.2s">' +
