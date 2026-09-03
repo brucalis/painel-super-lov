@@ -7,7 +7,7 @@ import { LicensesTab } from "@/components/admin/licenses-tab";
 import { CustomersTab } from "@/components/admin/customers-tab";
 import { WebhooksTab } from "@/components/admin/webhooks-tab";
 import { EnsinaflixTab } from "@/components/admin/ensinaflix-tab";
-import { ADMIN_ADMIN_EXTENSION_RELEASE } from "@/lib/extension-release";
+import { ADMIN_EXTENSION_RELEASE } from "@/lib/extension-release";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
