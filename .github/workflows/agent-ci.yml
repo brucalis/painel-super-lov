@@ -9,6 +9,15 @@ on:
       - "src/routes/api/public/agent/**"
       - "extension/**"
       - ".github/workflows/agent-ci.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/lib/github-agent*.ts"
+      - "src/routes/api/public/agent/**"
+      - "extension/**"
+      - "scripts/test-agent-autorecovery.mjs"
+      - ".github/workflows/agent-ci.yml"
   workflow_dispatch:
 
 concurrency:
