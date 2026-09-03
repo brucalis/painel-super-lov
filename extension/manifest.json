@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Superlovable",
-  "version": "32.0.43",
+  "version": "32.0.44",
   "description": "Superlovable — Assistente premium com licenciamento por key.",
   "permissions": ["storage", "activeTab", "scripting", "tabs", "sidePanel", "cookies"],
   "host_permissions": ["<all_urls>"],
