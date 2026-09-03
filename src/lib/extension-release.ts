@@ -9,7 +9,8 @@ export const CUSTOMER_EXTENSION_RELEASE = {
       version: "03.09.S1",
       date: "03/09/2026",
       changes: [
-        "Versão estável e robusta, desenvolvida para oferecer uma experiência mais fluida e confiável.",
+        "Interface aprimorada para uma configuração mais simples, clara e intuitiva.",
+        "Integrações otimizadas para oferecer mais estabilidade e continuidade durante o uso.",
         "Execução automática de tarefas simples e complexas, com continuidade inteligente em todas as etapas.",
         "Maior agilidade na aplicação das alterações, reduzindo interrupções e ações manuais durante o processo.",
         "Histórico de comandos preservado para facilitar consultas, acompanhamento e reutilização.",
