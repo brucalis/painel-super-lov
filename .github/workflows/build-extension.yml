@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "extension/**"
+      - "extension-customer/**"
       - "scripts/build-extension.mjs"
       - ".github/workflows/build-extension.yml"
   workflow_dispatch:
@@ -30,12 +31,12 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build:extension
       - run: unzip -t public/super-lovable.zip
+      - run: unzip -t public/super-lovable-admin-v32.0.44.zip
       - name: Publicar pacote atualizado
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          VERSION=$(node -p "require('./extension/manifest.json').version")
-          git add public/super-lovable.zip "public/super-lovable-v${VERSION}.zip"
+          git add public/super-lovable.zip public/super-lovable-03.09.S1.zip public/super-lovable-admin-v32.0.44.zip
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "build: atualizar pacote da extensão ${VERSION}"
           git reset --hard HEAD
