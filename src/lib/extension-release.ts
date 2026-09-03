@@ -3,12 +3,22 @@
 // O changelog exibido na home é voltado ao cliente: registre apenas mudanças
 // perceptíveis de funcionalidade, design, estabilidade ou desempenho.
 export const EXTENSION_RELEASE = {
-  version: "32.0.43",
-  updatedAt: "02/09/2026 (horário de Brasília)",
+  version: "32.0.44",
+  updatedAt: "03/09/2026 (horário de Brasília)",
   downloadPath:
-    "https://raw.githubusercontent.com/brucalis/painel-super-lov/main/public/super-lovable-v32.0.43.zip?v=32.0.43-resilient",
-  downloadName: "superlovable-v32.0.43.zip",
+    "https://painel-super-lov.lovable.app/super-lovable.zip?v=32.0.44-autonomous-recovery",
+  downloadName: "superlovable-v32.0.44.zip",
   changelog: [
+    {
+      version: "32.0.44",
+      date: "03/09/2026",
+      changes: [
+        "Prompts complexos agora retomam automaticamente do último ponto seguro, inclusive após recarregar o painel.",
+        "A recuperação deixou de depender de botões e diferencia falhas de contexto, conflito, limite temporário e autenticação.",
+        "Antes de replanejar, o agente reconcilia o mesmo run para evitar commits duplicados.",
+        "Etapas que continuam grandes são subdivididas automaticamente e executadas em sequência.",
+      ],
+    },
     {
       version: "32.0.43",
       date: "02/09/2026",
