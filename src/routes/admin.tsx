@@ -7,7 +7,7 @@ import { LicensesTab } from "@/components/admin/licenses-tab";
 import { CustomersTab } from "@/components/admin/customers-tab";
 import { WebhooksTab } from "@/components/admin/webhooks-tab";
 import { EnsinaflixTab } from "@/components/admin/ensinaflix-tab";
-import { EXTENSION_RELEASE } from "@/lib/extension-release";
+import { ADMIN_ADMIN_EXTENSION_RELEASE } from "@/lib/extension-release";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -81,7 +81,7 @@ function AdminPage() {
   }
 
   const downloadAdminExtension = () => {
-    fetch(EXTENSION_RELEASE.downloadPath, { cache: "no-store" })
+    fetch(ADMIN_EXTENSION_RELEASE.downloadPath, { cache: "no-store" })
       .then((res) => {
         if (!res.ok) throw new Error(`Download falhou: ${res.status}`);
         return res.blob();
@@ -89,7 +89,7 @@ function AdminPage() {
       .then((blob) => {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = EXTENSION_RELEASE.downloadName.replace(".zip", "-admin.zip");
+        a.download = ADMIN_EXTENSION_RELEASE.downloadName.replace(".zip", "-admin.zip");
         a.click();
         URL.revokeObjectURL(a.href);
       })
@@ -119,7 +119,7 @@ function AdminPage() {
           <div>
             <h2 className="font-medium">Extensão do administrador</h2>
             <p className="text-sm text-muted-foreground">
-              Versão {EXTENSION_RELEASE.version} · atualizada em {EXTENSION_RELEASE.updatedAt}. Chaves com nível
+              Versão {ADMIN_EXTENSION_RELEASE.version} · atualizada em {ADMIN_EXTENSION_RELEASE.updatedAt}. Chaves com nível
               administrador liberam servidor de licenças e endpoints; chaves comuns não veem esses
               campos.
             </p>
