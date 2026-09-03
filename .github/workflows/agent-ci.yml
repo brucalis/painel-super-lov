@@ -32,6 +32,8 @@ jobs:
           node --check extension/github-agent-panel.js
           node --check extension/agent-autorecovery.js
           node --check extension/agent-history.js
+      - name: Testar política de recuperação autônoma
+        run: node --test scripts/test-agent-autorecovery.mjs
       - name: Compilar aplicação e rotas do agente
         run: npm run build
       - name: Gerar e validar pacote da extensão
