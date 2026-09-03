@@ -1,8 +1,32 @@
 import { useEffect, useState } from "react";
 
-const PDF_PARTS = Array.from({ length: 7 }, (_, index) =>
-  `/tutorial-pdf/part-${index}.txt`,
-);
+const PDF_PARTS = [
+  "/tutorial-pdf/part-0.txt",
+  "/tutorial-pdf/part-1-0.txt",
+  "/tutorial-pdf/part-1-1.txt",
+  "/tutorial-pdf/part-1-2.txt",
+  "/tutorial-pdf/part-1-3.txt",
+  "/tutorial-pdf/part-1-4.txt",
+  "/tutorial-pdf/part-1-5.txt",
+  "/tutorial-pdf/part-1-6.txt",
+  "/tutorial-pdf/part-1-7.txt",
+  "/tutorial-pdf/part-1-8.txt",
+  "/tutorial-pdf/part-1-9.txt",
+  "/tutorial-pdf/part-2.txt",
+  "/tutorial-pdf/part-3.txt",
+  "/tutorial-pdf/part-4.txt",
+  "/tutorial-pdf/part-5-0.txt",
+  "/tutorial-pdf/part-5-1.txt",
+  "/tutorial-pdf/part-5-2.txt",
+  "/tutorial-pdf/part-5-3.txt",
+  "/tutorial-pdf/part-5-4.txt",
+  "/tutorial-pdf/part-5-5.txt",
+  "/tutorial-pdf/part-5-6.txt",
+  "/tutorial-pdf/part-5-7.txt",
+  "/tutorial-pdf/part-5-8.txt",
+  "/tutorial-pdf/part-5-9.txt",
+  "/tutorial-pdf/part-6.txt",
+];
 
 export function TutorialPdfViewer() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
