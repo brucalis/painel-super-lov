@@ -30,7 +30,7 @@ const steps = [
   "Clique em Carregar sem compactação e selecione a pasta descompactada.",
   "Abra um projeto em lovable.dev e clique no ícone de raio da Super Lovable.",
   "Na tela de ativação, informe sua chave de licença ou o mesmo e-mail usado na compra.",
-  "Conecte seu GitHub e cole uma única vez a chave da API OpenAI criada em platform.openai.com.",
+  "Conecte seu GitHub e informe uma única vez suas chaves gratuitas do Groq e do Gemini.",
   "Pronto: use sempre o chat da Super Lovable para enviar os comandos ao seu projeto.",
 ];
 
@@ -38,7 +38,7 @@ const features = [
   "Chat próprio da Super Lovable para enviar comandos ao projeto",
   "Envio de imagens e arquivos junto com seus prompts",
   "Ditado por voz direto no campo de comando",
-  "Uso da sua própria conta OpenAI, com chave protegida e consumo independente",
+  "Uso das suas próprias contas Groq e Gemini, com chaves protegidas e contingência automática"
   "Histórico dos comandos enviados para consultar e reutilizar",
   "Skills e prompts reutilizáveis para tarefas frequentes",
   "Download dos arquivos do projeto em formato ZIP",
