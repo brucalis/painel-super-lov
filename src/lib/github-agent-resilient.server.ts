@@ -10,7 +10,7 @@ const LOGIC_RETRY_DELAY_MS = [0, 180, 420, 850, 1_400];
 const PROVIDER_RETRY_DELAY_MS = [0, 1_200, 3_000, 6_000, 10_000];
 
 type AgentAuth = Parameters<typeof planAgentRun>[0];
-type PlanOptions = { reducedContext?: boolean };
+type PlanOptions = { reducedContext?: boolean; ai?: Parameters<typeof planAgentRun>[2]["ai"] };
 
 type ErrorInfo = {
   message: string;
@@ -164,7 +164,7 @@ export async function planAgentRunResilient(
 
   for (let attempt = 0; attempt < MAX_PLAN_ATTEMPTS; attempt += 1) {
     try {
-      const result = await planAgentRun(auth, currentPrompt, { reducedContext });
+      const result = await planAgentRun(auth, currentPrompt, { reducedContext, ai: options.ai });
       return {
         ...result,
         automaticRecoveries: recoveries,
