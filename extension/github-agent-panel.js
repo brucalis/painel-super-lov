@@ -62,6 +62,11 @@
     el.dataset.kind = kind;
   };
 
+  const broadcastConnectionStatus = (detail) => {
+    if (!CUSTOMER_EDITION) return;
+    document.dispatchEvent(new CustomEvent("superlovable:github-status", { detail }));
+  };
+
   const progressSteps = [
     ["context", "Lendo estrutura e arquivos do projeto"],
     ["ai", "Analisando o pedido com a inteligência artificial"],
@@ -130,21 +135,31 @@
     try {
       const data = await request("/status");
       const connection = data.connection || {};
-      const configured = data.configured && (CUSTOMER_EDITION ? data.ai?.customerConfigured : (data.ai?.gemini || data.ai?.groq));
+      const groqReady = Boolean(data.ai?.groq?.configured);
+      const geminiReady = Boolean(data.ai?.gemini?.configured);
+      const configured = data.configured && (CUSTOMER_EDITION ? (groqReady && geminiReady) : (data.ai?.gemini || data.ai?.groq));
       const connect = document.getElementById("sl-agent-connect");
       const picker = document.getElementById("sl-agent-project-row");
       state.ready = configured && connection.status === "ready" && Boolean(connection.repository_full_name);
+      broadcastConnectionStatus({
+        ready: state.ready,
+        groq: groqReady,
+        gemini: geminiReady,
+        github: Boolean(connection.installation_id),
+        project: Boolean(connection.repository_full_name),
+      });
 
       if (!configured) {
-        setStatus(CUSTOMER_EDITION ? "Conecte sua chave da OpenAI acima para liberar os comandos." : "Servidor em configuração. Cadastre as chaves de IA e da GitHub App no painel.", "warning");
+        setStatus(CUSTOMER_EDITION ? "Conecte as duas inteligências acima para liberar o chat." : "Servidor em configuração. Cadastre as chaves de IA e da GitHub App no painel.", "warning");
         if (connect) connect.style.display = "none";
+        if (picker) picker.style.display = "none";
         return;
       }
       if (!connection.installation_id) {
         setStatus(
           connection.status === "pending_installation"
-            ? "Instale a GitHub App e depois clique novamente em Conectar GitHub."
-            : "Conecte seu GitHub uma única vez para escolher o projeto.",
+            ? "Finalize a autorização e depois clique em Atualizar."
+            : "Conecte sua conta para escolher o projeto.",
           "warning",
         );
         if (connect) connect.style.display = "inline-flex";
@@ -158,10 +173,12 @@
         await restorePendingBatchUi();
         return;
       }
-      setStatus("GitHub conectado. Selecione seu projeto abaixo.");
+      setStatus("Conta conectada. Selecione seu projeto abaixo.");
       if (picker) picker.style.display = "flex";
       await loadRepositories();
     } catch (error) {
+      state.ready = false;
+      broadcastConnectionStatus({ ready: false, error: true });
       setStatus(error.message || "Não foi possível consultar o agente.", "error");
     }
   }
@@ -563,7 +580,8 @@
   async function execute(prompt, reducedContext = false) {
     if (state.busy) return;
     if (!state.ready) {
-      setStatus("Conecte e selecione o projeto antes de enviar.", "error");
+      globalThis.superLovableOpenConnectionStatus?.();
+      setStatus("Clique na seção Status para conectar e usar o chat.", "error");
       return;
     }
 
