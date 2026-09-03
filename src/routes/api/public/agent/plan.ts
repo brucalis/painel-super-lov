@@ -9,38 +9,26 @@ export const Route = createFileRoute("/api/public/agent/plan")({
         try {
           const agent = await import("@/lib/github-agent.server");
           const resilient = await import("@/lib/github-agent-resilient.server");
+          const credentials = await import("@/lib/customer-ai-credentials.server");
           const auth = await agent.requireAgentLicense(request);
-          const body = (await request.json()) as {
-            prompt?: string;
-            reduced_context?: boolean;
-          };
+          const ai = await credentials.customerAiProvider(request, auth.license.id);
+          const body = (await request.json()) as { prompt?: string; reduced_context?: boolean };
           const prompt = String(body.prompt || "").trim();
-          if (prompt.length < 3)
-            return json({ ok: false, error: "Descreva a alteração desejada." }, 400);
-          if (prompt.length > 8_000)
-            return json({ ok: false, error: "O pedido é muito longo." }, 413);
-
+          if (prompt.length < 3) return json({ ok: false, error: "Descreva a alteração desejada." }, 400);
+          if (prompt.length > 8_000) return json({ ok: false, error: "O pedido é muito longo." }, 413);
           return json({
             ok: true,
             resilient: true,
             ...(await resilient.planAgentRunResilient(auth, prompt, {
               reducedContext: Boolean(body.reduced_context),
+              ai,
             })),
           });
         } catch (error) {
-          if (error instanceof Response)
-            return json({ ok: false, error: await error.text() }, error.status);
+          if (error instanceof Response) return json({ ok: false, error: await error.text() }, error.status);
           const agent = await import("@/lib/github-agent.server");
           const details = agent.agentErrorDetails(error);
-          return json(
-            {
-              ok: false,
-              error: details.message,
-              code: details.code,
-              retryable: details.retryable,
-            },
-            details.status,
-          );
+          return json({ ok: false, error: details.message, code: details.code, retryable: details.retryable }, details.status);
         }
       },
     },
