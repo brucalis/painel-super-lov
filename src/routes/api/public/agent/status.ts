@@ -36,12 +36,9 @@ export const Route = createFileRoute("/api/public/agent/status")({
               process.env.GITHUB_APP_SLUG
             ),
             ai: {
-              gemini: customerEdition ? false : Boolean(process.env.GEMINI_API_KEY),
-              groq: customerEdition ? false : Boolean(process.env.GROQ_API_KEY),
               customerConfigured: Boolean(customerAi?.configured),
-              provider: customerAi?.provider || null,
-              model: customerAi?.model || null,
-              keyHint: customerAi?.keyHint || null,
+              groq: customerEdition ? customerAi?.groq || { configured: false } : Boolean(process.env.GROQ_API_KEY),
+              gemini: customerEdition ? customerAi?.gemini || { configured: false } : Boolean(process.env.GEMINI_API_KEY),
             },
             runner,
             connection,
