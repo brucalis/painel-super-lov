@@ -38,7 +38,7 @@ const features = [
   "Chat próprio da Super Lovable para enviar comandos ao projeto",
   "Envio de imagens e arquivos junto com seus prompts",
   "Ditado por voz direto no campo de comando",
-  "Uso das suas próprias contas Groq e Gemini, com chaves protegidas e contingência automática"
+  "Uso das suas próprias contas Groq e Gemini, com chaves protegidas e contingência automática",
   "Histórico dos comandos enviados para consultar e reutilizar",
   "Skills e prompts reutilizáveis para tarefas frequentes",
   "Download dos arquivos do projeto em formato ZIP",
