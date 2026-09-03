@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { EXTENSION_RELEASE } from "@/lib/extension-release";
+import { TutorialPdfViewer } from "@/components/TutorialPdfViewer";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -173,6 +174,8 @@ function Index() {
             <img src="/extension-banner.png" alt="Super Lovable — recursos da extensão" className="w-full rounded-[1.35rem]" />
           </div>
         </div>
+
+        <TutorialPdfViewer />
 
         <div className="mt-20 grid gap-6 lg:grid-cols-2">
           <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-7 backdrop-blur">
