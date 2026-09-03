@@ -527,45 +527,15 @@ async function requestedRepoContext(
 }
 
 export type AgentAiProvider = {
-  kind: "openai";
-  apiKey: string;
-  model: string;
+  kind: "customer";
+  groq?: { apiKey: string; model: string };
+  gemini?: { apiKey: string; model: string };
 };
 
 const systemPrompt = `Você é um agente de programação geral. O pedido pode se referir a qualquer projeto. "available_files" é o mapa de caminhos reais do repositório e "files" contém trechos de arquivos já carregados. Não invente caminhos. Retorne SOMENTE JSON válido no formato {"summary":"resumo em português","commit_message":"mensagem curta em português","edits":[{"path":"caminho existente","search":"trecho EXATO atual","replace":"novo trecho"}],"new_files":[{"path":"novo caminho","content":"conteúdo completo"}]}. Para arquivos existentes, NUNCA devolva o arquivo completo: use somente edits cirúrgicos com o menor trecho único possível. Preserve tudo que não foi solicitado. Nunca use nem copie o marcador "trecho reduzido automaticamente". Nunca inclua segredos, .env, lockfiles, arquivos gerados ou binários. No máximo 12 edições e 4 arquivos novos. Se precisar ler outros arquivos antes de editar, escolha caminhos EXATOS de "available_files" e retorne {"summary":"CONTEXT_REQUIRED","commit_message":"","edits":[],"new_files":[],"context_request":{"paths":["caminho/real"]}}.`;
 
-async function callCustomerOpenAi(prompt: string, provider: AgentAiProvider) {
-  const response = await providerFetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${provider.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: provider.model,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt },
-      ],
-    }),
-  });
-  const raw = await response.text();
-  if (!response.ok) {
-    // Nunca propague o corpo bruto: respostas de provedores podem conter dados sensíveis.
-    throw new Error(`OPENAI_${response.status}`);
-  }
-  const data = JSON.parse(raw) as { choices?: Array<{ message?: { content?: string } }> };
-  return {
-    provider: "openai-customer",
-    model: provider.model,
-    raw: String(data.choices?.[0]?.message?.content || ""),
-  };
-}
-
-async function callGeminiModel(prompt: string, model: string) {
-  const key = process.env.GEMINI_API_KEY;
+async function callGeminiModel(prompt: string, model: string, keyOverride?: string) {
+  const key = keyOverride || process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_NOT_CONFIGURED");
   const response = await providerFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
@@ -590,16 +560,17 @@ async function callGeminiModel(prompt: string, model: string) {
   };
 }
 
-async function callGemini(prompt: string) {
+async function callGemini(prompt: string, customer?: { apiKey: string; model: string }) {
   const models = [
-    process.env.GEMINI_CODE_MODEL,
+    customer?.model,
+    customer ? undefined : process.env.GEMINI_CODE_MODEL,
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
   ].filter((model, index, all): model is string => Boolean(model) && all.indexOf(model) === index);
   let lastError: unknown;
   for (const model of models) {
     try {
-      return await callGeminiModel(prompt, model);
+      return await callGeminiModel(prompt, model, customer?.apiKey);
     } catch (error) {
       lastError = error;
       console.warn("[github-agent] modelo Gemini indisponível", {
@@ -718,10 +689,10 @@ function providerErrorCode(error: unknown, prefix: string) {
   return "indisponível";
 }
 
-async function callGroq(prompt: string, reducedContext: boolean) {
-  const key = process.env.GROQ_API_KEY;
+async function callGroq(prompt: string, reducedContext: boolean, customer?: { apiKey: string; model: string }) {
+  const key = customer?.apiKey || process.env.GROQ_API_KEY;
   if (!key) throw new Error("GROQ_NOT_CONFIGURED");
-  const model = process.env.GROQ_CODE_MODEL || "openai/gpt-oss-20b";
+  const model = customer?.model || process.env.GROQ_CODE_MODEL || "openai/gpt-oss-20b";
   console.info("[github-agent] chamada Groq", {
     model,
     approximateInputTokens: estimateTokens(`${systemPrompt}\n${prompt}`),
@@ -749,19 +720,29 @@ async function callGroq(prompt: string, reducedContext: boolean) {
 
 async function generatePlan(payload: string, forceReduced = false, customerAi?: AgentAiProvider) {
   if (customerAi) {
-    const compact = forceReduced ? compactPayload(payload, GROQ_RETRY_CONTEXT_CHARS) : payload;
-    try {
-      return await callCustomerOpenAi(compact, customerAi);
-    } catch (error) {
-      const status = Number((error instanceof Error ? error.message : "").match(/OPENAI_(\d{3})/)?.[1] || 0);
-      if (status === 401 || status === 403)
-        throw new AgentPlanError("A chave OpenAI conectada é inválida ou perdeu acesso. Substitua a chave nas configurações.", "CUSTOMER_AI_UNAUTHORIZED", false, 401);
-      if (status === 429)
-        throw new AgentPlanError("Sua conta OpenAI atingiu o limite de uso ou precisa de créditos de API.", "AI_RATE_LIMITED", true, 429);
-      if (status === 400 || status === 413)
-        throw new AgentPlanError("O contexto ficou grande demais para o modelo OpenAI selecionado.", "AI_CONTEXT_TOO_LARGE", !forceReduced, 413);
-      throw new AgentPlanError("A OpenAI está temporariamente indisponível. A tarefa será preservada para nova tentativa.", "AI_PROVIDER_UNAVAILABLE", true, 503);
+    let groqError: unknown = null;
+    if (customerAi.groq) {
+      try {
+        const compact = compactPayload(payload, forceReduced ? GROQ_RETRY_CONTEXT_CHARS : GROQ_CONTEXT_CHARS);
+        return await callGroq(compact, true, customerAi.groq);
+      } catch (error) {
+        groqError = error;
+      }
     }
+    if (customerAi.gemini) {
+      try {
+        return await callGemini(payload, customerAi.gemini);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        const status = Number(message.match(/GEMINI_(\d{3})/)?.[1] || 0);
+        if (status === 429) throw new AgentPlanError("Suas cotas gratuitas do Groq e do Gemini estão temporariamente esgotadas.", "AI_RATE_LIMITED", true, 429);
+        if (status === 401 || status === 403) throw new AgentPlanError("A chave Gemini conectada é inválida ou perdeu acesso.", "CUSTOMER_AI_UNAUTHORIZED", false, 401);
+      }
+    }
+    const groqStatus = Number((groqError instanceof Error ? groqError.message : "").match(/GROQ_(\d{3})/)?.[1] || 0);
+    if (groqStatus === 429) throw new AgentPlanError("Sua cota gratuita do Groq foi atingida. Configure também o Gemini como contingência.", "AI_RATE_LIMITED", true, 429);
+    if (groqStatus === 401 || groqStatus === 403) throw new AgentPlanError("A chave Groq conectada é inválida ou perdeu acesso.", "CUSTOMER_AI_UNAUTHORIZED", false, 401);
+    throw new AgentPlanError("Os provedores configurados pelo cliente estão temporariamente indisponíveis.", "AI_PROVIDER_UNAVAILABLE", true, 503);
   }
   try {
     return await callGemini(payload);
