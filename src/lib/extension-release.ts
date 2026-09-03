@@ -1,20 +1,25 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "03.09.S1",
-  technicalVersion: "33.0.1",
+  version: "03.09.S2",
+  technicalVersion: "33.0.2",
   updatedAt: "03/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=03.09.S1",
-  downloadName: "superlovable-03.09.S1.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=03.09.S2",
+  downloadName: "superlovable-03.09.S2.zip",
   changelog: [
+    {
+      version: "03.09.S2",
+      date: "03/09/2026",
+      changes: [
+        "Melhorias na interface e na integração.",
+        "Correções de estabilidade na configuração inicial.",
+      ],
+    },
     {
       version: "03.09.S1",
       date: "03/09/2026",
       changes: [
-        "Interface aprimorada para uma configuração mais simples, clara e intuitiva.",
-        "Integrações otimizadas para oferecer mais estabilidade e continuidade durante o uso.",
-        "Execução automática de tarefas simples e complexas, com continuidade inteligente em todas as etapas.",
-        "Maior agilidade na aplicação das alterações, reduzindo interrupções e ações manuais durante o processo.",
-        "Histórico de comandos preservado para facilitar consultas, acompanhamento e reutilização.",
-        "Proteção avançada das informações e funcionamento otimizado para uso contínuo.",
+        "Versão estável e robusta para uso contínuo.",
+        "Execução automática de tarefas simples e complexas.",
+        "Histórico de comandos preservado.",
       ],
     },
   ],

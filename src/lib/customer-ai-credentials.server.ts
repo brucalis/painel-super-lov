@@ -28,6 +28,14 @@ export function isCustomerEdition(request: Request) {
 }
 const hint = (value: string) => `••••••••${value.slice(-4)}`;
 
+function credentialStorageError(error: any) {
+  const code = String(error?.code || "");
+  if (["42P01", "PGRST205", "23514", "42P10", "23505"].includes(code)) {
+    return new Response("A configuração segura ainda está sendo atualizada. Aguarde a publicação da versão mais recente e tente novamente.", { status: 503 });
+  }
+  return new Response("Não foi possível concluir a configuração segura agora. Tente novamente em alguns instantes.", { status: 503 });
+}
+
 async function validate(provider: CustomerProvider, apiKey: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -58,7 +66,8 @@ async function validate(provider: CustomerProvider, apiKey: string) {
 }
 
 export async function customerCredentialStatus(licenseId: string) {
-  const { data } = await db().from("github_license_ai_credentials").select("provider,key_hint,model,validated_at").eq("license_id", licenseId);
+  const { data, error } = await db().from("github_license_ai_credentials").select("provider,key_hint,model,validated_at").eq("license_id", licenseId);
+  if (error) throw credentialStorageError(error);
   const rows = (data || []) as CredentialRow[];
   const status = (provider: CustomerProvider) => {
     const row = rows.find((item) => item.provider === provider);
@@ -76,17 +85,18 @@ export async function saveCustomerAiKey(licenseId: string, providerValue: string
     license_id: licenseId, provider, ...encrypt(apiKey), key_hint: hint(apiKey), model,
     validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   }, { onConflict: "license_id,provider" });
-  if (error) throw new Error("Não foi possível salvar a credencial.");
+  if (error) throw credentialStorageError(error);
   return { provider, configured: true, keyHint: hint(apiKey), model };
 }
 export async function deleteCustomerAiKey(licenseId: string, providerValue: string) {
   if (!["groq", "gemini"].includes(providerValue)) throw new Response("Provedor inválido.", { status: 400 });
   const { error } = await db().from("github_license_ai_credentials").delete().eq("license_id", licenseId).eq("provider", providerValue);
-  if (error) throw new Error("Não foi possível remover a credencial.");
+  if (error) throw credentialStorageError(error);
 }
 export async function customerAiProvider(request: Request, licenseId: string, required = true): Promise<AgentAiProvider | undefined> {
   if (!isCustomerEdition(request)) return undefined;
-  const { data } = await db().from("github_license_ai_credentials").select("provider,encrypted_key,encryption_iv,encryption_tag,key_hint,model,validated_at").eq("license_id", licenseId);
+  const { data, error } = await db().from("github_license_ai_credentials").select("provider,encrypted_key,encryption_iv,encryption_tag,key_hint,model,validated_at").eq("license_id", licenseId);
+  if (error) throw credentialStorageError(error);
   const rows = (data || []) as CredentialRow[];
   const groq = rows.find((row) => row.provider === "groq");
   const gemini = rows.find((row) => row.provider === "gemini");

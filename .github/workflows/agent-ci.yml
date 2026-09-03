@@ -6,16 +6,26 @@ on:
       - main
     paths:
       - "src/lib/github-agent*.ts"
+      - "src/lib/customer-ai-credentials.server.ts"
+      - "src/lib/extension-release.ts"
       - "src/routes/api/public/agent/**"
       - "extension/**"
+      - "extension-customer/**"
+      - "scripts/build-extension.mjs"
+      - "supabase/migrations/**"
       - ".github/workflows/agent-ci.yml"
   pull_request:
     branches:
       - main
     paths:
       - "src/lib/github-agent*.ts"
+      - "src/lib/customer-ai-credentials.server.ts"
+      - "src/lib/extension-release.ts"
       - "src/routes/api/public/agent/**"
       - "extension/**"
+      - "extension-customer/**"
+      - "scripts/build-extension.mjs"
+      - "supabase/migrations/**"
       - "scripts/test-agent-autorecovery.mjs"
       - ".github/workflows/agent-ci.yml"
   workflow_dispatch:
@@ -41,6 +51,7 @@ jobs:
           node --check extension/github-agent-panel.js
           node --check extension/agent-autorecovery.js
           node --check extension/agent-history.js
+          node --check extension-customer/customer-ai-settings.js
       - name: Testar política de recuperação autônoma
         run: node --test scripts/test-agent-autorecovery.mjs
       - name: Compilar aplicação e rotas do agente
