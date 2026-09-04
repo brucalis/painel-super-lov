@@ -162,6 +162,8 @@
       const geminiReady = Boolean(data.ai?.gemini?.configured);
       const configured = data.configured && (CUSTOMER_EDITION ? (groqReady && geminiReady) : (data.ai?.gemini || data.ai?.groq));
       const connect = document.getElementById("sl-agent-connect");
+      const disconnect = document.getElementById("sl-agent-disconnect");
+      const switchProject = document.getElementById("sl-agent-switch-project");
       const picker = document.getElementById("sl-agent-project-row");
       state.ready = configured && connection.status === "ready" && Boolean(connection.repository_full_name);
       broadcastConnectionStatus({
@@ -176,6 +178,8 @@
       if (!configured) {
         setStatus(CUSTOMER_EDITION ? "Conecte as duas inteligências acima para liberar o chat." : "Servidor em configuração. Cadastre as chaves de IA e da GitHub App no painel.", "warning");
         if (connect) connect.style.display = "none";
+        if (disconnect) disconnect.style.display = "none";
+        if (switchProject) switchProject.style.display = "none";
         if (picker) picker.style.display = "none";
         return;
       }
@@ -187,20 +191,21 @@
           "warning",
         );
         if (connect) connect.style.display = "inline-flex";
+        if (disconnect) disconnect.style.display = "none";
+        if (switchProject) switchProject.style.display = "none";
         if (picker) picker.style.display = "none";
         return;
       }
       if (connect) connect.style.display = "none";
+      if (disconnect) disconnect.style.display = "inline-flex";
       if (connection.repository_full_name) {
         setStatus(`Projeto conectado: ${connection.repository_full_name} (main)`, "success");
         if (picker) picker.style.display = "none";
-        const switchProject = document.getElementById("sl-agent-switch-project");
         if (switchProject) switchProject.style.display = "inline-flex";
         await restorePendingBatchUi();
         return;
       }
       setStatus("Conta conectada. Selecione seu projeto abaixo.");
-      const switchProject = document.getElementById("sl-agent-switch-project");
       if (switchProject) switchProject.style.display = "none";
       if (picker) picker.style.display = "flex";
       await loadRepositories();
@@ -219,6 +224,30 @@
       setStatus("Conclua a autorização na nova aba e depois clique em Atualizar.", "warning");
     } catch (error) {
       setStatus(error.message, "error");
+    }
+  }
+
+  async function disconnectGithub() {
+    if (!confirm("Desconectar esta conta do GitHub? O projeto selecionado será removido, mas sua licença e as demais conexões serão mantidas.")) return;
+    const button = document.getElementById("sl-agent-disconnect");
+    try {
+      if (button) button.disabled = true;
+      setStatus("Desconectando conta do GitHub…", "warning");
+      await request("/github/disconnect", { method: "POST", body: "{}" });
+      state.ready = false;
+      state.repositories = [];
+      await clearBatchTask();
+      const box = document.getElementById("sl-agent-progress");
+      if (box) {
+        box.hidden = true;
+        box.innerHTML = "";
+      }
+      await refresh();
+      setStatus("Conta desconectada. Conecte outra conta do GitHub para continuar.", "warning");
+    } catch (error) {
+      setStatus(error.message || "Não foi possível desconectar a conta.", "error");
+    } finally {
+      if (button) button.disabled = false;
     }
   }
 
@@ -249,7 +278,6 @@
   async function chooseAnotherRepository() {
     try {
       const picker = document.getElementById("sl-agent-project-row");
-      const switchProject = document.getElementById("sl-agent-switch-project");
       if (switchProject) switchProject.style.display = "none";
       if (picker) picker.style.display = "flex";
       setStatus("Escolha outro repositório. Suas demais conexões serão mantidas.", "warning");
@@ -768,6 +796,7 @@
       <div class="sl-agent-actions">
         <button type="button" id="sl-agent-connect">Conectar GitHub</button>
         <button type="button" id="sl-agent-switch-project" style="display:none">Trocar projeto</button>
+        <button type="button" id="sl-agent-disconnect" class="sl-agent-danger" style="display:none">Desconectar conta</button>
         <button type="button" id="sl-agent-refresh">Atualizar</button>
       </div>
       <div id="sl-agent-project-row" class="sl-agent-project" style="display:none">
@@ -784,6 +813,7 @@
     document.getElementById("sl-agent-connect")?.addEventListener("click", connect);
     document.getElementById("sl-agent-refresh")?.addEventListener("click", refresh);
     document.getElementById("sl-agent-switch-project")?.addEventListener("click", chooseAnotherRepository);
+    document.getElementById("sl-agent-disconnect")?.addEventListener("click", disconnectGithub);
     document.getElementById("sl-agent-bind")?.addEventListener("click", bind);
     document.getElementById("sl-agent-repository-search")?.addEventListener("input", (event) => filterRepositories(event.target.value));
     refresh();
