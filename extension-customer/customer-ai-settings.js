@@ -2,15 +2,16 @@
   if (globalThis.SUPER_LOVABLE_EDITION?.mode !== "customer") return;
 
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
-  const PANEL_OPEN_KEY = "sl_connection_panel_open_v2";
+  const PANEL_OPEN_KEY = "sl_connection_panel_open_v3";
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
-  const CONTEXT_RECOVERY_KEY = "sl_context_recovery_v1";
-  const WATCHDOG_RECOVERY_KEY = "sl_watchdog_recovery_v1";
+  const CONTEXT_RECOVERY_KEY = "sl_context_recovery_v2";
+  const WATCHDOG_RECOVERY_KEY = "sl_watchdog_recovery_v2";
   const providerLabel = { groq: "Groq", gemini: "Gemini" };
   const providerLinks = {
     groq: "https://console.groq.com/keys",
     gemini: "https://aistudio.google.com/app/apikey",
   };
+
   const connectionState = {
     groq: false,
     gemini: false,
@@ -23,7 +24,9 @@
   let panelPreferredOpen = null;
   let suppressPanelToggle = false;
   let recoveryScheduled = false;
+  let syncScheduled = false;
   let lastExecutionActivityAt = Date.now();
+  let lastExecutionSnapshot = "";
 
   function isContextInvalidated(value) {
     return /Extension context invalidated/i.test(String(value?.message || value || ""));
@@ -42,10 +45,11 @@
     const progress = document.getElementById("sl-agent-progress");
     const status = document.getElementById("sl-agent-status");
     if (agent) agent.hidden = false;
-    if (status) status.textContent = message;
+    if (status && status.textContent !== message) status.textContent = message;
     if (progress) {
       progress.hidden = false;
-      progress.innerHTML = `<div class="sl-agent-note">${message}</div>`;
+      const html = `<div class="sl-agent-note">${message}</div>`;
+      if (progress.innerHTML !== html) progress.innerHTML = html;
     }
   }
 
@@ -56,15 +60,15 @@
     recoveryScheduled = true;
     setLocalNumber(guardKey, now);
     showRecoveryMessage(message);
-    setTimeout(() => location.reload(), 650);
+    setTimeout(() => location.reload(), 700);
   }
 
   function recoverInvalidatedContext(error) {
     if (!isContextInvalidated(error)) return false;
     reloadForRecovery(
-      "A extensão foi atualizada. Reconectando e retomando do último ponto seguro…",
+      "A extensão foi atualizada. Reconectando…",
       CONTEXT_RECOVERY_KEY,
-      6_000,
+      15_000,
     );
     return true;
   }
@@ -72,6 +76,7 @@
   function storageGet(keys) {
     return new Promise((resolve, reject) => {
       try {
+        if (!chrome.runtime?.id) return reject(new Error("Extension context invalidated"));
         chrome.storage.local.get(keys, (result) => {
           const runtimeError = chrome.runtime?.lastError;
           if (runtimeError) reject(new Error(runtimeError.message));
@@ -86,6 +91,7 @@
   function storageSet(values) {
     return new Promise((resolve, reject) => {
       try {
+        if (!chrome.runtime?.id) return reject(new Error("Extension context invalidated"));
         chrome.storage.local.set(values, () => {
           const runtimeError = chrome.runtime?.lastError;
           if (runtimeError) reject(new Error(runtimeError.message));
@@ -152,18 +158,21 @@
     renderOverallStatus();
   }
 
+  function setStatusText(element, kind, text) {
+    if (!element) return;
+    if (element.dataset.kind !== kind) element.dataset.kind = kind;
+    if (element.textContent !== text) element.textContent = text;
+  }
+
   function renderProjectStatus() {
     const status = document.getElementById("sl-project-status");
     if (!status) return;
     if (connectionState.github && connectionState.project) {
-      status.dataset.kind = "success";
-      status.textContent = "GitHub e projeto conectados";
+      setStatusText(status, "success", "GitHub e projeto conectados");
     } else if (connectionState.github) {
-      status.dataset.kind = "warning";
-      status.textContent = "GitHub conectado. Selecione o projeto para continuar.";
+      setStatusText(status, "warning", "GitHub conectado. Selecione o projeto para continuar.");
     } else {
-      status.dataset.kind = "warning";
-      status.textContent = "GitHub ainda não conectado";
+      setStatusText(status, "warning", "GitHub ainda não conectado");
     }
   }
 
@@ -176,20 +185,30 @@
     const complete = connectionState.groq && connectionState.gemini && connectionState.github && connectionState.project;
     const becameComplete = complete && !connectionState.ready;
     connectionState.ready = complete;
-    summary.dataset.kind = complete ? "success" : "warning";
-    summary.innerHTML = `
-      <span class="sl-connection-dot"></span>
-      <span><strong>Status:</strong> ${complete ? "Conectado" : "Não conectado"}</span>
-      <small>${complete ? "Tudo pronto para usar" : "Clique para concluir a configuração"}</small>
-      <span class="sl-connection-chevron">⌄</span>`;
+
+    const stateKey = complete ? "complete" : "incomplete";
+    if (summary.dataset.state !== stateKey) {
+      summary.dataset.state = stateKey;
+      summary.dataset.kind = complete ? "success" : "warning";
+      summary.innerHTML = `
+        <span class="sl-connection-dot"></span>
+        <span><strong>Status:</strong> ${complete ? "Conectado" : "Não conectado"}</span>
+        <small>${complete ? "Tudo pronto para usar" : "Clique para concluir a configuração"}</small>
+        <span class="sl-connection-chevron">⌄</span>`;
+    }
 
     if (list) {
-      const item = (done, text) => `<span class="${done ? "is-ready" : ""}"><b>${done ? "✓" : "○"}</b>${text}</span>`;
-      list.innerHTML =
-        item(connectionState.groq, "Conexão principal") +
-        item(connectionState.gemini, "Conexão de contingência") +
-        item(connectionState.github && connectionState.project, "Projeto");
+      const checklistState = [connectionState.groq, connectionState.gemini, connectionState.github && connectionState.project].map(Boolean).join(":");
+      if (list.dataset.state !== checklistState) {
+        list.dataset.state = checklistState;
+        const item = (done, text) => `<span class="${done ? "is-ready" : ""}"><b>${done ? "✓" : "○"}</b>${text}</span>`;
+        list.innerHTML =
+          item(connectionState.groq, "Conexão principal") +
+          item(connectionState.gemini, "Conexão de contingência") +
+          item(connectionState.github && connectionState.project, "Projeto");
+      }
     }
+
     renderProjectStatus();
 
     if (!complete) {
@@ -209,11 +228,12 @@
     if (!status) return;
     const configured = Boolean(data?.configured);
     connectionState[provider] = configured;
-    status.dataset.kind = configured ? "success" : "warning";
-    status.textContent = configured
-      ? `${providerLabel[provider]} conectado (${data.keyHint || "chave protegida"})`
-      : "Ainda não conectado";
-    if (button) button.textContent = configured ? "Substituir" : "Conectar";
+    setStatusText(
+      status,
+      configured ? "success" : "warning",
+      configured ? `${providerLabel[provider]} conectado (${data.keyHint || "chave protegida"})` : "Ainda não conectado",
+    );
+    if (button && button.textContent !== (configured ? "Substituir" : "Conectar")) button.textContent = configured ? "Substituir" : "Conectar";
     if (remove) remove.style.display = configured ? "inline-flex" : "none";
     renderOverallStatus();
   }
@@ -228,10 +248,7 @@
       ["groq", "gemini"].forEach((provider) => {
         connectionState[provider] = false;
         const status = document.getElementById(`sl-ai-${provider}-status`);
-        if (status) {
-          status.dataset.kind = "error";
-          status.textContent = error.message;
-        }
+        if (status) setStatusText(status, "error", error.message);
       });
       renderOverallStatus();
     }
@@ -243,12 +260,10 @@
     const status = document.getElementById(`sl-ai-${provider}-status`);
     const apiKey = String(input?.value || "").trim();
     if (!apiKey) {
-      status.dataset.kind = "error";
-      status.textContent = "Cole sua chave para continuar.";
+      setStatusText(status, "error", "Cole sua chave para continuar.");
       return;
     }
-    status.dataset.kind = "warning";
-    status.textContent = "Validando conexão…";
+    setStatusText(status, "warning", "Validando conexão…");
     try {
       await request("", { method: "PUT", body: JSON.stringify({ provider, api_key: apiKey }) });
       input.value = "";
@@ -256,8 +271,7 @@
       await globalThis.superLovableGithubAgentRefresh?.();
     } catch (error) {
       if (recoverInvalidatedContext(error)) return;
-      status.dataset.kind = "error";
-      status.textContent = error.message;
+      setStatusText(status, "error", error.message);
     }
   }
 
@@ -268,7 +282,7 @@
       await refresh();
       await globalThis.superLovableGithubAgentRefresh?.();
     } catch (error) {
-      if (!recoverInvalidatedContext(error)) throw error;
+      if (!recoverInvalidatedContext(error)) console.warn("[Superlovable] Falha ao remover chave:", error);
     }
   }
 
@@ -328,6 +342,7 @@
   }
 
   function syncAgentLayout() {
+    syncScheduled = false;
     const agent = document.getElementById("sl-github-agent");
     if (!agent) return;
 
@@ -335,10 +350,12 @@
     if (composer?.parentElement && (agent.parentElement !== composer.parentElement || agent.nextElementSibling !== composer)) {
       composer.parentElement.insertBefore(agent, composer);
     }
-    agent.classList.add("sl-customer-execution-panel");
+    if (!agent.classList.contains("sl-customer-execution-panel")) agent.classList.add("sl-customer-execution-panel");
 
     const title = agent.querySelector(".sl-agent-title");
-    if (title?.firstChild?.nodeType === Node.TEXT_NODE) title.firstChild.textContent = "Execução atual ";
+    if (title?.firstChild?.nodeType === Node.TEXT_NODE && title.firstChild.textContent !== "Execução atual ") {
+      title.firstChild.textContent = "Execução atual ";
+    }
 
     const controls = ensureProjectScaffold();
     const connectButton = document.getElementById("sl-agent-connect");
@@ -352,35 +369,47 @@
     const combinedText = `${status?.textContent || ""} ${progress?.textContent || ""}`;
     if (isContextInvalidated(combinedText)) recoverInvalidatedContext(combinedText);
 
-    agent.hidden = !executionIsVisible();
+    const shouldHide = !executionIsVisible();
+    if (agent.hidden !== shouldHide) agent.hidden = shouldHide;
     renderProjectStatus();
   }
 
-  function markExecutionActivity(mutations) {
-    const relevant = mutations.some((mutation) => {
-      const element = mutation.target?.nodeType === Node.TEXT_NODE ? mutation.target.parentElement : mutation.target;
-      return Boolean(element?.closest?.("#sl-agent-status, #sl-agent-progress"));
-    });
-    if (relevant) lastExecutionActivityAt = Date.now();
+  function scheduleSyncAgentLayout() {
+    if (syncScheduled) return;
+    syncScheduled = true;
+    setTimeout(syncAgentLayout, 120);
+  }
+
+  function updateExecutionActivity() {
+    const status = document.getElementById("sl-agent-status");
+    const progress = document.getElementById("sl-agent-progress");
+    const snapshot = `${status?.textContent || ""}\n${progress?.textContent || ""}`;
+    if (snapshot !== lastExecutionSnapshot) {
+      lastExecutionSnapshot = snapshot;
+      lastExecutionActivityAt = Date.now();
+      scheduleSyncAgentLayout();
+    }
   }
 
   async function watchdog() {
+    updateExecutionActivity();
     if (recoveryScheduled || Date.now() - lastExecutionActivityAt < 180_000) return;
     try {
-      const stored = await safeStorageGet([BATCH_TASK_KEY]);
+      const stored = await safeStorageGet([BATCH_TASK_KEY, "ql_license_valid"]);
+      if (!stored.ql_license_valid) return;
       const task = stored[BATCH_TASK_KEY];
       if (!task || task.status !== "running") return;
       const guard = `${task.rootTaskId || "task"}:${task.nextIndex || 0}`;
       const previousGuard = (() => { try { return localStorage.getItem(WATCHDOG_RECOVERY_KEY) || ""; } catch { return ""; } })();
-      if (previousGuard === guard && Date.now() - localNumber(`${WATCHDOG_RECOVERY_KEY}:time`) < 180_000) return;
+      if (previousGuard === guard && Date.now() - localNumber(`${WATCHDOG_RECOVERY_KEY}:time`) < 240_000) return;
       try {
         localStorage.setItem(WATCHDOG_RECOVERY_KEY, guard);
         setLocalNumber(`${WATCHDOG_RECOVERY_KEY}:time`, Date.now());
       } catch {}
       reloadForRecovery(
-        "A execução ficou sem resposta. Reabrindo a etapa automaticamente a partir do último ponto seguro…",
+        "A execução ficou sem resposta. Retomando do último ponto seguro…",
         `${WATCHDOG_RECOVERY_KEY}:reload`,
-        120_000,
+        180_000,
       );
     } catch (error) {
       recoverInvalidatedContext(error);
@@ -425,7 +454,7 @@
     renderOverallStatus();
     void loadPanelPreference();
     refresh().then(() => globalThis.superLovableGithubAgentRefresh?.()).catch((error) => recoverInvalidatedContext(error));
-    syncAgentLayout();
+    scheduleSyncAgentLayout();
   }
 
   document.addEventListener("superlovable:github-status", (event) => {
@@ -433,24 +462,22 @@
     connectionState.github = Boolean(detail.github);
     connectionState.project = Boolean(detail.project);
     renderOverallStatus();
-    syncAgentLayout();
+    scheduleSyncAgentLayout();
   });
 
-  window.addEventListener("error", (event) => recoverInvalidatedContext(event.error || event.message));
-  window.addEventListener("unhandledrejection", (event) => recoverInvalidatedContext(event.reason));
-
-  const observer = new MutationObserver((mutations) => {
-    markExecutionActivity(mutations);
+  const observer = new MutationObserver(() => {
     mount();
-    syncAgentLayout();
+    scheduleSyncAgentLayout();
   });
-  observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 
+  setInterval(updateExecutionActivity, 5_000);
   setInterval(() => void watchdog(), 30_000);
+
   setTimeout(() => {
     try { localStorage.removeItem(CONTEXT_RECOVERY_KEY); } catch {}
-  }, 12_000);
+  }, 20_000);
 
   mount();
-  syncAgentLayout();
+  scheduleSyncAgentLayout();
 })();
