@@ -174,6 +174,31 @@ export type Mapping = {
   device_limit: number;
 };
 
+// Ofertas oficiais da página de vendas. Estes códigos são os identificadores
+// públicos usados nos checkouts /c/<codigo> da Ensinaflix e têm prioridade
+// sobre mapeamentos antigos do banco para impedir que uma compra nova gere
+// uma licença com prazo incorreto.
+const OFFICIAL_CHECKOUT_MAPPINGS: Record<string, Mapping> = {
+  qzygzw1: {
+    id: "official-30d-qzygzw1",
+    plan_code: "monthly",
+    plan_name: "30 dias",
+    duration_days: 30,
+    duration_minutes: null,
+    is_lifetime: false,
+    device_limit: 1,
+  },
+  xy3nvpg: {
+    id: "official-lifetime-xy3nvpg",
+    plan_code: "lifetime",
+    plan_name: "Vitalícia",
+    duration_days: null,
+    duration_minutes: null,
+    is_lifetime: true,
+    device_limit: 1,
+  },
+};
+
 // Catálogo oficial como fallback operacional. A tabela continua tendo
 // prioridade e pode sobrescrever essas regras pelo painel, mas uma migração
 // ainda não aplicada nunca deve impedir uma venda paga de gerar a licença.
@@ -190,6 +215,13 @@ const DEFAULT_PRODUCT_MAPPINGS: Array<Mapping & {
 
 /** Prioridade: produto+oferta pública > oferta pública > produto > id da oferta. */
 export async function findMapping(n: NormalizedEvent): Promise<Mapping | null> {
+  // A página comercial usa estes dois checkouts oficiais. O webhook da
+  // Ensinaflix normalmente envia o código em offer.public_id; alguns formatos
+  // o enviam em offer.id, por isso aceitamos ambos.
+  const checkoutCode = String(n.offerPublicId || n.offerId || "").trim().toLowerCase();
+  const officialCheckout = OFFICIAL_CHECKOUT_MAPPINGS[checkoutCode];
+  if (officialCheckout) return officialCheckout;
+
   const { data } = await supabaseAdmin
     .from("license_product_mappings")
     .select("*")
