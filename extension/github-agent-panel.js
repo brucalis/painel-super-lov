@@ -8,6 +8,11 @@
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
   const MAX_AUTOMATIC_ATTEMPTS = 4;
   const MAX_BATCH_REPARTITIONS = 2;
+  const REQUEST_TIMEOUT_MS = 90_000;
+  const STATUS_TIMEOUT_MS = 20_000;
+  const BATCH_DEADLINE_MS = 8 * 60_000;
+  const TASK_DEADLINE_MS = 25 * 60_000;
+  const TERMINAL_TASK_STATUSES = new Set(["completed", "failed", "cancelled"]);
   const RETRY_DELAYS_MS = [700, 1_500, 3_500, 7_000];
   const RATE_LIMIT_DELAYS_MS = [5_000, 12_000, 25_000, 45_000];
   const TERMINAL_ERROR_CODES = new Set(["INVALID_SESSION", "LICENSE_INACTIVE", "GITHUB_NOT_CONNECTED", "GITHUB_REPOSITORY_NOT_ALLOWED", "GITHUB_PERMISSION_DENIED", "INVALID_GITHUB_TOKEN", "HTTP_401", "HTTP_403"]);
@@ -39,10 +44,28 @@
   };
 
   const request = async (path, options = {}) => {
-    const response = await fetch(`${API}${path}`, {
-      ...options,
-      headers: { ...(await auth()), ...(options.headers || {}) },
-    });
+    const controller = new AbortController();
+    const timeoutMs = Number(options.timeoutMs || (path === "/status" ? STATUS_TIMEOUT_MS : REQUEST_TIMEOUT_MS));
+    const timeout = setTimeout(() => controller.abort("REQUEST_TIMEOUT"), timeoutMs);
+    let response;
+    try {
+      response = await fetch(`${API}${path}`, {
+        ...options,
+        signal: controller.signal,
+        headers: { ...(await auth()), ...(options.headers || {}) },
+      });
+    } catch (cause) {
+      const timedOut = controller.signal.aborted;
+      const error = new Error(timedOut
+        ? "A etapa demorou além do limite e será recuperada automaticamente."
+        : "A conexão com o servidor foi interrompida.");
+      error.code = timedOut ? "REQUEST_TIMEOUT" : "NETWORK_ERROR";
+      error.status = timedOut ? 408 : 0;
+      error.retryable = true;
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
       const error = new Error(data.error || `Servidor respondeu ${response.status}.`);
@@ -235,6 +258,19 @@
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  function deadlineError(scope) {
+    const error = new Error(scope === "task"
+      ? "A tarefa atingiu o limite seguro de processamento. As etapas concluídas foram preservadas."
+      : "A etapa não avançou dentro do limite seguro e foi interrompida.");
+    error.code = scope === "task" ? "TASK_DEADLINE_EXCEEDED" : "BATCH_DEADLINE_EXCEEDED";
+    error.retryable = false;
+    return error;
+  }
+
+  function assertDeadline(deadline, scope) {
+    if (Number.isFinite(deadline) && Date.now() >= deadline) throw deadlineError(scope);
+  }
+
   function renderRollbackAction(runId) {
     const box = document.getElementById("sl-agent-progress");
     if (!box || !runId) return;
@@ -383,12 +419,13 @@
     return base + Math.floor(Math.random() * Math.min(700, Math.max(100, base * 0.15)));
   }
 
-  async function planAndCommit(prompt, batchLabel = "", reducedContext = false) {
+  async function planAndCommit(prompt, batchLabel = "", reducedContext = false, deadline = Infinity) {
     let reduced = reducedContext;
     let lastError = null;
     let planned = null;
 
     for (let attempt = 0; attempt <= MAX_AUTOMATIC_ATTEMPTS; attempt += 1) {
+      assertDeadline(deadline, "batch");
       try {
         if (!planned) {
           startPlanningProgress(batchLabel);
@@ -420,7 +457,9 @@
           setStatus(`Replanejando automaticamente${batchLabel ? ` ${batchLabel}` : ""} com o estado atual da main…`, "warning");
           renderProgress(kind === "context" ? "context" : "ai", kind === "context" ? "Reduzindo somente o contexto excedente…" : "Reconciliando arquivos e alterações já aplicadas…", batchLabel);
         }
-        await wait(retryDelay(error, attempt));
+        const delay = retryDelay(error, attempt);
+        if (Date.now() + delay >= deadline) throw deadlineError("batch");
+        await wait(delay);
       }
     }
     throw lastError || new Error("Não foi possível concluir a alteração.");
@@ -476,12 +515,19 @@
     if (state.busy) return;
     state.busy = true;
     task.status = "running";
+    task.startedAt = task.startedAt || new Date().toISOString();
+    task.deadlineAt = task.deadlineAt || new Date(Date.now() + TASK_DEADLINE_MS).toISOString();
     state.lastPrompt = task.prompt;
     await saveBatchTask(task);
 
     try {
+      const taskDeadline = new Date(task.deadlineAt).getTime();
+      assertDeadline(taskDeadline, "task");
       for (let index = task.nextIndex; index < task.batches.length; index += 1) {
+        assertDeadline(taskDeadline, "task");
         const batch = task.batches[index];
+        batch.startedAt = batch.startedAt || new Date().toISOString();
+        const batchDeadline = Math.min(taskDeadline, new Date(batch.startedAt).getTime() + BATCH_DEADLINE_MS);
         const label = `Etapa ${index + 1}/${task.batches.length}: ${batch.title}`;
         task.nextIndex = index;
         task.status = "running";
@@ -493,7 +539,7 @@
         let plan;
         let result;
         try {
-          ({ plan, result } = await planAndCommit(batchPrompt, label, false));
+          ({ plan, result } = await planAndCommit(batchPrompt, label, false, batchDeadline));
         } catch (error) {
           if (await repartitionFailedBatch(task, batch, index, error)) {
             index -= 1;
@@ -637,6 +683,8 @@
         nextIndex: 0,
         status: "ready",
         createdAt: new Date().toISOString(),
+        startedAt: null,
+        deadlineAt: null,
       };
       await saveBatchTask(task);
       state.busy = false;
@@ -658,6 +706,24 @@
     if (state.busy) return;
     const task = await loadBatchTask();
     if (!task || !Array.isArray(task.batches) || task.nextIndex >= task.batches.length) return;
+    if (TERMINAL_TASK_STATUSES.has(task.status)) {
+      if (task.status === "failed") {
+        const error = new Error(task.error || "A tarefa anterior foi interrompida com segurança.");
+        renderFailure(error, task);
+        setStatus("A tarefa anterior foi encerrada sem novos ciclos automáticos. Envie novamente para iniciar uma nova execução.", "error");
+      }
+      return;
+    }
+    const persistedDeadline = task.deadlineAt ? new Date(task.deadlineAt).getTime() : Infinity;
+    if (Date.now() >= persistedDeadline) {
+      task.status = "failed";
+      task.error = deadlineError("task").message;
+      task.updatedAt = new Date().toISOString();
+      await saveBatchTask(task);
+      renderFailure(deadlineError("task"), task);
+      setStatus("A tarefa anterior atingiu o limite seguro e não será retomada em loop.", "error");
+      return;
+    }
     const box = document.getElementById("sl-agent-progress");
     if (!box) return;
     box.hidden = false;
@@ -707,6 +773,15 @@
     if (state.busy || !state.ready) return false;
     const task = await loadBatchTask();
     if (!task || !Array.isArray(task.batches) || task.nextIndex >= task.batches.length) return false;
+    if (TERMINAL_TASK_STATUSES.has(task.status)) return false;
+    const persistedDeadline = task.deadlineAt ? new Date(task.deadlineAt).getTime() : Infinity;
+    if (Date.now() >= persistedDeadline) {
+      task.status = "failed";
+      task.error = deadlineError("task").message;
+      task.updatedAt = new Date().toISOString();
+      await saveBatchTask(task);
+      return false;
+    }
     void runBatchTask(task);
     return true;
   };
