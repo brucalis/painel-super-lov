@@ -76,15 +76,19 @@ export const Route = createFileRoute("/api/public/activate-license")({
         // A contagem começa exatamente na primeira ativação. A atualização
         // condicional torna chamadas simultâneas idempotentes: apenas uma delas
         // define o início; as demais reutilizam o mesmo vencimento.
-        if (!license.is_lifetime && license.duration_minutes && !license.activation_started_at) {
+        if (!license.activation_started_at) {
           const startedAt = new Date();
-          const expiresAt = new Date(startedAt.getTime() + license.duration_minutes * 60000);
+          const activationPatch: Record<string, string> = {
+            activation_started_at: startedAt.toISOString(),
+          };
+          if (!license.is_lifetime && license.duration_minutes) {
+            activationPatch.expires_at = new Date(
+              startedAt.getTime() + license.duration_minutes * 60000,
+            ).toISOString();
+          }
           await supabaseAdmin
             .from("licenses")
-            .update({
-              activation_started_at: startedAt.toISOString(),
-              expires_at: expiresAt.toISOString(),
-            } as never)
+            .update(activationPatch as never)
             .eq("id", license.id)
             .is("activation_started_at", null);
           const { data: activatedLicense } = await supabaseAdmin
