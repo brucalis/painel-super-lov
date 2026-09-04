@@ -12,7 +12,7 @@ const adminBuildDir = path.join(buildRoot, "admin");
 const customerBuildDir = path.join(buildRoot, "customer");
 const publicDir = path.join(root, "public");
 const adminZip = path.join(publicDir, "super-lovable-admin-v32.0.44.zip");
-const customerZip = path.join(publicDir, "super-lovable-04.09.S4.zip");
+const customerZip = path.join(publicDir, "super-lovable-04.09.S5.zip");
 const stableCustomerZip = path.join(publicDir, "super-lovable.zip");
 
 const requiredScripts = [
@@ -70,8 +70,8 @@ await cp(overlayDir, customerBuildDir, { recursive: true });
 const customerManifestPath = path.join(customerBuildDir, "manifest.json");
 const customerManifest = JSON.parse(await readFile(customerManifestPath, "utf8"));
 customerManifest.name = "Superlovable";
-customerManifest.version = "33.0.8";
-customerManifest.version_name = "04.09.S4";
+customerManifest.version = "33.0.9";
+customerManifest.version_name = "04.09.S5";
 customerManifest.description = "Superlovable — edição estável para uso com credenciais próprias.";
 await writeFile(customerManifestPath, JSON.stringify(customerManifest, null, 2) + "\n");
 
