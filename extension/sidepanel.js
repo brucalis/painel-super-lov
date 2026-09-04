@@ -22,7 +22,7 @@
     return String(url || '');
   }
 
-  let sessionId = null, userName = null, expiresAt = null, licenseStatus = null, heartbeatInterval = null, deviceId = null, isResellerUser = false;
+  let sessionId = null, userName = null, expiresAt = null, licenseStatus = null, heartbeatInterval = null, countdownInterval = null, deviceId = null, isResellerUser = false;
   let spIsRecording = false;
   let spAttachedFiles = [];
   let spActiveTab = 'prompt';
@@ -1291,6 +1291,11 @@ licenseKey = resolvedKey;
       '<a class="sp-renewal-btn" href="https://superlovable-lp.lovable.app/" target="_blank" rel="noopener noreferrer">Renovar licença</a></div>';
   }
 
+  function getFirstName(value) {
+    const cleaned = String(value || "").trim().replace(/\s+/g, " ");
+    return cleaned ? cleaned.split(" ")[0] : "Usuário";
+  }
+
   function getLicenseDisplayLabel() {
     if (licenseLifetime) return 'Vitalício';
     if (isTrialLicense()) return 'Teste';
@@ -1309,11 +1314,11 @@ licenseKey = resolvedKey;
 
   // --- Main UI ---
   function showMainUI() {
-  const greeting = spEscapeHtml(userName || 'User');
+  const greeting = spEscapeHtml(getFirstName(userName));
   const customerEdition = globalThis.SUPER_LOVABLE_EDITION?.mode === 'customer';
   const statusBadge = customerEdition ? '' : spTemplateStatusBadge(licenseStatus);
   const customerProfile = customerEdition
-    ? '<div class="sp-customer-identity"><span><strong>Usuário:</strong> ' + greeting + '</span><span><strong>Licença:</strong> ' + spEscapeHtml(getLicenseDisplayLabel()) + '</span></div>'
+    ? '<div class="sp-customer-identity"><span><strong>Usuário:</strong> <span id="sp-name">' + greeting + '</span></span><span><strong>Licença:</strong> ' + spEscapeHtml(getLicenseDisplayLabel()) + '</span><span id="sp-customer-license-countdown" class="sp-customer-license-countdown" style="display:none"></span></div>'
     : '<div class="sp-profile-name-row"><span class="sp-profile-name" id="sp-name">' + greeting + '</span>' + statusBadge + '</div>';
   const body = document.getElementById('sp-body');
   const renewalHtml = getRenewalNoticeHtml();
@@ -1694,17 +1699,27 @@ licenseKey = resolvedKey;
 
   // --- Countdown ---
   function updateCountdown() {
-  const el = document.getElementById('sp-countdown');
+  const customerEdition = globalThis.SUPER_LOVABLE_EDITION?.mode === 'customer';
+  const el = document.getElementById(customerEdition ? 'sp-customer-license-countdown' : 'sp-countdown');
   if(!el) return;
+  if(countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
 
   if(licenseLifetime) {
-    el.style.display = 'flex';
-    el.innerHTML =
-      '<div class="sp-lifetime-card">' +
-        '<span class="sp-lifetime-icon">∞</span>' +
-        '<span class="sp-lifetime-label">VITALÍCIO</span>' +
-        '<span class="sp-lifetime-status">Acesso sem expiração</span>' +
-      '</div>';
+    if(customerEdition) {
+      el.style.display = 'none';
+      el.textContent = '';
+    } else {
+      el.style.display = 'flex';
+      el.innerHTML =
+        '<div class="sp-lifetime-card">' +
+          '<span class="sp-lifetime-icon">∞</span>' +
+          '<span class="sp-lifetime-label">VITALÍCIO</span>' +
+          '<span class="sp-lifetime-status">Acesso sem expiração</span>' +
+        '</div>';
+    }
     return;
   }
 
@@ -1727,14 +1742,19 @@ licenseKey = resolvedKey;
     const secs = Math.floor((remaining % 60000) / 1000);
     const pct = Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
     const timeStr = days > 0 ? days + 'd ' + hrs + 'h ' + mins + 'm' : hrs > 0 ? hrs + 'h ' + mins + 'm ' + String(secs).padStart(2,'0') + 's' : mins + ':' + String(secs).padStart(2,'0');
-    const label = isTrialLicense() ? 'Teste expira em' : 'Plano expira em';
+    const label = isTrialLicense() ? 'Teste expira em' : 'Tempo restante';
     const urgentClass = pct < 20 ? ' sp-bar-urgent' : '';
 
-    el.innerHTML = spTemplateCountdown(label, timeStr, pct, urgentClass);
+    if(customerEdition) {
+      el.dataset.urgent = pct < 20 ? 'true' : 'false';
+      el.textContent = label + ': ' + timeStr;
+    } else {
+      el.innerHTML = spTemplateCountdown(label, timeStr, pct, urgentClass);
+    }
   }
 
   tick();
-  setInterval(tick, 1000);
+  countdownInterval = setInterval(tick, 1000);
 }
 
   // --- JWT Decode ---
@@ -2647,7 +2667,7 @@ sessionId = data.session_id || sessionId;
   ql_license_plan: licensePlan,
   ql_session_id: sessionId
 });
-              const nameEl = document.getElementById('sp-name'); if(nameEl) nameEl.textContent = userName || 'User';
+              const nameEl = document.getElementById('sp-name'); if(nameEl) nameEl.textContent = getFirstName(userName);
               updateCountdown();
             } else {
               chrome.storage.local.remove(["ql_license_valid","ql_session_id","ql_user_name","ql_expires_at","ql_activated_at","ql_license_status"]);

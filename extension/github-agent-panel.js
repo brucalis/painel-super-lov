@@ -170,6 +170,7 @@
         gemini: geminiReady,
         github: Boolean(connection.installation_id),
         project: Boolean(connection.repository_full_name),
+        repository: connection.repository_full_name || "",
       });
 
       if (!configured) {
@@ -193,10 +194,14 @@
       if (connection.repository_full_name) {
         setStatus(`Projeto conectado: ${connection.repository_full_name} (main)`, "success");
         if (picker) picker.style.display = "none";
+        const switchProject = document.getElementById("sl-agent-switch-project");
+        if (switchProject) switchProject.style.display = "inline-flex";
         await restorePendingBatchUi();
         return;
       }
       setStatus("Conta conectada. Selecione seu projeto abaixo.");
+      const switchProject = document.getElementById("sl-agent-switch-project");
+      if (switchProject) switchProject.style.display = "none";
       if (picker) picker.style.display = "flex";
       await loadRepositories();
     } catch (error) {
@@ -241,6 +246,20 @@
     if (count) count.textContent = query ? `${filtered.length} resultado(s)` : `${state.repositories.length} projeto(s) disponível(is)`;
   }
 
+  async function chooseAnotherRepository() {
+    try {
+      const picker = document.getElementById("sl-agent-project-row");
+      const switchProject = document.getElementById("sl-agent-switch-project");
+      if (switchProject) switchProject.style.display = "none";
+      if (picker) picker.style.display = "flex";
+      setStatus("Escolha outro repositório. Suas demais conexões serão mantidas.", "warning");
+      await loadRepositories();
+      document.getElementById("sl-agent-repository-search")?.focus();
+    } catch (error) {
+      setStatus(error.message || "Não foi possível listar os repositórios.", "error");
+    }
+  }
+
   async function bind() {
     try {
       const select = document.getElementById("sl-agent-repository");
@@ -251,6 +270,7 @@
         body: JSON.stringify({ repository: select.value }),
       });
       await refresh();
+      globalThis.superLovableCloseConnectionStatus?.();
     } catch (error) {
       setStatus(error.message, "error");
     }
@@ -747,6 +767,7 @@
       <p id="sl-agent-status" data-kind="info">Verificando conexão…</p>
       <div class="sl-agent-actions">
         <button type="button" id="sl-agent-connect">Conectar GitHub</button>
+        <button type="button" id="sl-agent-switch-project" style="display:none">Trocar projeto</button>
         <button type="button" id="sl-agent-refresh">Atualizar</button>
       </div>
       <div id="sl-agent-project-row" class="sl-agent-project" style="display:none">
@@ -762,6 +783,7 @@
     card?.parentElement?.insertBefore(panel, card);
     document.getElementById("sl-agent-connect")?.addEventListener("click", connect);
     document.getElementById("sl-agent-refresh")?.addEventListener("click", refresh);
+    document.getElementById("sl-agent-switch-project")?.addEventListener("click", chooseAnotherRepository);
     document.getElementById("sl-agent-bind")?.addEventListener("click", bind);
     document.getElementById("sl-agent-repository-search")?.addEventListener("input", (event) => filterRepositories(event.target.value));
     refresh();

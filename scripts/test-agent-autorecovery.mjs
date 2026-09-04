@@ -4,6 +4,8 @@ import test from "node:test";
 
 const panel = await readFile(new URL("../extension/github-agent-panel.js", import.meta.url), "utf8");
 const watcher = await readFile(new URL("../extension/agent-autorecovery.js", import.meta.url), "utf8");
+const customerSettings = await readFile(new URL("../extension-customer/customer-ai-settings.js", import.meta.url), "utf8");
+const sidepanel = await readFile(new URL("../extension/sidepanel.js", import.meta.url), "utf8");
 
 test("a retomada não depende de botões ou cliques no DOM", () => {
   assert.doesNotMatch(panel, /Retomar da etapa|Continuar da etapa/);
@@ -58,4 +60,24 @@ test("tarefas encerradas não entram novamente no ciclo automático", () => {
   assert.match(panel, /TERMINAL_TASK_STATUSES/);
   assert.match(panel, /TERMINAL_TASK_STATUSES\.has\(task\.status\)/);
   assert.match(panel, /não será retomada em loop/);
+});
+
+
+test("painel comercial recolhe conexões completas e permite rolagem", () => {
+  assert.match(customerSettings, /becameComplete \|\| !userOpenedCompletePanel/);
+  assert.match(customerSettings, /\.sp-body \{ overflow-y: auto !important/);
+  assert.match(customerSettings, /superLovableCloseConnectionStatus/);
+});
+
+test("usuário pode trocar repositório sem refazer as demais conexões", () => {
+  assert.match(panel, /chooseAnotherRepository/);
+  assert.match(panel, /sl-agent-switch-project/);
+  assert.match(panel, /Suas demais conexões serão mantidas/);
+  assert.match(customerSettings, /Repositório selecionado:/);
+});
+
+test("perfil comercial usa primeiro nome e mostra validade temporária", () => {
+  assert.match(sidepanel, /function getFirstName/);
+  assert.match(sidepanel, /sp-customer-license-countdown/);
+  assert.match(sidepanel, /Tempo restante/);
 });

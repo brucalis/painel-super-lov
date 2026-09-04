@@ -128,16 +128,22 @@ export async function logEvent(
 }
 
 export async function licenseResponse(license: LicenseRow, token: string | null, deviceId?: string) {
-  const { count } = await supabaseAdmin
-    .from("license_devices")
-    .select("id", { count: "exact", head: true })
-    .eq("license_id", license.id)
-    .eq("active", true);
+  const [{ count }, { data: customer }] = await Promise.all([
+    supabaseAdmin
+      .from("license_devices")
+      .select("id", { count: "exact", head: true })
+      .eq("license_id", license.id)
+      .eq("active", true),
+    license.customer_id
+      ? supabaseAdmin.from("customers").select("full_name").eq("id", license.customer_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   return {
     status: effectiveStatus(license),
     license_token: token,
     license_key: license.license_key,
+    user_name: String(customer?.full_name || "").trim() || null,
     access_role: license.access_role === "admin" ? "admin" : "user",
     plan: license.plan,
     plan_name: license.plan_name,
