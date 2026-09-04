@@ -90,8 +90,37 @@ export const Route = createFileRoute("/api/public/webhooks/sales")({
               return json({ status: "error", message: "E-mail do comprador ausente." }, 422);
             }
 
-            const durationDays = Number(data.duration_days ?? payload.duration_days ?? 0) || null;
-            const isLifetime = Boolean(data.is_lifetime ?? payload.is_lifetime ?? false);
+            // Proteção adicional para as duas ofertas oficiais da página de vendas.
+            // Mesmo que um integrador envie um payload genérico sem duration_days/
+            // is_lifetime, o código público do checkout determina o prazo correto.
+            const nestedPayload = payload.payload ?? {};
+            const offer = data.offer ?? nestedPayload.offer ?? payload.offer ?? {};
+            const offerCode = String(
+              offer.public_id ??
+              offer.publicId ??
+              data.offer_public_id ??
+              nestedPayload.offer_public_id ??
+              offer.id ??
+              data.offer_id ??
+              "",
+            ).trim().toLowerCase();
+            const isOfficial30Days = offerCode === "qzygzw1";
+            const isOfficialLifetime = offerCode === "xy3nvpg";
+
+            const rawDuration = Number(data.duration_days ?? payload.duration_days ?? 0) || null;
+            const rawLifetime = Boolean(data.is_lifetime ?? payload.is_lifetime ?? false);
+            const durationDays = isOfficial30Days ? 30 : isOfficialLifetime ? null : rawDuration;
+            const isLifetime = isOfficialLifetime ? true : isOfficial30Days ? false : rawLifetime;
+            const plan = isOfficialLifetime
+              ? "lifetime"
+              : isOfficial30Days
+                ? "monthly"
+                : String(data.plan ?? payload.plan ?? "pro");
+            const planName = isOfficialLifetime
+              ? "Vitalícia"
+              : isOfficial30Days
+                ? "30 dias"
+                : String(data.plan_name ?? payload.plan_name ?? "Plano Pro");
 
             // Renovação: estende a licença existente do mesmo pedido/cliente.
             if (RENEW.includes(eventType) && externalId) {
@@ -121,8 +150,8 @@ export const Route = createFileRoute("/api/public/webhooks/sales")({
             }
 
             const license = await createLicenseRecord({
-              plan: String(data.plan ?? payload.plan ?? "pro"),
-              plan_name: String(data.plan_name ?? payload.plan_name ?? "Plano Pro"),
+              plan,
+              plan_name: planName,
               is_lifetime: isLifetime,
               duration_days: durationDays ?? (isLifetime ? null : 365),
               device_limit: Number(data.device_limit ?? payload.device_limit ?? 1) || 1,
