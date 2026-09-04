@@ -290,6 +290,21 @@ export async function getLicenseConnection(licenseId: string) {
   return data as Record<string, unknown> | null;
 }
 
+export async function disconnectLicenseGithub(licenseId: string) {
+  const { error } = await supabaseAdmin
+    .from("github_license_connections")
+    .delete()
+    .eq("license_id", licenseId);
+  if (error) throw new Error("Não foi possível desconectar a conta do GitHub.");
+
+  await supabaseAdmin
+    .from("github_license_oauth_states")
+    .delete()
+    .eq("license_id", licenseId);
+
+  return { disconnected: true };
+}
+
 export async function repositoriesForLicense(licenseId: string) {
   const connection = await getLicenseConnection(licenseId);
   const installationId = Number(connection?.installation_id || 0);
