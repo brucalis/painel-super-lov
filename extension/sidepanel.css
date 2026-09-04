@@ -1235,6 +1235,9 @@ body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
 .sl-agent-actions { display:flex; gap:6px; }
 .sl-agent-actions button, .sl-agent-project button { border:1px solid rgba(236,72,153,.42); border-radius:8px; padding:7px 9px; background:#24113e; color:#f5e9ff; font-size:10px; cursor:pointer; }
 .sl-agent-actions button:hover, .sl-agent-project button:hover { border-color:#ec4899; background:#351650; }
+.sl-agent-actions .sl-agent-danger { border-color:rgba(251,113,133,.42); color:#fecdd3; background:rgba(127,29,29,.14); }
+.sl-agent-actions .sl-agent-danger:hover { border-color:#fb7185; background:rgba(127,29,29,.28); }
+.sl-agent-actions button:disabled { cursor:wait; opacity:.55; }
 .sl-agent-project { gap:6px; margin-top:8px; flex-direction:column; }
 .sl-agent-project-select { display:flex; gap:6px; }
 .sl-agent-project input { width:100%; border:1px solid rgba(168,85,247,.4); border-radius:8px; padding:8px; background:#140b25; color:#fff; font-size:10px; outline:none; }
