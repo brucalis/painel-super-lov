@@ -32,6 +32,7 @@ export type License = {
   last_validated_at: string | null;
   created_at: string;
   customers?: Customer | null;
+  license_devices?: Array<{ first_seen_at: string | null }>;
 };
 
 export const STATUS_LABEL: Record<LicenseStatus, string> = {
@@ -59,6 +60,18 @@ export function daysLeft(license: License) {
   return Math.ceil((Date.parse(license.expires_at) - Date.now()) / 86400000);
 }
 
+export function activationStartedAt(
+  license: License,
+  devices: Array<{ first_seen_at?: string | null }> = license.license_devices ?? [],
+) {
+  if (license.activation_started_at) return license.activation_started_at;
+  const firstDeviceActivation = devices
+    .map((device) => device.first_seen_at)
+    .filter((value): value is string => !!value && !Number.isNaN(Date.parse(value)))
+    .sort((a, b) => Date.parse(a) - Date.parse(b))[0];
+  return firstDeviceActivation ?? license.last_validated_at ?? null;
+}
+
 export function fmt(iso: string | null | undefined) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -70,7 +83,7 @@ export function fmt(iso: string | null | undefined) {
 export async function fetchLicenses() {
   const { data, error } = await supabase
     .from("licenses")
-    .select("*, customers(*)")
+    .select("*, customers(*), license_devices(first_seen_at)")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as License[];
