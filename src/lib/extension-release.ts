@@ -1,10 +1,18 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "04.09.S2",
-  technicalVersion: "33.0.6",
+  version: "04.09.S3",
+  technicalVersion: "33.0.7",
   updatedAt: "04/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=04.09.S2",
-  downloadName: "superlovable-04.09.S2.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=04.09.S3",
+  downloadName: "superlovable-04.09.S3.zip",
   changelog: [
+    {
+      version: "04.09.S3",
+      date: "04/09/2026",
+      changes: [
+        "Melhorias na navegação e nas configurações.",
+        "Gestão de projetos e informações da licença mais práticas.",
+      ],
+    },
     {
       version: "04.09.S2",
       date: "04/09/2026",
