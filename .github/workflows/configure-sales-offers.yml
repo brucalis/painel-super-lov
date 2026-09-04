@@ -1,0 +1,52 @@
+name: Configure commercial offers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/configure-sales-offers.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Atualizar mapeamento das ofertas Ensinaflix
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/lib/ensinaflix.server.ts")
+          text = path.read_text(encoding="utf-8")
+
+          marker = "// Catálogo oficial como fallback operacional. A tabela continua tendo\n"
+          block = '''// Ofertas oficiais da página de vendas. Estes códigos são os identificadores\n// públicos usados nos checkouts /c/<codigo> da Ensinaflix e têm prioridade\n// sobre mapeamentos antigos do banco para impedir que uma compra nova gere\n// uma licença com prazo incorreto.\nconst OFFICIAL_CHECKOUT_MAPPINGS: Record<string, Mapping> = {\n  qzygzw1: {\n    id: "official-30d-qzygzw1",\n    plan_code: "monthly",\n    plan_name: "30 dias",\n    duration_days: 30,\n    duration_minutes: null,\n    is_lifetime: false,\n    device_limit: 1,\n  },\n  xy3nvpg: {\n    id: "official-lifetime-xy3nvpg",\n    plan_code: "lifetime",\n    plan_name: "Vitalícia",\n    duration_days: null,\n    duration_minutes: null,\n    is_lifetime: true,\n    device_limit: 1,\n  },\n};\n\n'''
+          if "OFFICIAL_CHECKOUT_MAPPINGS" not in text:
+              if marker not in text:
+                  raise SystemExit("Marcador do catálogo não encontrado")
+              text = text.replace(marker, block + marker, 1)
+
+          old = '''export async function findMapping(n: NormalizedEvent): Promise<Mapping | null> {\n  const { data } = await supabaseAdmin\n'''
+          new = '''export async function findMapping(n: NormalizedEvent): Promise<Mapping | null> {\n  // A página comercial usa estes dois checkouts oficiais. O webhook da\n  // Ensinaflix normalmente envia o código em offer.public_id; alguns formatos\n  // o enviam em offer.id, por isso aceitamos ambos.\n  const checkoutCode = String(n.offerPublicId || n.offerId || "").trim().toLowerCase();\n  const officialCheckout = OFFICIAL_CHECKOUT_MAPPINGS[checkoutCode];\n  if (officialCheckout) return officialCheckout;\n\n  const { data } = await supabaseAdmin\n'''
+          if "const officialCheckout = OFFICIAL_CHECKOUT_MAPPINGS" not in text:
+              if old not in text:
+                  raise SystemExit("Função findMapping não encontrada")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+      - name: Verificar TypeScript
+        run: npm install --no-audit --no-fund && npm run build
+      - name: Publicar alteração
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/ensinaflix.server.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: mapear ofertas de 30 dias e acesso vitalício"
+          git pull --rebase origin main
+          git push origin main
