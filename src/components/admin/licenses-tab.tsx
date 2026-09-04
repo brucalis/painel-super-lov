@@ -7,6 +7,7 @@ import {
   effectiveStatus,
   daysLeft,
   fmt,
+  activationStartedAt,
   STATUS_LABEL,
   type License,
   type LicenseStatus,
@@ -207,6 +208,7 @@ export function LicensesTab() {
               {filtered.map((l) => {
                 const status = effectiveStatus(l);
                 const d = daysLeft(l);
+                const activatedAt = activationStartedAt(l);
                 return (
                   <TableRow key={l.id}>
                     <TableCell className="font-mono text-xs">{l.license_key}</TableCell>
@@ -219,8 +221,8 @@ export function LicensesTab() {
                       <Badge variant={statusVariant(status)}>{STATUS_LABEL[status]}</Badge>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {l.activation_started_at ? (
-                        fmt(l.activation_started_at)
+                      {activatedAt ? (
+                        fmt(activatedAt)
                       ) : (
                         <span className="text-amber-600">Aguardando primeira ativação</span>
                       )}
@@ -228,7 +230,7 @@ export function LicensesTab() {
                     <TableCell className="text-sm">
                       {l.is_lifetime ? (
                         "Vitalícia"
-                      ) : !l.activation_started_at ? (
+                      ) : !activatedAt ? (
                         <span className="text-muted-foreground">Prazo ainda não iniciado</span>
                       ) : (
                         <>
@@ -425,6 +427,7 @@ function LicenseDetailDialog({
 
   if (!license) return null;
   const activeLicense = license;
+  const activatedAt = activationStartedAt(license, devices);
 
   async function patch(values: Record<string, unknown>, message: string) {
     setBusy(true);
@@ -515,7 +518,7 @@ function LicenseDetailDialog({
               <div className="rounded-md border bg-muted/30 p-3 text-xs">
                 <p>
                   <span className="font-medium">Ativada em:</span>{" "}
-                  {license.activation_started_at ? fmt(license.activation_started_at) : "Aguardando primeira ativação"}
+                  {activatedAt ? fmt(activatedAt) : "Aguardando primeira ativação"}
                 </p>
                 <p className="mt-1">
                   <span className="font-medium">Expira em:</span>{" "}
