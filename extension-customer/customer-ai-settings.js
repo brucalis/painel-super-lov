@@ -17,12 +17,14 @@
     gemini: false,
     github: false,
     project: false,
+    repository: "",
     ready: false,
   };
 
   let panelPreferenceLoaded = false;
   let panelPreferredOpen = null;
   let suppressPanelToggle = false;
+  let userOpenedCompletePanel = false;
   let recoveryScheduled = false;
   let syncScheduled = false;
   let lastExecutionActivityAt = Date.now();
@@ -167,12 +169,17 @@
   function renderProjectStatus() {
     const status = document.getElementById("sl-project-status");
     if (!status) return;
+    const switchButton = document.getElementById("sl-agent-switch-project");
     if (connectionState.github && connectionState.project) {
-      setStatusText(status, "success", "GitHub e projeto conectados");
+      const repository = connectionState.repository || "projeto selecionado";
+      setStatusText(status, "success", `Repositório selecionado: ${repository}`);
+      if (switchButton) switchButton.style.display = "inline-flex";
     } else if (connectionState.github) {
-      setStatusText(status, "warning", "GitHub conectado. Selecione o projeto para continuar.");
+      setStatusText(status, "warning", "GitHub conectado. Selecione o repositório para continuar.");
+      if (switchButton) switchButton.style.display = "none";
     } else {
       setStatusText(status, "warning", "GitHub ainda não conectado");
+      if (switchButton) switchButton.style.display = "none";
     }
   }
 
@@ -212,12 +219,11 @@
     renderProjectStatus();
 
     if (!complete) {
+      userOpenedCompletePanel = false;
       setPanelOpen(details, true);
-    } else if (becameComplete) {
+    } else if (becameComplete || !userOpenedCompletePanel) {
       setPanelOpen(details, false);
       void persistPanelPreference(false);
-    } else if (panelPreferenceLoaded && typeof panelPreferredOpen === "boolean") {
-      setPanelOpen(details, panelPreferredOpen);
     }
   }
 
@@ -306,13 +312,17 @@
     const style = document.createElement("style");
     style.id = "sl-customer-layout-style";
     style.textContent = `
+      .sp-body { overflow-y: auto !important; overflow-x: hidden !important; }
+      #sp-tab-content { flex: 0 0 auto !important; min-height: auto !important; overflow: visible !important; }
+      #sl-connection-status-host { scroll-margin-top: 8px; }
       #sl-github-agent.sl-customer-execution-panel { margin: 10px 0 12px; }
       #sl-github-agent.sl-customer-execution-panel[hidden] { display: none !important; }
       #sl-project-connection { display: flex; flex-direction: column; gap: 8px; }
       #sl-project-status { margin: 0; font-size: 11px; line-height: 1.4; color: var(--ql-text-secondary); }
       #sl-project-status[data-kind="success"] { color: var(--ql-success); }
       #sl-project-status[data-kind="warning"] { color: var(--ql-warning); }
-      #sl-project-controls > .sl-agent-actions { margin-top: 0; }
+      #sl-project-controls > .sl-agent-actions { margin-top: 0; flex-wrap: wrap; }
+      #sl-agent-switch-project { border-color: rgba(103,232,249,.4); color: #a5f3fc; }
       #sl-project-controls #sl-agent-project-row { margin-top: 8px; }
     `;
     document.head.appendChild(style);
@@ -437,6 +447,7 @@
 
     details.addEventListener("toggle", () => {
       if (suppressPanelToggle) return;
+      if (connectionState.ready) userOpenedCompletePanel = details.open;
       void persistPanelPreference(details.open);
     });
     ["groq", "gemini"].forEach((provider) => {
@@ -445,9 +456,15 @@
     });
 
     globalThis.superLovableOpenConnectionStatus = () => {
+      if (connectionState.ready) userOpenedCompletePanel = true;
       setPanelOpen(details, true);
       void persistPanelPreference(true);
       details.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    globalThis.superLovableCloseConnectionStatus = () => {
+      userOpenedCompletePanel = false;
+      setPanelOpen(details, false);
+      void persistPanelPreference(false);
     };
 
     ensureProjectScaffold();
@@ -461,6 +478,7 @@
     const detail = event.detail || {};
     connectionState.github = Boolean(detail.github);
     connectionState.project = Boolean(detail.project);
+    connectionState.repository = String(detail.repository || "");
     renderOverallStatus();
     scheduleSyncAgentLayout();
   });
