@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { EXTENSION_RELEASE } from "@/lib/extension-release";
+import { PremiumFeatures } from "@/components/PremiumFeatures";
 import { TutorialPdfViewer } from "@/components/TutorialPdfViewer";
 
 export const Route = createFileRoute("/")({
@@ -23,28 +24,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Index,
 });
-
-const steps = [
-  "Descompacte o arquivo baixado.",
-  "Abra chrome://extensions no Chrome (ou outro navegador Chromium).",
-  "Ative o Modo do desenvolvedor no canto superior direito.",
-  "Clique em Carregar sem compactação e selecione a pasta descompactada.",
-  "Abra um projeto em lovable.dev e clique no ícone de raio da Super Lovable.",
-  "Na tela de ativação, informe sua chave de licença ou o mesmo e-mail usado na compra.",
-  "Conecte seu GitHub e informe uma única vez suas chaves gratuitas do Groq e do Gemini.",
-  "Pronto: use sempre o chat da Super Lovable para enviar os comandos ao seu projeto.",
-];
-
-const features = [
-  "Chat próprio da Super Lovable para enviar comandos ao projeto",
-  "Envio de imagens e arquivos junto com seus prompts",
-  "Ditado por voz direto no campo de comando",
-  "Uso das suas próprias contas Groq e Gemini, com chaves protegidas e contingência automática",
-  "Histórico dos comandos enviados para consultar e reutilizar",
-  "Skills e prompts reutilizáveis para tarefas frequentes",
-  "Download dos arquivos do projeto em formato ZIP",
-  "Ferramenta para remover a marca d’água do projeto",
-];
 
 function Index() {
   const download = () => {
@@ -176,35 +155,7 @@ function Index() {
         </div>
 
         <TutorialPdfViewer />
-
-        <div className="mt-20 grid gap-6 lg:grid-cols-2">
-          <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-7 backdrop-blur">
-            <h2 className="text-xl font-semibold">Como instalar</h2>
-            <div className="mt-4 rounded-2xl border border-fuchsia-400/25 bg-fuchsia-400/10 px-4 py-3 text-sm leading-6 text-fuchsia-100">
-              Importante: depois da ativação, envie seus comandos pelo chat da <strong>Super Lovable</strong>, e não pelo chat nativo da Lovable.
-            </div>
-            <ol className="mt-6 space-y-4 text-slate-300">
-              {steps.map((s, i) => (
-                <li key={s} className="flex gap-4">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-xs font-bold text-fuchsia-300">{i + 1}</span>
-                  <span className="pt-0.5 text-sm leading-6">{s}</span>
-                </li>
-              ))}
-            </ol>
-          </section>
-
-          <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-7 backdrop-blur">
-            <h2 className="text-xl font-semibold">O que está incluído</h2>
-            <ul className="mt-6 space-y-3">
-              {features.map((f) => (
-                <li key={f} className="flex gap-3 text-sm leading-6 text-slate-300">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gradient-to-r from-pink-400 to-violet-400 shadow-[0_0_10px_rgba(244,114,182,0.8)]" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
+        <PremiumFeatures />
       </section>
     </main>
   );
