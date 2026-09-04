@@ -38,3 +38,24 @@ test("erros de autenticação não entram em repetição automática", () => {
   assert.match(panel, /HTTP_403/);
   assert.match(panel, /kind === "terminal"/);
 });
+
+
+test("requisições do agente possuem timeout abortável", () => {
+  assert.match(panel, /REQUEST_TIMEOUT_MS = 90_000/);
+  assert.match(panel, /AbortController/);
+  assert.match(panel, /controller\.abort\("REQUEST_TIMEOUT"\)/);
+  assert.match(panel, /REQUEST_TIMEOUT/);
+});
+
+test("etapas e tarefas complexas têm prazos absolutos", () => {
+  assert.match(panel, /BATCH_DEADLINE_MS = 8 \* 60_000/);
+  assert.match(panel, /TASK_DEADLINE_MS = 25 \* 60_000/);
+  assert.match(panel, /assertDeadline\(taskDeadline, "task"\)/);
+  assert.match(panel, /planAndCommit\(batchPrompt, label, false, batchDeadline\)/);
+});
+
+test("tarefas encerradas não entram novamente no ciclo automático", () => {
+  assert.match(panel, /TERMINAL_TASK_STATUSES/);
+  assert.match(panel, /TERMINAL_TASK_STATUSES\.has\(task\.status\)/);
+  assert.match(panel, /não será retomada em loop/);
+});
