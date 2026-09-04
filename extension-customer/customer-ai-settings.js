@@ -321,6 +321,8 @@
       #sl-project-status { margin: 0; font-size: 11px; line-height: 1.4; color: var(--ql-text-secondary); }
       #sl-project-status[data-kind="success"] { color: var(--ql-success); }
       #sl-project-status[data-kind="warning"] { color: var(--ql-warning); }
+      .sp-customer-license-countdown { color: #a5f3fc; font-size: 10px; font-weight: 700; }
+      .sp-customer-license-countdown[data-urgent="true"] { color: var(--ql-warning); }
       #sl-project-controls > .sl-agent-actions { margin-top: 0; flex-wrap: wrap; }
       #sl-agent-switch-project { border-color: rgba(103,232,249,.4); color: #a5f3fc; }
       #sl-project-controls #sl-agent-project-row { margin-top: 8px; }
