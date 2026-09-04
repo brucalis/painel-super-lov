@@ -278,6 +278,7 @@
   async function chooseAnotherRepository() {
     try {
       const picker = document.getElementById("sl-agent-project-row");
+      const switchProject = document.getElementById("sl-agent-switch-project");
       if (switchProject) switchProject.style.display = "none";
       if (picker) picker.style.display = "flex";
       setStatus("Escolha outro repositório. Suas demais conexões serão mantidas.", "warning");
