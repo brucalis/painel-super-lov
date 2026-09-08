@@ -21,8 +21,8 @@ const REDUCED_REPOSITORY_MAP_CHARS = 8_000;
 const GROQ_CONTEXT_CHARS = 6_000;
 const GROQ_RETRY_CONTEXT_CHARS = 2_800;
 const GROQ_MAX_COMPLETION_TOKENS = 1_200;
-const MAX_CONTEXT_ROUNDS = 5;
-const PROVIDER_TIMEOUT_MS = 35_000;
+const MAX_CONTEXT_ROUNDS = 2;
+const PROVIDER_TIMEOUT_MS = 25_000;
 // A recuperação entre provedores pertence à camada resiliente; repetir aqui só multiplica timeouts.
 const TRANSIENT_RETRY_DELAYS: number[] = [];
 
