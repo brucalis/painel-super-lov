@@ -327,7 +327,8 @@ export async function decomposeAgentPrompt(prompt: string, customerAi?: AgentAiP
   const minimum = minimumBatchCount(normalized, score);
   const deterministic = explicitStageFallback(normalized);
   // Uma decomposição curta demais transforma uma página inteira em uma única chamada pesada.
-  const batches = (ai?.batches?.length || 0) >= minimum ? ai!.batches : deterministic;
+  const aiBatches = ai && "batches" in ai ? ai.batches : [];
+  const batches = aiBatches.length >= minimum ? aiBatches : deterministic;
   if (batches.length < 2) {
     return {
       batched: false,

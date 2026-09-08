@@ -340,7 +340,7 @@ export async function createLicenseRecord(input: {
   };
   let { data, error } = await supabaseAdmin.from("licenses").insert(withExternalReferences as never).select("*").single();
   if (error && /external_(product|subscription)_id/i.test(error.message)) {
-    ({ data, error } = await supabaseAdmin.from("licenses").insert(baseInsert).select("*").single());
+    ({ data, error } = await supabaseAdmin.from("licenses").insert(baseInsert as never).select("*").single());
   }
   // Compatibilidade durante publicacoes em que o frontend chegou antes da
   // migration de validade. O prazo temporario comeca na criacao somente nesse
@@ -419,7 +419,7 @@ export async function sendLicenseEmail(
     ? `Válida até ${new Intl.DateTimeFormat("pt-BR", {
         dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo"
       }).format(new Date(license.expires_at))}`
-    : license.duration_minutes
+    : (license as Record<string, unknown>).duration_minutes
     ? "A validade começa na primeira ativação"
     : "Validade não informada";
   const safeName = customer.full_name || "Cliente";
