@@ -49,6 +49,33 @@ function shouldBatch(prompt: string) {
   return score >= 5 || explicitStages >= 4 || prompt.length >= 3200;
 }
 
+function isFullProductBuild(prompt: string) {
+  return /\b(?:página de vendas|landing page|site completo|página completa|dashboard completo|aplicativo completo|loja virtual|sales page)\b/i.test(prompt);
+}
+
+function minimumBatchCount(prompt: string, score: number) {
+  if (isFullProductBuild(prompt)) return 4;
+  if (score >= 10) return 5;
+  if (score >= 7) return 4;
+  return 3;
+}
+
+function fullProductBuildFallback(prompt: string): BatchStep[] {
+  const context = String(prompt || "").trim().slice(0, 900);
+  const phases = [
+    ["Fundação visual e estrutura", "Identifique a estrutura existente, defina a hierarquia da página, os tokens visuais essenciais e a base responsiva. Preserve o projeto e não implemente ainda todas as seções."],
+    ["Oferta principal", "Implemente hero, proposta de valor, apresentação da oferta e chamadas para ação, com texto coerente com o pedido e bom comportamento responsivo."],
+    ["Conteúdo e benefícios", "Implemente as seções centrais de benefícios, mecanismo, diferenciais e conteúdo persuasivo, reutilizando os componentes e estilos já criados."],
+    ["Confiança e conversão", "Implemente prova social, garantia, perguntas frequentes, objeções e chamadas para ação finais. Garanta acessibilidade e responsividade."],
+    ["Revisão final", "Revise consistência visual, navegação, textos, estados responsivos e acessibilidade. Corrija somente problemas encontrados e execute a validação final do projeto."],
+  ];
+  return phases.map(([title, objective], index) => ({
+    id: `batch-${index + 1}`,
+    title,
+    instruction: `Contexto global do pedido:\n${context}\n\nObjetivo desta etapa:\n${objective}\n\nExecute somente esta etapa, preserve as anteriores e limite as alterações ao necessário.`.slice(0, MAX_BATCH_INSTRUCTION_CHARS),
+  }));
+}
+
 function safeJson(raw: string) {
   const cleaned = String(raw || "")
     .trim()
@@ -146,7 +173,8 @@ Retorne SOMENTE JSON válido no formato:
 {"batches":[{"title":"nome curto","instruction":"instrução autocontida do lote"}]}
 
 Regras obrigatórias:
-- produza entre 2 e 6 lotes;
+- produza entre 3 e 6 lotes;
+- para páginas completas, landing pages, páginas de vendas, dashboards ou aplicativos completos, produza entre 4 e 6 lotes;
 - preserve a ordem de dependências: primeiro estrutura/tipos/utilitários, depois componentes/páginas, depois navegação/integração e por último revisão quando isso fizer sentido;
 - cada lote deve ser pequeno o suficiente para normalmente alterar no máximo 4 arquivos e usar no máximo 6 edições cirúrgicas;
 - não invente caminhos de arquivos, porque outro agente vai descobrir os arquivos reais;
@@ -285,7 +313,12 @@ export async function decomposeAgentPrompt(prompt: string, customerAi?: AgentAiP
   }
 
   const ai = await decomposeWithAi(normalized, customerAi);
-  const batches = ai?.batches?.length ? ai.batches : explicitStageFallback(normalized);
+  const minimum = minimumBatchCount(normalized, score);
+  const deterministic = isFullProductBuild(normalized)
+    ? fullProductBuildFallback(normalized)
+    : explicitStageFallback(normalized);
+  // Uma decomposição curta demais transforma uma página inteira em uma única chamada pesada.
+  const batches = (ai?.batches?.length || 0) >= minimum ? ai!.batches : deterministic;
   if (batches.length < 2) {
     return {
       batched: false,
