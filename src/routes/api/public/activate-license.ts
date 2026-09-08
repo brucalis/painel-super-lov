@@ -76,14 +76,15 @@ export const Route = createFileRoute("/api/public/activate-license")({
         // A contagem começa exatamente na primeira ativação. A atualização
         // condicional torna chamadas simultâneas idempotentes: apenas uma delas
         // define o início; as demais reutilizam o mesmo vencimento.
-        if (!license.activation_started_at) {
+        const licenseRow = license as unknown as Record<string, any>;
+        if (!licenseRow.activation_started_at) {
           const startedAt = new Date();
           const activationPatch: Record<string, string> = {
             activation_started_at: startedAt.toISOString(),
           };
-          if (!license.is_lifetime && license.duration_minutes) {
+          if (!license.is_lifetime && licenseRow.duration_minutes) {
             activationPatch.expires_at = new Date(
-              startedAt.getTime() + license.duration_minutes * 60000,
+              startedAt.getTime() + Number(licenseRow.duration_minutes) * 60000,
             ).toISOString();
           }
           await supabaseAdmin
@@ -130,7 +131,7 @@ export const Route = createFileRoute("/api/public/activate-license")({
             .from("license_devices")
             .select("*")
             .eq("license_id", license.id)
-            .eq("installation_id", installationId)
+            .eq("installation_id" as never, installationId as never)
             .maybeSingle();
           if (installationError && /installation_id|schema cache/i.test(installationError.message)) {
             installationColumnAvailable = false;
