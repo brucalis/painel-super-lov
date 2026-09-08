@@ -30,7 +30,7 @@ test("commit perdido é reconciliado antes de criar outro plano", () => {
 });
 
 test("falhas complexas são classificadas, repetidas e subdivididas", () => {
-  assert.match(panel, /MAX_AUTOMATIC_ATTEMPTS = 4/);
+  assert.match(panel, /MAX_AUTOMATIC_ATTEMPTS = 2/);
   assert.match(panel, /function recoveryKind/);
   assert.match(panel, /RATE_LIMIT_DELAYS_MS/);
   assert.match(panel, /repartitionFailedBatch/);
@@ -65,12 +65,17 @@ test("páginas completas recebem decomposição mínima segura", () => {
   assert.match(batches, /function isFullProductBuild/);
   assert.match(batches, /return 4/);
   assert.match(batches, /fullProductBuildFallback/);
+  assert.match(batches, /deterministic-full-build/);
   assert.match(batches, /produza entre 3 e 6 lotes/);
+  assert.match(panel, /planAndCommit\(batchPrompt, label, true, batchDeadline\)/);
 });
 
 test("tentativas de provedor não são multiplicadas entre camadas", () => {
   assert.match(agentServer, /TRANSIENT_RETRY_DELAYS: number\[\] = \[\]/);
-  assert.match(resilient, /MAX_PLAN_ATTEMPTS = 4/);
+  assert.match(agentServer, /MAX_CONTEXT_ROUNDS = 2/);
+  assert.match(agentServer, /PROVIDER_TIMEOUT_MS = 25_000/);
+  assert.match(agentServer, /customer\s*\? \[customer\.model\]/);
+  assert.match(resilient, /MAX_PLAN_ATTEMPTS = 3/);
   assert.match(resilient, /providerAttemptsExhausted/);
 });
 

@@ -21,8 +21,8 @@ const REDUCED_REPOSITORY_MAP_CHARS = 8_000;
 const GROQ_CONTEXT_CHARS = 6_000;
 const GROQ_RETRY_CONTEXT_CHARS = 2_800;
 const GROQ_MAX_COMPLETION_TOKENS = 1_200;
-const MAX_CONTEXT_ROUNDS = 5;
-const PROVIDER_TIMEOUT_MS = 35_000;
+const MAX_CONTEXT_ROUNDS = 2;
+const PROVIDER_TIMEOUT_MS = 25_000;
 // A recuperação entre provedores pertence à camada resiliente; repetir aqui só multiplica timeouts.
 const TRANSIENT_RETRY_DELAYS: number[] = [];
 
@@ -560,7 +560,7 @@ async function callGeminiModel(prompt: string, model: string, keyOverride?: stri
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
-        generationConfig: { temperature: 0.1, responseMimeType: "application/json" },
+        generationConfig: { temperature: 0.1, responseMimeType: "application/json", maxOutputTokens: 3_000 },
       }),
     },
   );
@@ -577,12 +577,10 @@ async function callGeminiModel(prompt: string, model: string, keyOverride?: stri
 }
 
 async function callGemini(prompt: string, customer?: { apiKey: string; model: string }) {
-  const models = [
-    customer?.model,
-    customer ? undefined : process.env.GEMINI_CODE_MODEL,
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-  ].filter((model, index, all): model is string => Boolean(model) && all.indexOf(model) === index);
+  const models = (customer
+    ? [customer.model]
+    : [process.env.GEMINI_CODE_MODEL, "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+  ).filter((model, index, all): model is string => Boolean(model) && all.indexOf(model) === index);
   let lastError: unknown;
   for (const model of models) {
     try {

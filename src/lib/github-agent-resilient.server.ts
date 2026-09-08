@@ -6,7 +6,7 @@ import {
 } from "@/lib/github-agent.server";
 import { commitAgentRunDirect } from "@/lib/github-agent-direct.server";
 
-const MAX_PLAN_ATTEMPTS = 4;
+const MAX_PLAN_ATTEMPTS = 3;
 const LOGIC_RETRY_DELAY_MS = [0, 180, 420, 850, 1_400];
 const PROVIDER_RETRY_DELAY_MS = [0, 1_200, 3_000, 6_000, 10_000];
 
