@@ -6,7 +6,7 @@
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
   const CUSTOMER_EDITION = globalThis.SUPER_LOVABLE_EDITION?.mode === "customer";
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
-  const MAX_AUTOMATIC_ATTEMPTS = 4;
+  const MAX_AUTOMATIC_ATTEMPTS = 2;
   const MAX_BATCH_REPARTITIONS = 2;
   const REQUEST_TIMEOUT_MS = 90_000;
   const STATUS_TIMEOUT_MS = 20_000;
@@ -70,9 +70,10 @@
       });
     } catch (cause) {
       const timedOut = controller.signal.aborted;
+      const operation = path === "/decompose" ? "organização do pedido" : path === "/plan" ? "planejamento" : path === "/commit" ? "gravação no projeto" : "comunicação";
       const error = new Error(timedOut
-        ? "A etapa demorou além do limite e será recuperada automaticamente."
-        : "A conexão com o servidor foi interrompida.");
+        ? `A ${operation} excedeu o tempo de resposta.`
+        : `A ${operation} foi interrompida por uma falha de conexão.`);
       error.code = timedOut ? "REQUEST_TIMEOUT" : "NETWORK_ERROR";
       error.status = timedOut ? 408 : 0;
       error.retryable = true;
@@ -531,7 +532,7 @@
           setStatus(`Confirmando automaticamente a aplicação${batchLabel ? ` de ${batchLabel}` : ""}…`, "warning");
         } else {
           planned = null;
-          reduced = reduced || kind === "context";
+          reduced = reduced || kind === "context" || error?.code === "REQUEST_TIMEOUT";
           setStatus(`Replanejando automaticamente${batchLabel ? ` ${batchLabel}` : ""} com o estado atual da main…`, "warning");
           renderProgress(kind === "context" ? "context" : "ai", kind === "context" ? "Reduzindo somente o contexto excedente…" : "Reconciliando arquivos e alterações já aplicadas…", batchLabel);
         }
@@ -618,7 +619,7 @@
         let plan;
         let result;
         try {
-          ({ plan, result } = await planAndCommit(batchPrompt, label, false, batchDeadline));
+          ({ plan, result } = await planAndCommit(batchPrompt, label, true, batchDeadline));
         } catch (error) {
           if (await repartitionFailedBatch(task, batch, index, error)) {
             index -= 1;
@@ -729,7 +730,7 @@
     try {
       let decomposition = null;
       let decompositionError = null;
-      for (let attempt = 0; attempt < 3; attempt += 1) {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
           decomposition = await request("/decompose", {
             method: "POST",
@@ -738,7 +739,7 @@
           break;
         } catch (error) {
           decompositionError = error;
-          if (recoveryKind(error) === "terminal" || attempt >= 2) break;
+          if (recoveryKind(error) === "terminal" || attempt >= 1) break;
           setStatus("Reorganizando automaticamente o pedido complexo…", "warning");
           await wait(retryDelay(error, attempt));
         }
