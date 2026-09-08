@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -68,6 +68,71 @@ export type Database = {
         }
         Relationships: []
       }
+      github_agent_runs: {
+        Row: {
+          base_sha: string | null
+          branch: string
+          commit_message: string | null
+          commit_sha: string | null
+          created_at: string
+          error: string | null
+          id: string
+          license_id: string
+          model: string | null
+          prompt: string
+          proposed_files: Json
+          provider: string | null
+          repository_full_name: string
+          status: string
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_sha?: string | null
+          branch: string
+          commit_message?: string | null
+          commit_sha?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          license_id: string
+          model?: string | null
+          prompt: string
+          proposed_files?: Json
+          provider?: string | null
+          repository_full_name: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_sha?: string | null
+          branch?: string
+          commit_message?: string | null
+          commit_sha?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          license_id?: string
+          model?: string | null
+          prompt?: string
+          proposed_files?: Json
+          provider?: string | null
+          repository_full_name?: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_agent_runs_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       github_connections: {
         Row: {
           connected_at: string
@@ -106,146 +171,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      github_oauth_states: {
-        Row: {
-          created_at: string
-          expires_at: string
-          redirect_to: string | null
-          state: string
-          used: boolean
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          expires_at: string
-          redirect_to?: string | null
-          state: string
-          used?: boolean
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          expires_at?: string
-          redirect_to?: string | null
-          state?: string
-          used?: boolean
-          user_id?: string
-        }
-        Relationships: []
-      }
-      github_agent_runs: {
-        Row: {
-          base_sha: string | null
-          branch: string
-          commit_message: string | null
-          commit_sha: string | null
-          created_at: string
-          error: string | null
-          id: string
-          license_id: string
-          merge_commit_sha: string | null
-          merged_at: string | null
-          model: string | null
-          prompt: string
-          proposed_files: Json
-          provider: string | null
-          pull_request_number: number | null
-          pull_request_url: string | null
-          requires_review: boolean
-          repository_full_name: string
-          risk_level: string | null
-          rollback_branch: string | null
-          rollback_commit_sha: string | null
-          rollback_pull_request_number: number | null
-          rollback_pull_request_url: string | null
-          rollback_status: string | null
-          rolled_back_at: string | null
-          sandbox_report: Json
-          sandbox_status: string | null
-          status: string
-          summary: string | null
-          updated_at: string
-          validation_report: Json
-          working_branch: string | null
-        }
-        Insert: {
-          base_sha?: string | null
-          branch: string
-          commit_message?: string | null
-          commit_sha?: string | null
-          created_at?: string
-          error?: string | null
-          id?: string
-          license_id: string
-          merge_commit_sha?: string | null
-          merged_at?: string | null
-          model?: string | null
-          prompt: string
-          proposed_files?: Json
-          provider?: string | null
-          pull_request_number?: number | null
-          pull_request_url?: string | null
-          requires_review?: boolean
-          repository_full_name: string
-          risk_level?: string | null
-          rollback_branch?: string | null
-          rollback_commit_sha?: string | null
-          rollback_pull_request_number?: number | null
-          rollback_pull_request_url?: string | null
-          rollback_status?: string | null
-          rolled_back_at?: string | null
-          sandbox_report?: Json
-          sandbox_status?: string | null
-          status?: string
-          summary?: string | null
-          updated_at?: string
-          validation_report?: Json
-          working_branch?: string | null
-        }
-        Update: {
-          base_sha?: string | null
-          branch?: string
-          commit_message?: string | null
-          commit_sha?: string | null
-          created_at?: string
-          error?: string | null
-          id?: string
-          license_id?: string
-          merge_commit_sha?: string | null
-          merged_at?: string | null
-          model?: string | null
-          prompt?: string
-          proposed_files?: Json
-          provider?: string | null
-          pull_request_number?: number | null
-          pull_request_url?: string | null
-          requires_review?: boolean
-          repository_full_name?: string
-          risk_level?: string | null
-          rollback_branch?: string | null
-          rollback_commit_sha?: string | null
-          rollback_pull_request_number?: number | null
-          rollback_pull_request_url?: string | null
-          rollback_status?: string | null
-          rolled_back_at?: string | null
-          sandbox_report?: Json
-          sandbox_status?: string | null
-          status?: string
-          summary?: string | null
-          updated_at?: string
-          validation_report?: Json
-          working_branch?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "github_agent_runs_license_id_fkey"
-            columns: ["license_id"]
-            isOneToOne: false
-            referencedRelation: "licenses"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       github_license_connections: {
         Row: {
@@ -338,6 +263,33 @@ export type Database = {
           },
         ]
       }
+      github_oauth_states: {
+        Row: {
+          created_at: string
+          expires_at: string
+          redirect_to: string | null
+          state: string
+          used: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          redirect_to?: string | null
+          state: string
+          used?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          redirect_to?: string | null
+          state?: string
+          used?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       license_devices: {
         Row: {
           active: boolean
@@ -346,7 +298,6 @@ export type Database = {
           extension_version: string | null
           first_seen_at: string
           id: string
-          installation_id: string | null
           last_seen_at: string
           license_id: string
           token_hash: string
@@ -358,7 +309,6 @@ export type Database = {
           extension_version?: string | null
           first_seen_at?: string
           id?: string
-          installation_id?: string | null
           last_seen_at?: string
           license_id: string
           token_hash: string
@@ -370,7 +320,6 @@ export type Database = {
           extension_version?: string | null
           first_seen_at?: string
           id?: string
-          installation_id?: string | null
           last_seen_at?: string
           license_id?: string
           token_hash?: string
@@ -425,7 +374,6 @@ export type Database = {
           created_at: string
           device_limit: number
           duration_days: number | null
-          duration_minutes: number | null
           ensinaflix_offer_id: string | null
           ensinaflix_offer_public_id: string | null
           ensinaflix_product_id: string | null
@@ -441,7 +389,6 @@ export type Database = {
           created_at?: string
           device_limit?: number
           duration_days?: number | null
-          duration_minutes?: number | null
           ensinaflix_offer_id?: string | null
           ensinaflix_offer_public_id?: string | null
           ensinaflix_product_id?: string | null
@@ -457,7 +404,6 @@ export type Database = {
           created_at?: string
           device_limit?: number
           duration_days?: number | null
-          duration_minutes?: number | null
           ensinaflix_offer_id?: string | null
           ensinaflix_offer_public_id?: string | null
           ensinaflix_product_id?: string | null
@@ -474,14 +420,10 @@ export type Database = {
       licenses: {
         Row: {
           access_role: string
-          activation_started_at: string | null
           created_at: string
           customer_id: string | null
           device_limit: number
-          duration_minutes: number | null
           expires_at: string | null
-          external_product_id: string | null
-          external_subscription_id: string | null
           id: string
           is_lifetime: boolean
           key_hint: string
@@ -499,14 +441,10 @@ export type Database = {
         }
         Insert: {
           access_role?: string
-          activation_started_at?: string | null
           created_at?: string
           customer_id?: string | null
           device_limit?: number
-          duration_minutes?: number | null
           expires_at?: string | null
-          external_product_id?: string | null
-          external_subscription_id?: string | null
           id?: string
           is_lifetime?: boolean
           key_hint: string
@@ -524,14 +462,10 @@ export type Database = {
         }
         Update: {
           access_role?: string
-          activation_started_at?: string | null
           created_at?: string
           customer_id?: string | null
           device_limit?: number
-          duration_minutes?: number | null
           expires_at?: string | null
-          external_product_id?: string | null
-          external_subscription_id?: string | null
           id?: string
           is_lifetime?: boolean
           key_hint?: string
@@ -876,12 +810,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -905,11 +839,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -930,11 +864,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -955,11 +889,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -972,11 +906,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
