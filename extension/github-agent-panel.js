@@ -10,8 +10,14 @@
   const MAX_BATCH_REPARTITIONS = 2;
   const REQUEST_TIMEOUT_MS = 90_000;
   const STATUS_TIMEOUT_MS = 20_000;
-  const BATCH_DEADLINE_MS = 8 * 60_000;
-  const TASK_DEADLINE_MS = 25 * 60_000;
+  const DECOMPOSE_TIMEOUT_MS = 75_000;
+  const PLAN_TIMEOUT_MS = 180_000;
+  // O servidor pode validar e gravar por até 210 s. A margem evita cancelar um commit saudável.
+  const COMMIT_TIMEOUT_MS = 270_000;
+  const BATCH_DEADLINE_MS = 14 * 60_000;
+  const TASK_BASE_DEADLINE_MS = 10 * 60_000;
+  const TASK_PER_BATCH_DEADLINE_MS = 10 * 60_000;
+  const MAX_TASK_DEADLINE_MS = 60 * 60_000;
   const TERMINAL_TASK_STATUSES = new Set(["completed", "failed", "cancelled"]);
   const RETRY_DELAYS_MS = [700, 1_500, 3_500, 7_000];
   const RATE_LIMIT_DELAYS_MS = [5_000, 12_000, 25_000, 45_000];
@@ -43,9 +49,17 @@
     };
   };
 
+  function requestTimeoutFor(path) {
+    if (path === "/status") return STATUS_TIMEOUT_MS;
+    if (path === "/decompose") return DECOMPOSE_TIMEOUT_MS;
+    if (path === "/plan") return PLAN_TIMEOUT_MS;
+    if (path === "/commit") return COMMIT_TIMEOUT_MS;
+    return REQUEST_TIMEOUT_MS;
+  }
+
   const request = async (path, options = {}) => {
     const controller = new AbortController();
-    const timeoutMs = Number(options.timeoutMs || (path === "/status" ? STATUS_TIMEOUT_MS : REQUEST_TIMEOUT_MS));
+    const timeoutMs = Number(options.timeoutMs || requestTimeoutFor(path));
     const timeout = setTimeout(() => controller.abort("REQUEST_TIMEOUT"), timeoutMs);
     let response;
     try {
@@ -320,6 +334,21 @@
     if (Number.isFinite(deadline) && Date.now() >= deadline) throw deadlineError(scope);
   }
 
+  function taskDeadlineMs(task) {
+    const batchCount = Math.max(1, Number(task?.batches?.length || 1));
+    return Math.min(
+      MAX_TASK_DEADLINE_MS,
+      TASK_BASE_DEADLINE_MS + batchCount * TASK_PER_BATCH_DEADLINE_MS,
+    );
+  }
+
+  function extendTaskDeadlineAfterRepartition(task, addedBatches) {
+    const startedAt = new Date(task.startedAt || Date.now()).getTime();
+    const current = new Date(task.deadlineAt || Date.now()).getTime();
+    const extension = Math.max(0, Number(addedBatches || 0)) * TASK_PER_BATCH_DEADLINE_MS;
+    task.deadlineAt = new Date(Math.min(startedAt + MAX_TASK_DEADLINE_MS, current + extension)).toISOString();
+  }
+
   function renderRollbackAction(runId) {
     const box = document.getElementById("sl-agent-progress");
     if (!box || !runId) return;
@@ -541,6 +570,7 @@
         parentId: batch.id || null,
       }));
       task.batches.splice(index, 1, ...replacements);
+      extendTaskDeadlineAfterRepartition(task, replacements.length - 1);
       task.status = "running";
       task.error = null;
       task.updatedAt = new Date().toISOString();
@@ -565,7 +595,7 @@
     state.busy = true;
     task.status = "running";
     task.startedAt = task.startedAt || new Date().toISOString();
-    task.deadlineAt = task.deadlineAt || new Date(Date.now() + TASK_DEADLINE_MS).toISOString();
+    task.deadlineAt = task.deadlineAt || new Date(Date.now() + taskDeadlineMs(task)).toISOString();
     state.lastPrompt = task.prompt;
     await saveBatchTask(task);
 

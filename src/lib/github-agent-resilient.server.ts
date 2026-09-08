@@ -6,7 +6,7 @@ import {
 } from "@/lib/github-agent.server";
 import { commitAgentRunDirect } from "@/lib/github-agent-direct.server";
 
-const MAX_PLAN_ATTEMPTS = 5;
+const MAX_PLAN_ATTEMPTS = 4;
 const LOGIC_RETRY_DELAY_MS = [0, 180, 420, 850, 1_400];
 const PROVIDER_RETRY_DELAY_MS = [0, 1_200, 3_000, 6_000, 10_000];
 
@@ -174,7 +174,8 @@ export async function planAgentRunResilient(
     } catch (error) {
       lastError = error;
       const info = errorInfo(error);
-      if (!isRecoverable(info) || attempt >= MAX_PLAN_ATTEMPTS - 1) throw error;
+      const providerAttemptsExhausted = isProviderFailure(info) && attempt >= 1;
+      if (!isRecoverable(info) || providerAttemptsExhausted || attempt >= MAX_PLAN_ATTEMPTS - 1) throw error;
 
       recoveries.push({
         attempt: attempt + 1,

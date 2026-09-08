@@ -6,6 +6,9 @@ const panel = await readFile(new URL("../extension/github-agent-panel.js", impor
 const watcher = await readFile(new URL("../extension/agent-autorecovery.js", import.meta.url), "utf8");
 const customerSettings = await readFile(new URL("../extension-customer/customer-ai-settings.js", import.meta.url), "utf8");
 const sidepanel = await readFile(new URL("../extension/sidepanel.js", import.meta.url), "utf8");
+const batches = await readFile(new URL("../src/lib/github-agent-batches.server.ts", import.meta.url), "utf8");
+const agentServer = await readFile(new URL("../src/lib/github-agent.server.ts", import.meta.url), "utf8");
+const resilient = await readFile(new URL("../src/lib/github-agent-resilient.server.ts", import.meta.url), "utf8");
 
 test("a retomada não depende de botões ou cliques no DOM", () => {
   assert.doesNotMatch(panel, /Retomar da etapa|Continuar da etapa/);
@@ -42,18 +45,33 @@ test("erros de autenticação não entram em repetição automática", () => {
 });
 
 
-test("requisições do agente possuem timeout abortável", () => {
+test("requisições usam limites específicos por operação", () => {
   assert.match(panel, /REQUEST_TIMEOUT_MS = 90_000/);
-  assert.match(panel, /AbortController/);
+  assert.match(panel, /PLAN_TIMEOUT_MS = 180_000/);
+  assert.match(panel, /COMMIT_TIMEOUT_MS = 270_000/);
+  assert.match(panel, /function requestTimeoutFor/);
   assert.match(panel, /controller\.abort\("REQUEST_TIMEOUT"\)/);
-  assert.match(panel, /REQUEST_TIMEOUT/);
 });
 
-test("etapas e tarefas complexas têm prazos absolutos", () => {
-  assert.match(panel, /BATCH_DEADLINE_MS = 8 \* 60_000/);
-  assert.match(panel, /TASK_DEADLINE_MS = 25 \* 60_000/);
+test("etapas e tarefas complexas têm orçamento dinâmico e limitado", () => {
+  assert.match(panel, /BATCH_DEADLINE_MS = 14 \* 60_000/);
+  assert.match(panel, /MAX_TASK_DEADLINE_MS = 60 \* 60_000/);
+  assert.match(panel, /function taskDeadlineMs/);
+  assert.match(panel, /extendTaskDeadlineAfterRepartition/);
   assert.match(panel, /assertDeadline\(taskDeadline, "task"\)/);
-  assert.match(panel, /planAndCommit\(batchPrompt, label, false, batchDeadline\)/);
+});
+
+test("páginas completas recebem decomposição mínima segura", () => {
+  assert.match(batches, /function isFullProductBuild/);
+  assert.match(batches, /return 4/);
+  assert.match(batches, /fullProductBuildFallback/);
+  assert.match(batches, /produza entre 3 e 6 lotes/);
+});
+
+test("tentativas de provedor não são multiplicadas entre camadas", () => {
+  assert.match(agentServer, /TRANSIENT_RETRY_DELAYS: number\[\] = \[\]/);
+  assert.match(resilient, /MAX_PLAN_ATTEMPTS = 4/);
+  assert.match(resilient, /providerAttemptsExhausted/);
 });
 
 test("tarefas encerradas não entram novamente no ciclo automático", () => {
