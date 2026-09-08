@@ -96,6 +96,19 @@ function Index() {
               Use o chat próprio da extensão para enviar comandos, anexar arquivos, ditar por voz e trabalhar no seu projeto sem depender do chat nativo da Lovable.
             </p>
 
+            <div className="mt-8 max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_0_45px_rgba(217,70,239,0.12)]">
+              <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
+                <iframe
+                  className="absolute inset-0 h-full w-full"
+                  src="https://www.youtube-nocookie.com/embed/dfo5qXzdNug?rel=0&modestbranding=1&controls=1&playsinline=1&iv_load_policy=3"
+                  title="Apresentação Super Lovable"
+                  loading="lazy"
+                  allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+
             <div className="mt-8 max-w-xl rounded-2xl border border-fuchsia-400/25 bg-fuchsia-400/[0.08] px-5 py-4 shadow-[0_0_35px_rgba(217,70,239,0.08)]">
               <p className="font-semibold text-fuchsia-100">Ative com sua chave ou com o e-mail usado na compra.</p>
               <p className="mt-1.5 text-sm leading-6 text-slate-300">
