@@ -312,11 +312,20 @@ export async function decomposeAgentPrompt(prompt: string, customerAi?: AgentAiP
     };
   }
 
+  // Construções completas têm uma sequência conhecida; não desperdice uma chamada de IA só para dividi-las.
+  if (isFullProductBuild(normalized)) {
+    return {
+      batched: true,
+      strategy: "coordinated-batches-v1",
+      complexityScore: score,
+      batches: fullProductBuildFallback(normalized),
+      provider: "deterministic-full-build",
+    };
+  }
+
   const ai = await decomposeWithAi(normalized, customerAi);
   const minimum = minimumBatchCount(normalized, score);
-  const deterministic = isFullProductBuild(normalized)
-    ? fullProductBuildFallback(normalized)
-    : explicitStageFallback(normalized);
+  const deterministic = explicitStageFallback(normalized);
   // Uma decomposição curta demais transforma uma página inteira em uma única chamada pesada.
   const batches = (ai?.batches?.length || 0) >= minimum ? ai!.batches : deterministic;
   if (batches.length < 2) {
