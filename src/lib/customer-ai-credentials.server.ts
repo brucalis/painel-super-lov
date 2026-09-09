@@ -1,15 +1,19 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import type { AgentAiProvider } from "@/lib/github-agent.server";
 
 const CUSTOMER_EDITION = "customer-s1";
 const FALLBACK_PREFIX = "customer_ai_credentials";
-const CUSTOMER_PROVIDERS = ["groq", "gemini", "openrouter"] as const;
+const CUSTOMER_PROVIDERS = ["grok", "cloudflare", "gemini", "openrouter"] as const;
 
-export const CUSTOMER_AI_CREDENTIALS_VERSION =
-  "customer-ai-credentials-v2-provider-normalization";
-
+export const CUSTOMER_AI_CREDENTIALS_VERSION = "customer-ai-credentials-v3-grok-cloudflare-stack";
 export type CustomerProvider = (typeof CUSTOMER_PROVIDERS)[number];
+export type CustomerProviderCredential = {
+  provider: CustomerProvider;
+  apiKey: string;
+  model: string;
+  accountId?: string;
+};
+
 type CredentialRow = {
   provider: CustomerProvider;
   encrypted_key: string;
@@ -19,16 +23,11 @@ type CredentialRow = {
   model: string;
   validated_at: string | null;
 };
-
 type AppSettingRow = { key?: string; value?: string };
 
 const db = () => supabaseAdmin as unknown as { from: (table: string) => any };
 const masterKey = () => {
-  const secret =
-    process.env.CUSTOMER_CREDENTIALS_ENCRYPTION_KEY ||
-    process.env.LICENSE_TOKEN_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "";
+  const secret = process.env.CUSTOMER_CREDENTIALS_ENCRYPTION_KEY || process.env.LICENSE_TOKEN_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   if (secret.length < 24) throw new Error("CUSTOMER_CREDENTIALS_ENCRYPTION_KEY_NOT_CONFIGURED");
   return createHash("sha256").update(secret).digest();
 };
@@ -37,71 +36,33 @@ function encrypt(value: string) {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", masterKey(), iv);
   const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  return {
-    encrypted_key: encrypted.toString("base64"),
-    encryption_iv: iv.toString("base64"),
-    encryption_tag: cipher.getAuthTag().toString("base64"),
-  };
+  return { encrypted_key: encrypted.toString("base64"), encryption_iv: iv.toString("base64"), encryption_tag: cipher.getAuthTag().toString("base64") };
 }
-
 function decrypt(row: CredentialRow) {
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    masterKey(),
-    Buffer.from(row.encryption_iv, "base64"),
-  );
+  const decipher = createDecipheriv("aes-256-gcm", masterKey(), Buffer.from(row.encryption_iv, "base64"));
   decipher.setAuthTag(Buffer.from(row.encryption_tag, "base64"));
-  return Buffer.concat([
-    decipher.update(Buffer.from(row.encrypted_key, "base64")),
-    decipher.final(),
-  ]).toString("utf8");
+  return Buffer.concat([decipher.update(Buffer.from(row.encrypted_key, "base64")), decipher.final()]).toString("utf8");
 }
 
 export function isCustomerEdition(request: Request) {
   return request.headers.get("x-super-lovable-edition") === CUSTOMER_EDITION;
 }
-
 const hint = (value: string) => `••••••••${value.slice(-4)}`;
-const fallbackKey = (licenseId: string, provider: CustomerProvider) =>
-  `${FALLBACK_PREFIX}:${licenseId}:${provider}`;
-
+const fallbackKey = (licenseId: string, provider: CustomerProvider) => `${FALLBACK_PREFIX}:${licenseId}:${provider}`;
 function providerLabel(provider: CustomerProvider) {
-  if (provider === "groq") return "Groq";
-  if (provider === "gemini") return "Gemini";
-  return "OpenRouter";
+  return provider === "grok" ? "Grok" : provider === "cloudflare" ? "Cloudflare" : provider === "gemini" ? "Gemini" : "OpenRouter";
 }
-
-function normalizeCustomerProvider(
-  providerValue: unknown,
-  rawKey: unknown = "",
-): CustomerProvider | "" {
-  const normalized = String(providerValue ?? "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "");
-
+function normalizeCustomerProvider(value: unknown): CustomerProvider | "" {
+  const normalized = String(value ?? "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "");
   if (normalized.includes("openrouter")) return "openrouter";
-  if (normalized.includes("groq")) return "groq";
+  if (normalized.includes("cloudflare")) return "cloudflare";
   if (normalized.includes("gemini")) return "gemini";
-
-  const apiKey = String(rawKey ?? "").trim();
-  if (/^sk-or(?:-v\d+)?-/i.test(apiKey)) return "openrouter";
-  if (/^gsk_/i.test(apiKey)) return "groq";
-  if (/^AIza/i.test(apiKey)) return "gemini";
-  if (/^sk-/i.test(apiKey) && !/^gsk_/i.test(apiKey)) return "openrouter";
-
+  if (normalized.includes("grok") || normalized.includes("xai")) return "grok";
   return "";
 }
-
 function storageError() {
-  return new Response(
-    "Não foi possível concluir a configuração segura agora. Tente novamente em alguns instantes.",
-    { status: 503 },
-  );
+  return new Response("Não foi possível concluir a configuração segura agora. Tente novamente em alguns instantes.", { status: 503 });
 }
-
 function safeCredentialRow(value: unknown): CredentialRow | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
@@ -109,15 +70,7 @@ function safeCredentialRow(value: unknown): CredentialRow | null {
   if (!provider) return null;
   const required = ["encrypted_key", "encryption_iv", "encryption_tag", "key_hint", "model"];
   if (required.some((key) => !String(row[key] || ""))) return null;
-  return {
-    provider,
-    encrypted_key: String(row.encrypted_key),
-    encryption_iv: String(row.encryption_iv),
-    encryption_tag: String(row.encryption_tag),
-    key_hint: String(row.key_hint),
-    model: String(row.model),
-    validated_at: row.validated_at ? String(row.validated_at) : null,
-  };
+  return { provider, encrypted_key: String(row.encrypted_key), encryption_iv: String(row.encryption_iv), encryption_tag: String(row.encryption_tag), key_hint: String(row.key_hint), model: String(row.model), validated_at: row.validated_at ? String(row.validated_at) : null };
 }
 
 async function readFallbackRows(licenseId: string): Promise<CredentialRow[]> {
@@ -125,279 +78,128 @@ async function readFallbackRows(licenseId: string): Promise<CredentialRow[]> {
   const { data, error } = await db().from("app_settings").select("key,value").in("key", keys);
   if (error) throw error;
   return ((data || []) as AppSettingRow[]).flatMap((item) => {
-    try {
-      const parsed = safeCredentialRow(JSON.parse(String(item.value || "{}")));
-      return parsed ? [parsed] : [];
-    } catch {
-      return [];
-    }
+    try { const row = safeCredentialRow(JSON.parse(String(item.value || "{}"))); return row ? [row] : []; } catch { return []; }
   });
 }
-
 async function saveFallbackRow(licenseId: string, row: CredentialRow) {
-  const { error } = await db().from("app_settings").upsert(
-    {
-      key: fallbackKey(licenseId, row.provider),
-      value: JSON.stringify(row),
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "key" },
-  );
+  const { error } = await db().from("app_settings").upsert({ key: fallbackKey(licenseId, row.provider), value: JSON.stringify(row), updated_at: new Date().toISOString() }, { onConflict: "key" });
   if (error) throw error;
 }
-
 async function deleteFallbackRow(licenseId: string, provider: CustomerProvider) {
-  const { error } = await db()
-    .from("app_settings")
-    .delete()
-    .eq("key", fallbackKey(licenseId, provider));
+  const { error } = await db().from("app_settings").delete().eq("key", fallbackKey(licenseId, provider));
   if (error) throw error;
 }
-
 async function readPrimaryRows(licenseId: string) {
-  const { data, error } = await db()
-    .from("github_license_ai_credentials")
-    .select("provider,encrypted_key,encryption_iv,encryption_tag,key_hint,model,validated_at")
-    .eq("license_id", licenseId);
+  const { data, error } = await db().from("github_license_ai_credentials").select("provider,encrypted_key,encryption_iv,encryption_tag,key_hint,model,validated_at").eq("license_id", licenseId);
   if (error) return { available: false, rows: [] as CredentialRow[], error };
-  return {
-    available: true,
-    rows: ((data || []) as unknown[])
-      .map(safeCredentialRow)
-      .filter((row): row is CredentialRow => Boolean(row)),
-    error: null,
-  };
+  return { available: true, rows: ((data || []) as unknown[]).map(safeCredentialRow).filter((row): row is CredentialRow => Boolean(row)), error: null };
 }
-
-async function promoteFallbackRows(licenseId: string, rows: CredentialRow[]) {
-  for (const row of rows) {
-    const { error } = await db().from("github_license_ai_credentials").upsert(
-      {
-        license_id: licenseId,
-        ...row,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "license_id,provider" },
-    );
-    if (!error) {
-      await deleteFallbackRow(licenseId, row.provider).catch(() => undefined);
-    }
-  }
-}
-
 async function credentialRows(licenseId: string): Promise<CredentialRow[]> {
   const primary = await readPrimaryRows(licenseId);
   let fallback: CredentialRow[] = [];
-  try {
-    fallback = await readFallbackRows(licenseId);
-  } catch (fallbackError) {
-    if (!primary.available) {
-      console.error("[customer-ai] armazenamento de credenciais indisponível", {
-        primaryCode: String(primary.error?.code || "unknown"),
-        fallbackCode: String((fallbackError as any)?.code || "unknown"),
-      });
-      throw storageError();
-    }
+  try { fallback = await readFallbackRows(licenseId); } catch (fallbackError) {
+    if (!primary.available) throw storageError();
+    console.warn("[customer-ai] fallback indisponível", fallbackError);
   }
-
   if (!primary.available) return fallback;
-  if (!fallback.length) return primary.rows;
-
   const merged = new Map<CustomerProvider, CredentialRow>();
   for (const row of primary.rows) merged.set(row.provider, row);
-  const missing = fallback.filter((row) => !merged.has(row.provider));
-  for (const row of missing) merged.set(row.provider, row);
-
-  if (missing.length) {
-    await promoteFallbackRows(licenseId, missing).catch(() => undefined);
-  }
+  for (const row of fallback) if (!merged.has(row.provider)) merged.set(row.provider, row);
   return [...merged.values()];
 }
 
-async function validate(provider: CustomerProvider, apiKey: string) {
+async function checkedResponse(response: Response, provider: CustomerProvider) {
+  if (response.status === 401 || response.status === 403) throw new Response(`A chave ${providerLabel(provider)} é inválida ou não possui acesso.`, { status: 422 });
+  if (response.status === 429) throw new Response(`A conta ${providerLabel(provider)} atingiu o limite temporário.`, { status: 429 });
+  if (!response.ok) throw new Response(`Não foi possível validar ${providerLabel(provider)} agora.`, { status: 503 });
+  return response;
+}
+async function validate(provider: CustomerProvider, apiKey: string, accountId = "") {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
-    const url =
-      provider === "groq"
-        ? "https://api.groq.com/openai/v1/models"
-        : provider === "gemini"
-          ? `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
-          : "https://openrouter.ai/api/v1/models";
-    const response = await fetch(url, {
-      headers:
-        provider === "groq" || provider === "openrouter"
-          ? { Authorization: `Bearer ${apiKey}` }
-          : undefined,
-      signal: controller.signal,
-    });
-    if (response.status === 401 || response.status === 403) {
-      throw new Response(
-        `A chave ${providerLabel(provider)} é inválida ou não possui acesso.`,
-        { status: 422 },
-      );
+    if (provider === "grok") {
+      const response = await checkedResponse(await fetch("https://api.x.ai/v1/models", { headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal }), provider);
+      const data = await response.json() as { data?: Array<{ id?: string }> };
+      const models = (data.data || []).map((item) => String(item.id || "")).filter(Boolean);
+      return models.find((id) => /grok-4\.6/i.test(id)) || models.find((id) => /grok/i.test(id)) || "grok-4.6";
     }
-    if (response.status === 429) {
-      throw new Response(
-        `A conta ${providerLabel(provider)} atingiu o limite temporário.`,
-        { status: 429 },
-      );
+    if (provider === "cloudflare") {
+      if (!accountId) throw new Response("Informe também o Account ID da Cloudflare.", { status: 422 });
+      const model = "@cf/meta/llama-3.1-8b-instruct";
+      const response = await checkedResponse(await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`, {
+        method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "Responda apenas OK." }), signal: controller.signal,
+      }), provider);
+      await response.json().catch(() => ({}));
+      return model;
     }
-    if (!response.ok) throw new Response("Não foi possível validar essa chave agora.", { status: 503 });
-    const data = (await response.json()) as {
-      data?: Array<{ id?: string }>;
-      models?: Array<{ name?: string }>;
-    };
-    if (provider === "openrouter") return "openrouter/free";
-    if (provider === "groq") {
-      const models = new Set((data.data || []).map((item) => String(item.id || "")));
-      return (
-        ["openai/gpt-oss-20b", "llama-3.3-70b-versatile"].find((id) => models.has(id)) ||
-        "openai/gpt-oss-20b"
-      );
+    if (provider === "gemini") {
+      const response = await checkedResponse(await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`, { signal: controller.signal }), provider);
+      const data = await response.json() as { models?: Array<{ name?: string }> };
+      const models = new Set((data.models || []).map((item) => String(item.name || "").replace(/^models\//, "")));
+      return ["gemini-2.5-flash", "gemini-2.5-flash-lite"].find((id) => models.has(id)) || "gemini-2.5-flash";
     }
-    const models = new Set(
-      (data.models || []).map((item) => String(item.name || "").replace(/^models\//, "")),
-    );
-    return (
-      ["gemini-2.5-flash", "gemini-2.5-flash-lite"].find((id) => models.has(id)) ||
-      "gemini-2.5-flash"
-    );
+    await checkedResponse(await fetch("https://openrouter.ai/api/v1/models", { headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal }), provider);
+    return "openrouter/free";
   } catch (error) {
     if (error instanceof Response) throw error;
-    throw new Response("Não foi possível conectar ao provedor para validar a chave.", { status: 503 });
-  } finally {
-    clearTimeout(timeout);
-  }
+    throw new Response(`Não foi possível conectar ao ${providerLabel(provider)} para validar a credencial.`, { status: 503 });
+  } finally { clearTimeout(timeout); }
 }
 
 export async function customerCredentialStatus(licenseId: string) {
   const rows = await credentialRows(licenseId);
   const status = (provider: CustomerProvider) => {
     const row = rows.find((item) => item.provider === provider);
-    return row
-      ? {
-          configured: true,
-          keyHint: row.key_hint,
-          model: row.model,
-          validatedAt: row.validated_at,
-        }
-      : { configured: false, keyHint: null, model: null, validatedAt: null };
+    return row ? { configured: true, keyHint: row.key_hint, model: row.model, validatedAt: row.validated_at } : { configured: false, keyHint: null, model: null, validatedAt: null };
   };
   return {
-    groq: status("groq"),
-    gemini: status("gemini"),
-    openrouter: status("openrouter"),
+    grok: status("grok"), cloudflare: status("cloudflare"), gemini: status("gemini"), openrouter: status("openrouter"),
     configured: rows.some((row) => CUSTOMER_PROVIDERS.includes(row.provider)),
-    configuredCount: CUSTOMER_PROVIDERS.filter((provider) =>
-      rows.some((row) => row.provider === provider),
-    ).length,
+    requiredConfigured: rows.some((row) => row.provider === "grok") && rows.some((row) => row.provider === "cloudflare"),
+    configuredCount: CUSTOMER_PROVIDERS.filter((provider) => rows.some((row) => row.provider === provider)).length,
   };
 }
 
-export async function saveCustomerAiKey(
-  licenseId: string,
-  providerValue: string,
-  rawKey: string,
-) {
+export async function saveCustomerAiKey(licenseId: string, providerValue: string, rawKey: string, options: { accountId?: string } = {}) {
+  const provider = normalizeCustomerProvider(providerValue);
   const apiKey = String(rawKey || "").trim();
-  const provider = normalizeCustomerProvider(providerValue, apiKey);
-  if (!provider) {
-    throw new Response("Provedor inválido (credenciais v2).", { status: 400 });
-  }
+  const accountId = String(options.accountId || "").trim();
+  if (!provider) throw new Response("Provedor inválido (credenciais v3).", { status: 400 });
   if (apiKey.length < 20) throw new Response("Informe uma chave de API válida.", { status: 422 });
-
-  const model = await validate(provider, apiKey);
-  const row: CredentialRow = {
-    provider,
-    ...encrypt(apiKey),
-    key_hint: hint(apiKey),
-    model,
-    validated_at: new Date().toISOString(),
-  };
-
-  const { error: primaryError } = await db().from("github_license_ai_credentials").upsert(
-    {
-      license_id: licenseId,
-      ...row,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "license_id,provider" },
-  );
-
+  if (provider === "cloudflare" && accountId.length < 8) throw new Response("Informe o Account ID da Cloudflare.", { status: 422 });
+  const model = await validate(provider, apiKey, accountId);
+  const secret = provider === "cloudflare" ? JSON.stringify({ apiKey, accountId }) : apiKey;
+  const row: CredentialRow = { provider, ...encrypt(secret), key_hint: hint(apiKey), model, validated_at: new Date().toISOString() };
+  const { error: primaryError } = await db().from("github_license_ai_credentials").upsert({ license_id: licenseId, ...row, updated_at: new Date().toISOString() }, { onConflict: "license_id,provider" });
   if (primaryError) {
-    console.warn("[customer-ai] armazenamento principal indisponível; usando contingência", {
-      code: String(primaryError.code || "unknown"),
-      provider,
-    });
-    try {
-      await saveFallbackRow(licenseId, row);
-    } catch (fallbackError) {
-      console.error("[customer-ai] falha também no armazenamento de contingência", {
-        code: String((fallbackError as any)?.code || "unknown"),
-        provider,
-      });
-      throw storageError();
-    }
+    try { await saveFallbackRow(licenseId, row); } catch { throw storageError(); }
   } else {
     await deleteFallbackRow(licenseId, provider).catch(() => undefined);
   }
-
   return { provider, configured: true, keyHint: hint(apiKey), model };
 }
 
 export async function deleteCustomerAiKey(licenseId: string, providerValue: string) {
   const provider = normalizeCustomerProvider(providerValue);
-  if (!provider) {
-    throw new Response("Provedor inválido (credenciais v2).", { status: 400 });
-  }
-  const { error: primaryError } = await db()
-    .from("github_license_ai_credentials")
-    .delete()
-    .eq("license_id", licenseId)
-    .eq("provider", provider);
-
+  if (!provider) throw new Response("Provedor inválido (credenciais v3).", { status: 400 });
+  const { error: primaryError } = await db().from("github_license_ai_credentials").delete().eq("license_id", licenseId).eq("provider", provider);
   let fallbackError: unknown = null;
-  try {
-    await deleteFallbackRow(licenseId, provider);
-  } catch (error) {
-    fallbackError = error;
-  }
-
+  try { await deleteFallbackRow(licenseId, provider); } catch (error) { fallbackError = error; }
   if (primaryError && fallbackError) throw storageError();
 }
 
-export async function customerAiProvider(
-  request: Request,
-  licenseId: string,
-  required = true,
-): Promise<AgentAiProvider | undefined> {
-  if (!isCustomerEdition(request)) return undefined;
+export async function customerProviderStack(request: Request, licenseId: string) {
+  if (!isCustomerEdition(request)) return {} as Partial<Record<CustomerProvider, CustomerProviderCredential>>;
   const rows = await credentialRows(licenseId);
-  const groq = rows.find((row) => row.provider === "groq");
-  const gemini = rows.find((row) => row.provider === "gemini");
-  const openrouter = rows.find((row) => row.provider === "openrouter");
-  if (!groq && !gemini) {
-    if (required && !openrouter) {
-      throw new Response("Conecte sua chave do Groq, Gemini ou OpenRouter antes de enviar comandos.", {
-        status: 428,
-      });
+  const result: Partial<Record<CustomerProvider, CustomerProviderCredential>> = {};
+  for (const row of rows) {
+    let apiKey = decrypt(row);
+    let accountId: string | undefined;
+    if (row.provider === "cloudflare") {
+      try { const parsed = JSON.parse(apiKey) as { apiKey?: string; accountId?: string }; apiKey = String(parsed.apiKey || ""); accountId = String(parsed.accountId || ""); } catch { continue; }
     }
-    return undefined;
+    result[row.provider] = { provider: row.provider, apiKey, model: row.model, accountId };
   }
-  return {
-    kind: "customer",
-    groq: groq ? { apiKey: decrypt(groq), model: groq.model } : undefined,
-    gemini: gemini ? { apiKey: decrypt(gemini), model: gemini.model } : undefined,
-  };
-}
-
-export async function customerOpenRouterProvider(
-  request: Request,
-  licenseId: string,
-): Promise<{ apiKey: string; model: string } | undefined> {
-  if (!isCustomerEdition(request)) return undefined;
-  const rows = await credentialRows(licenseId);
-  const openrouter = rows.find((row) => row.provider === "openrouter");
-  return openrouter ? { apiKey: decrypt(openrouter), model: openrouter.model || "openrouter/free" } : undefined;
+  return result;
 }
