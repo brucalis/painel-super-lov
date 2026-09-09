@@ -5,9 +5,13 @@
 
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
   const HISTORY_KEY = "ql_chat_history";
+  const ACTIVE_KEY = "sl_agent_active_history_id";
+  const EXECUTION_PATH = /\/api\/public\/agent\/(decompose|plan|commit)(?:[/?#]|$)/i;
+  const originalFetch = globalThis.fetch.bind(globalThis);
   let busy = false;
 
   const storageGet = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+  const storageSet = (value) => new Promise((resolve) => chrome.storage.local.set(value, resolve));
 
   async function authHeaders() {
     const data = await storageGet(["ql_session_id"]);
@@ -20,7 +24,7 @@
   }
 
   async function request(path, options = {}) {
-    const response = await fetch(`${API}${path}`, {
+    const response = await originalFetch(`${API}${path}`, {
       ...options,
       headers: { ...(await authHeaders()), ...(options.headers || {}) },
     });
@@ -39,21 +43,115 @@
   }
 
   function currentRepository() {
+    const status = String(document.getElementById("sl-agent-status")?.textContent || "");
+    const match = status.match(/Projeto conectado:\s*([^\s]+)\s*\(([^)]+)\)/i);
+    if (match) return match[1];
     const projectStatus = String(document.getElementById("sl-project-status")?.textContent || "");
-    const fromProject = projectStatus.match(/Repositório selecionado:\s*([^\s]+)/i)?.[1];
-    if (fromProject) return fromProject;
-    const agentStatus = String(document.getElementById("sl-agent-status")?.textContent || "");
-    return agentStatus.match(/Projeto conectado:\s*([^\s]+)/i)?.[1] || "";
+    return projectStatus.match(/Repositório selecionado:\s*([^\s]+)/i)?.[1] || "";
   }
 
   function commitUrl(repository, sha) {
     return repository && sha ? `https://github.com/${repository}/commit/${sha}` : "";
   }
 
-  async function localPromptHistory() {
+  async function readLocalHistory() {
     const data = await storageGet([HISTORY_KEY]);
     return Array.isArray(data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
   }
+
+  async function writeLocalHistory(history) {
+    const trimmed = history.slice(-200);
+    await storageSet({ [HISTORY_KEY]: trimmed });
+    const badge = document.querySelector('.sp-tab[data-tab="history"] .sp-tab-badge');
+    if (badge) badge.textContent = String(trimmed.length);
+    return trimmed;
+  }
+
+  async function ensurePromptRecord(prompt) {
+    const text = String(prompt || "").trim();
+    if (!text) return null;
+    const history = await readLocalHistory();
+    const recent = [...history].reverse().find((item) => {
+      const age = Date.now() - new Date(item?.timestamp || item?.updatedAt || 0).getTime();
+      return item?.text === text && Number.isFinite(age) && age < 15000;
+    });
+    if (recent) {
+      await storageSet({ [ACTIVE_KEY]: recent.id });
+      return recent.id;
+    }
+    const id = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    history.push({
+      id,
+      text,
+      timestamp: new Date().toISOString(),
+      status: "processing",
+      source: "github-agent",
+    });
+    await writeLocalHistory(history);
+    await storageSet({ [ACTIVE_KEY]: id });
+    return id;
+  }
+
+  async function attachRunId(runId, prompt = "") {
+    const history = await readLocalHistory();
+    let id = (await storageGet([ACTIVE_KEY]))[ACTIVE_KEY];
+    if (!id && prompt) id = await ensurePromptRecord(prompt);
+    if (!id) return;
+    const index = history.findIndex((item) => item?.id === id);
+    if (index < 0) return;
+    history[index] = { ...history[index], runId, updatedAt: new Date().toISOString() };
+    await writeLocalHistory(history);
+  }
+
+  async function completeLocalRecord(runId, result) {
+    const history = await readLocalHistory();
+    let index = history.findIndex((item) => item?.runId === runId);
+    if (index < 0) {
+      const active = (await storageGet([ACTIVE_KEY]))[ACTIVE_KEY];
+      index = history.findIndex((item) => item?.id === active);
+    }
+    if (index < 0) return;
+    history[index] = {
+      ...history[index],
+      runId,
+      status: "ok",
+      commitSha: result.commitSha || result.commit_sha || null,
+      repository: result.repository || history[index].repository || currentRepository(),
+      branch: result.branch || history[index].branch || "main",
+      summary: result.summary || history[index].summary || "",
+      updatedAt: new Date().toISOString(),
+    };
+    await writeLocalHistory(history);
+    await storageSet({ [ACTIVE_KEY]: null });
+  }
+
+  function bodyJson(init) {
+    try { return JSON.parse(String(init?.body || "{}")); } catch { return {}; }
+  }
+
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === "string" ? input : String(input?.url || "");
+    const match = url.match(EXECUTION_PATH);
+    if (!match) return originalFetch(input, init);
+
+    const kind = match[1];
+    const body = bodyJson(init);
+    if (kind === "decompose" && body.prompt) await ensurePromptRecord(body.prompt).catch(() => {});
+    if (kind === "plan" && body.prompt) await ensurePromptRecord(body.prompt).catch(() => {});
+
+    const response = await originalFetch(input, init);
+    try {
+      const data = await response.clone().json();
+      if (kind === "plan" && response.ok && data?.ok !== false && data?.runId) {
+        await attachRunId(String(data.runId), body.prompt || "");
+      }
+      if (kind === "commit" && response.ok && data?.ok !== false) {
+        const runId = String(body.run_id || data.runId || "");
+        if (runId && data.commitSha) await completeLocalRecord(runId, data);
+      }
+    } catch {}
+    return response;
+  };
 
   async function backendHistory() {
     try {
@@ -64,38 +162,66 @@
     }
   }
 
+  async function combinedHistory() {
+    const [backend, local] = await Promise.all([backendHistory(), readLocalHistory()]);
+    const bySha = new Map();
+    const result = [];
+    for (const item of backend) {
+      if (item?.commitSha) bySha.set(String(item.commitSha), item);
+      result.push(item);
+    }
+    for (const item of [...local].reverse()) {
+      if (!item?.commitSha || bySha.has(String(item.commitSha))) continue;
+      result.push({
+        id: item.runId || item.id,
+        localId: item.id,
+        repository: item.repository || currentRepository(),
+        branch: item.branch || "main",
+        prompt: item.text || "",
+        summary: item.summary || item.text || "Alteração aplicada pela Super Lovable",
+        status: item.status === "ok" ? "merged" : item.status,
+        commitSha: item.commitSha,
+        commitUrl: commitUrl(item.repository || currentRepository(), item.commitSha),
+        createdAt: item.timestamp || null,
+        updatedAt: item.updatedAt || null,
+        localOnly: true,
+      });
+    }
+    return result;
+  }
+
   async function latestRollbackable() {
-    const history = await backendHistory();
+    const history = await combinedHistory();
     return history.find((item) => item?.id && item?.commitSha && !item?.rollbackSha && item?.status !== "rolled_back") || null;
   }
 
-  async function rollbackLatest(button) {
-    if (busy) return;
-    const target = await latestRollbackable();
-    if (!target) {
-      alert("Não encontrei uma alteração recente disponível para desfazer.");
-      return;
-    }
+  async function rollbackItem(target, button) {
+    if (busy || !target?.id) return;
     const shortSha = String(target.commitSha || "").slice(0, 7);
-    if (!confirm(`Desfazer a última alteração da Super Lovable${shortSha ? ` (${shortSha})` : ""}?\n\nIsso criará um novo commit de reversão na main.`)) return;
+    if (!confirm(`Desfazer esta alteração${shortSha ? ` (${shortSha})` : ""}?\n\nIsso criará um novo commit de reversão na main.`)) return;
     busy = true;
-    const previous = button?.textContent || "Desfazer última ação";
+    const previous = button?.textContent || "Desfazer";
     if (button) { button.disabled = true; button.textContent = "Desfazendo…"; }
     try {
-      const result = await request("/rollback", {
-        method: "POST",
-        body: JSON.stringify({ run_id: target.id }),
-      });
-      const rollbackSha = result.rollbackCommitSha || result.rollbackSha || result.commitSha || "";
-      alert(`Alteração desfeita com sucesso${rollbackSha ? `. Commit ${String(rollbackSha).slice(0, 7)}` : ""}.`);
+      const result = await request("/rollback", { method: "POST", body: JSON.stringify({ run_id: target.id }) });
+      alert(`Alteração desfeita com sucesso${result.commitSha ? `. Commit ${String(result.commitSha).slice(0, 7)}` : ""}.`);
       document.querySelector(".sl-history-refresh")?.click();
-      setTimeout(enhance, 300);
+      setTimeout(() => enhance().catch(() => {}), 250);
     } catch (error) {
       alert(error.message || "Não foi possível desfazer a alteração.");
     } finally {
       busy = false;
       if (button) { button.disabled = false; button.textContent = previous; }
     }
+  }
+
+  async function rollbackLatest(button) {
+    const target = await latestRollbackable();
+    if (!target) {
+      alert("Não encontrei uma alteração recente disponível para desfazer.");
+      return;
+    }
+    await rollbackItem(target, button);
   }
 
   function ensureStyles() {
@@ -127,16 +253,16 @@
   async function enrichPromptCards(view) {
     const cards = [...view.querySelectorAll(".sl-history-card")];
     if (!cards.length) return;
-    const local = (await localPromptHistory()).slice().reverse();
-    const backend = await backendHistory();
+    const local = (await readLocalHistory()).slice().reverse();
+    const combined = await combinedHistory();
     const repository = currentRepository();
 
     cards.forEach((card, index) => {
       if (card.querySelector(".sl-history-actions")) return;
       const item = local[index];
       if (!item?.commitSha) return;
-      const matched = backend.find((entry) => String(entry?.commitSha || "").startsWith(String(item.commitSha).slice(0, 7)));
-      const repo = matched?.repository || repository;
+      const matched = combined.find((entry) => String(entry?.commitSha || "").startsWith(String(item.commitSha).slice(0, 7)));
+      const repo = matched?.repository || item.repository || repository;
       const url = matched?.commitUrl || commitUrl(repo, item.commitSha);
       const actions = document.createElement("div");
       actions.className = "sl-history-actions";
@@ -154,53 +280,51 @@
         undo.className = "sl-history-action";
         undo.dataset.kind = "undo";
         undo.textContent = "Desfazer esta ação";
-        undo.addEventListener("click", async () => {
-          if (busy || !confirm("Desfazer esta alteração? Um novo commit de reversão será criado na main.")) return;
-          busy = true;
-          undo.disabled = true;
-          undo.textContent = "Desfazendo…";
-          try {
-            await request("/rollback", { method: "POST", body: JSON.stringify({ run_id: matched.id }) });
-            alert("Alteração desfeita com sucesso.");
-            setTimeout(enhance, 250);
-          } catch (error) {
-            alert(error.message || "Não foi possível desfazer a alteração.");
-          } finally {
-            busy = false;
-            undo.disabled = false;
-            undo.textContent = "Desfazer esta ação";
-          }
-        });
+        undo.addEventListener("click", () => rollbackItem(matched, undo));
         actions.appendChild(undo);
       }
       if (actions.childElementCount) card.appendChild(actions);
     });
   }
 
-  async function rebuildGithubFallback(view) {
-    const list = view.querySelector(".sl-history-list");
-    const empty = list?.querySelector(".sl-history-empty") || view.querySelector(".sl-history-empty");
-    if (!empty || !/Ainda não há commits/i.test(empty.textContent || "")) return;
-    const local = (await localPromptHistory()).filter((item) => item?.commitSha).slice().reverse();
-    const repository = currentRepository();
-    if (!local.length || !repository) return;
-    const target = list || empty.parentElement;
-    if (!target) return;
-    target.innerHTML = local.map((item) => {
-      const url = commitUrl(repository, item.commitSha);
-      return `<div class="sl-history-card" data-status="ok">
-        <p>${escapeHtml(item.text || "Alteração aplicada pela Super Lovable")}</p>
-        <div class="sl-history-meta"><span class="sl-history-status">Concluído</span><span>${escapeHtml(repository)}</span><span>${escapeHtml(String(item.commitSha).slice(0, 7))}</span></div>
-        <div class="sl-history-actions"><button type="button" class="sl-history-action" data-local-commit-url="${escapeHtml(url)}">Ver no GitHub</button></div>
-        <div class="sl-history-local-note">Registro recuperado do histórico local da extensão.</div>
+  async function rebuildGithubView(view) {
+    const history = (await combinedHistory()).filter((item) => item?.commitSha);
+    view.innerHTML = `
+      <div class="sl-history-toolbar">
+        <small>${history.length} commit${history.length === 1 ? "" : "s"} da Super Lovable</small>
+        <button class="sl-history-refresh" type="button">Atualizar</button>
+      </div>
+      <div class="sl-history-list">
+        ${history.length ? history.map((item) => {
+          const repo = item.repository || currentRepository();
+          const url = item.commitUrl || commitUrl(repo, item.commitSha);
+          return `<div class="sl-history-card" data-status="${escapeHtml(item.status || "merged")}">
+            <p>${escapeHtml(item.summary || item.prompt || "Alteração aplicada pela Super Lovable")}</p>
+            <div class="sl-history-meta"><span class="sl-history-status">Aplicado</span><span>${escapeHtml(repo)}</span><span>${escapeHtml(String(item.commitSha).slice(0, 7))}</span></div>
+            <div class="sl-history-actions">
+              ${url ? `<button type="button" class="sl-history-action" data-commit-url="${escapeHtml(url)}">Ver no GitHub</button>` : ""}
+              ${item.id && !item.rollbackSha ? `<button type="button" class="sl-history-action" data-kind="undo" data-run-id="${escapeHtml(item.id)}">Desfazer esta ação</button>` : ""}
+            </div>
+            ${item.localOnly ? '<div class="sl-history-local-note">Registro recuperado diretamente da execução local da extensão.</div>' : ""}
+          </div>`;
+        }).join("") : '<div class="sl-history-empty">Ainda não há commits aplicados pela Super Lovable neste histórico.</div>'}
       </div>`;
-    }).join("");
-    target.querySelectorAll("[data-local-commit-url]").forEach((button) => {
+
+    view.querySelector(".sl-history-refresh")?.addEventListener("click", () => rebuildGithubView(view));
+    view.querySelectorAll("[data-commit-url]").forEach((button) => {
       button.addEventListener("click", () => {
-        const url = button.getAttribute("data-local-commit-url");
+        const url = button.getAttribute("data-commit-url");
         if (url) chrome.tabs.create({ url });
       });
     });
+    view.querySelectorAll("[data-run-id]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const id = button.getAttribute("data-run-id");
+        const target = history.find((item) => String(item.id) === String(id));
+        if (target) await rollbackItem(target, button);
+      });
+    });
+    await addUndoToolbar(view);
   }
 
   async function enhance() {
@@ -208,10 +332,12 @@
     const historyTab = document.querySelector('.sp-tab[data-tab="history"]');
     const view = document.getElementById("sl-history-view");
     if (!historyTab?.classList.contains("sp-tab-active") || !view) return;
-    await addUndoToolbar(view);
     const activeView = document.querySelector('.sl-history-tabs button.is-active')?.getAttribute("data-view") || "prompts";
-    if (activeView === "github") await rebuildGithubFallback(view);
-    else await enrichPromptCards(view);
+    if (activeView === "github") await rebuildGithubView(view);
+    else {
+      await addUndoToolbar(view);
+      await enrichPromptCards(view);
+    }
   }
 
   const observer = new MutationObserver(() => {
@@ -219,10 +345,16 @@
     observer._timer = setTimeout(() => enhance().catch(() => {}), 120);
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
+
   document.addEventListener("click", (event) => {
     if (event.target?.closest?.('.sp-tab[data-tab="history"], .sl-history-tabs button, .sl-history-refresh')) {
       setTimeout(() => enhance().catch(() => {}), 180);
     }
   }, true);
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes[HISTORY_KEY]) setTimeout(() => enhance().catch(() => {}), 100);
+  });
+
   setTimeout(() => enhance().catch(() => {}), 700);
 })();
