@@ -1,4 +1,4 @@
-// Super Lovable — controle leve de interrupção da execução comercial.
+// Super Lovable — controle de interrupção para qualquer execução comercial.
 (() => {
   if (globalThis.__superLovableExecutionStopLoaded) return;
   globalThis.__superLovableExecutionStopLoaded = true;
@@ -9,6 +9,7 @@
   const originalFetch = globalThis.fetch.bind(globalThis);
 
   let stopped = false;
+  let running = false;
   let executionController = new AbortController();
   let cleanupTimer = null;
   let activityTimer = null;
@@ -26,21 +27,10 @@
     return executionController.signal;
   }
 
-  globalThis.fetch = (input, init = {}) => {
-    if (!isExecutionRequest(input)) return originalFetch(input, init);
-    if (stopped) {
-      return Promise.reject(new DOMException("Execução interrompida pelo usuário.", "AbortError"));
-    }
-    return originalFetch(input, { ...init, signal: combinedSignal(init?.signal) });
-  };
-
-  const storageRemove = (keys) =>
-    new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
+  const storageRemove = (keys) => new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
 
   async function clearPendingTask() {
-    try {
-      await storageRemove([BATCH_TASK_KEY]);
-    } catch {}
+    try { await storageRemove([BATCH_TASK_KEY]); } catch {}
   }
 
   function stopCleanupLoop() {
@@ -57,32 +47,10 @@
     setTimeout(stopCleanupLoop, 8000);
   }
 
-  function executionLooksActive() {
-    if (stopped) return false;
+  function terminalStateVisible() {
     const status = String(document.getElementById("sl-agent-status")?.textContent || "");
-    const progress = document.getElementById("sl-agent-progress");
-    if (!progress || progress.hidden) return false;
-    const combined = `${status} ${String(progress.textContent || "")}`;
-    return !/Concluído|concluída|aplicada com sucesso|Falha no processamento|interrompida pelo usuário/i.test(combined);
-  }
-
-  function syncStopButton() {
-    const button = document.getElementById("sl-agent-stop");
-    if (!button) return;
-    const active = executionLooksActive();
-    button.hidden = !active;
-    button.disabled = stopped;
-    button.textContent = stopped ? "Parando…" : "Parar execução";
-    if (!active && activityTimer) {
-      clearInterval(activityTimer);
-      activityTimer = null;
-    }
-  }
-
-  function startActivityWatch() {
-    if (activityTimer) return;
-    activityTimer = setInterval(syncStopButton, 1000);
-    syncStopButton();
+    const progress = String(document.getElementById("sl-agent-progress")?.textContent || "");
+    return /Concluído|concluída|aplicada com sucesso|Falha no processamento|interrompida pelo usuário|Tarefa cancelada/i.test(`${status} ${progress}`);
   }
 
   function mountStopButton() {
@@ -100,6 +68,45 @@
     actions.appendChild(button);
   }
 
+  function syncStopButton() {
+    mountStopButton();
+    const button = document.getElementById("sl-agent-stop");
+    if (!button) return;
+    if (running && terminalStateVisible()) running = false;
+    button.hidden = !running;
+    button.disabled = stopped;
+    button.textContent = stopped ? "Parando…" : "Parar execução";
+    if (!running && activityTimer) {
+      clearInterval(activityTimer);
+      activityTimer = null;
+    }
+  }
+
+  function startActivityWatch() {
+    if (activityTimer) return;
+    activityTimer = setInterval(syncStopButton, 500);
+    syncStopButton();
+  }
+
+  function newExecutionCycle() {
+    stopped = false;
+    running = true;
+    if (executionController.signal.aborted) executionController = new AbortController();
+    stopCleanupLoop();
+    mountStopButton();
+    startActivityWatch();
+    syncStopButton();
+  }
+
+  globalThis.fetch = (input, init = {}) => {
+    if (!isExecutionRequest(input)) return originalFetch(input, init);
+    if (!running) newExecutionCycle();
+    if (stopped) {
+      return Promise.reject(new DOMException("Execução interrompida pelo usuário.", "AbortError"));
+    }
+    return originalFetch(input, { ...init, signal: combinedSignal(init?.signal) });
+  };
+
   function showStoppedState() {
     const status = document.getElementById("sl-agent-status");
     const progress = document.getElementById("sl-agent-progress");
@@ -112,14 +119,15 @@
       progress.innerHTML = `
         <div class="sl-agent-result" style="border-color:rgba(255,190,71,.3)">
           <strong>Execução interrompida</strong>
-          <p>Novas etapas e tentativas foram canceladas. Se um commit já tiver sido confirmado no GitHub antes da interrupção, ele continuará aparecendo no histórico e poderá ser desfeito.</p>
+          <p>Novas etapas e tentativas foram canceladas. Se um commit já tiver sido confirmado no GitHub antes da interrupção, ele continuará no histórico e poderá ser desfeito.</p>
         </div>`;
     }
   }
 
   async function stopExecution() {
-    if (stopped) return;
+    if (stopped || !running) return;
     stopped = true;
+    running = false;
     try { executionController.abort("USER_CANCELLED"); } catch {}
     await clearPendingTask();
     startCleanupLoop();
@@ -127,23 +135,13 @@
     syncStopButton();
   }
 
-  function newExecutionCycle() {
-    stopped = false;
-    if (executionController.signal.aborted) executionController = new AbortController();
-    stopCleanupLoop();
-    mountStopButton();
-    startActivityWatch();
-  }
-
-  // Só inicia o monitoramento quando o usuário realmente envia um comando.
   window.addEventListener("click", (event) => {
     if (event.target?.closest?.("#sp-send")) newExecutionCycle();
   }, true);
 
-  // Observa apenas inserção/remoção de nós e para de depender de characterData.
-  // Isso evita acordar o script a cada mudança textual durante login/validação da licença.
   const observer = new MutationObserver(() => {
-    if (!document.getElementById("sl-agent-stop")) mountStopButton();
+    mountStopButton();
+    if (running) syncStopButton();
   });
 
   if (document.body) observer.observe(document.body, { childList: true, subtree: true });
