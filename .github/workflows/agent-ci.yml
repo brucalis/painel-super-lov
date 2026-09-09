@@ -12,6 +12,7 @@ on:
       - "extension/**"
       - "extension-customer/**"
       - "scripts/build-extension.mjs"
+      - "scripts/test-agent-autorecovery.mjs"
       - "supabase/migrations/**"
       - ".github/workflows/agent-ci.yml"
   pull_request:
