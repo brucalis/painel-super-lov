@@ -1,4 +1,4 @@
-// Super Lovable — controle de interrupção da execução comercial.
+// Super Lovable — controle leve de interrupção da execução comercial.
 (() => {
   if (globalThis.__superLovableExecutionStopLoaded) return;
   globalThis.__superLovableExecutionStopLoaded = true;
@@ -11,22 +11,16 @@
   let stopped = false;
   let executionController = new AbortController();
   let cleanupTimer = null;
+  let activityTimer = null;
 
   function isExecutionRequest(input) {
     const url = typeof input === "string" ? input : String(input?.url || "");
     return EXECUTION_PATH.test(url);
   }
 
-  function newExecutionCycle() {
-    stopped = false;
-    if (executionController.signal.aborted) executionController = new AbortController();
-    stopCleanupLoop();
-    syncStopButton();
-  }
-
   function combinedSignal(existing) {
     if (!existing) return executionController.signal;
-    if (typeof AbortSignal?.any === "function") {
+    if (typeof AbortSignal !== "undefined" && typeof AbortSignal.any === "function") {
       return AbortSignal.any([existing, executionController.signal]);
     }
     return executionController.signal;
@@ -40,12 +34,8 @@
     return originalFetch(input, { ...init, signal: combinedSignal(init?.signal) });
   };
 
-  function storageGet(keys) {
-    return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
-  }
-  function storageRemove(keys) {
-    return new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
-  }
+  const storageRemove = (keys) =>
+    new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
 
   async function clearPendingTask() {
     try {
@@ -63,8 +53,51 @@
     cleanupTimer = setInterval(() => {
       if (!stopped) return stopCleanupLoop();
       void clearPendingTask();
-    }, 500);
-    setTimeout(stopCleanupLoop, 12_000);
+    }, 1000);
+    setTimeout(stopCleanupLoop, 8000);
+  }
+
+  function executionLooksActive() {
+    if (stopped) return false;
+    const status = String(document.getElementById("sl-agent-status")?.textContent || "");
+    const progress = document.getElementById("sl-agent-progress");
+    if (!progress || progress.hidden) return false;
+    const combined = `${status} ${String(progress.textContent || "")}`;
+    return !/Concluído|concluída|aplicada com sucesso|Falha no processamento|interrompida pelo usuário/i.test(combined);
+  }
+
+  function syncStopButton() {
+    const button = document.getElementById("sl-agent-stop");
+    if (!button) return;
+    const active = executionLooksActive();
+    button.hidden = !active;
+    button.disabled = stopped;
+    button.textContent = stopped ? "Parando…" : "Parar execução";
+    if (!active && activityTimer) {
+      clearInterval(activityTimer);
+      activityTimer = null;
+    }
+  }
+
+  function startActivityWatch() {
+    if (activityTimer) return;
+    activityTimer = setInterval(syncStopButton, 1000);
+    syncStopButton();
+  }
+
+  function mountStopButton() {
+    const panel = document.getElementById("sl-github-agent");
+    if (!panel || document.getElementById("sl-agent-stop")) return;
+    const actions = panel.querySelector(".sl-agent-actions");
+    if (!actions) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = "sl-agent-stop";
+    button.className = "sl-agent-danger";
+    button.hidden = true;
+    button.textContent = "Parar execução";
+    button.addEventListener("click", () => void stopExecution());
+    actions.appendChild(button);
   }
 
   function showStoppedState() {
@@ -94,53 +127,31 @@
     syncStopButton();
   }
 
-  function executionLooksActive() {
-    const status = String(document.getElementById("sl-agent-status")?.textContent || "");
-    const progress = document.getElementById("sl-agent-progress");
-    if (stopped) return false;
-    return Boolean(progress && !progress.hidden) && !/Concluído|concluída|aplicada com sucesso|Falha no processamento|interrompida pelo usuário/i.test(status + " " + String(progress?.textContent || ""));
+  function newExecutionCycle() {
+    stopped = false;
+    if (executionController.signal.aborted) executionController = new AbortController();
+    stopCleanupLoop();
+    mountStopButton();
+    startActivityWatch();
   }
 
-  function syncStopButton() {
-    const button = document.getElementById("sl-agent-stop");
-    if (!button) return;
-    const active = executionLooksActive();
-    button.hidden = !active;
-    button.disabled = stopped;
-    button.textContent = stopped ? "Parando…" : "Parar execução";
-  }
-
-  function mountStopButton() {
-    const panel = document.getElementById("sl-github-agent");
-    if (!panel || document.getElementById("sl-agent-stop")) return;
-    const actions = panel.querySelector(".sl-agent-actions");
-    if (!actions) return;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.id = "sl-agent-stop";
-    button.className = "sl-agent-danger";
-    button.hidden = true;
-    button.textContent = "Parar execução";
-    button.addEventListener("click", () => void stopExecution());
-    actions.appendChild(button);
-    syncStopButton();
-  }
-
-  // O clique de envio passa primeiro pelo window (capture) e inicia um novo ciclo
-  // antes de o listener do agente, registrado no document, executar.
+  // Só inicia o monitoramento quando o usuário realmente envia um comando.
   window.addEventListener("click", (event) => {
     if (event.target?.closest?.("#sp-send")) newExecutionCycle();
   }, true);
 
+  // Observa apenas inserção/remoção de nós e para de depender de characterData.
+  // Isso evita acordar o script a cada mudança textual durante login/validação da licença.
   const observer = new MutationObserver(() => {
-    mountStopButton();
-    if (stopped) showStoppedState();
-    syncStopButton();
+    if (!document.getElementById("sl-agent-stop")) mountStopButton();
   });
-  observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
 
-  setInterval(syncStopButton, 500);
+  if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+  else document.addEventListener("DOMContentLoaded", () => {
+    observer.observe(document.body, { childList: true, subtree: true });
+    mountStopButton();
+  }, { once: true });
+
   mountStopButton();
-
   globalThis.superLovableStopExecution = stopExecution;
 })();
