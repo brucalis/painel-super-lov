@@ -1,10 +1,19 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "09.09.S2",
-  technicalVersion: "33.0.14",
+  version: "09.09.S3",
+  technicalVersion: "33.0.15",
   updatedAt: "09/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S2",
-  downloadName: "superlovable-09.09.S2.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S3",
+  downloadName: "superlovable-09.09.S3.zip",
   changelog: [
+    {
+      version: "09.09.S3",
+      date: "09/09/2026",
+      changes: [
+        "Grok (xAI) e Cloudflare Workers AI passam a formar a dupla principal obrigatória.",
+        "Gemini e OpenRouter ficam como contingências opcionais no fluxo Grok → Cloudflare → Gemini → OpenRouter.",
+        "Falhas temporárias mantêm as credenciais salvas e acionam automaticamente o próximo provedor disponível.",
+      ],
+    },
     {
       version: "09.09.S2",
       date: "09/09/2026",
@@ -128,5 +137,4 @@ export const ADMIN_EXTENSION_RELEASE = {
   downloadName: "superlovable-v32.0.44-admin.zip",
 } as const;
 
-// Compatibilidade: a home pública sempre aponta para a edição comercial.
 export const EXTENSION_RELEASE = CUSTOMER_EXTENSION_RELEASE;
