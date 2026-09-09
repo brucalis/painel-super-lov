@@ -29,29 +29,25 @@ export const Route = createFileRoute("/api/public/agent/plan")({
           }
 
           const stack = await credentials.customerProviderStack(request, auth.license.id);
-          if (!stack.grok || !stack.cloudflare) {
+          if (!stack.cloudflare) {
             return json(
               {
                 ok: false,
-                error: "Conecte Grok e Cloudflare para usar a Super Lovable. Gemini e OpenRouter são contingências opcionais.",
+                error: "Conecte a Cloudflare para usar a Super Lovable. Gemini e OpenRouter são contingências opcionais.",
                 code: "CUSTOMER_REQUIRED_AI_NOT_CONFIGURED",
-                requiredProviders: ["grok", "cloudflare"],
+                requiredProviders: ["cloudflare"],
               },
               428,
             );
           }
 
-          const providers = [stack.grok, stack.cloudflare, stack.gemini, stack.openrouter].filter(
+          const providers = [stack.cloudflare, stack.gemini, stack.openrouter].filter(
             (credential): credential is NonNullable<typeof credential> => Boolean(credential),
           );
           let lastError: unknown = null;
           for (const credential of providers) {
             try {
-              const result = await customerAgent.planAgentRunCustomerProvider(
-                auth,
-                prompt,
-                credential,
-              );
+              const result = await customerAgent.planAgentRunCustomerProvider(auth, prompt, credential);
               return json({ ok: true, resilient: true, providerUsed: credential.provider, ...result });
             } catch (error) {
               lastError = error;
