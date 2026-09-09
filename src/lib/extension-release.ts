@@ -1,10 +1,19 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "09.09.S7",
-  technicalVersion: "33.0.19",
+  version: "09.09.S8",
+  technicalVersion: "33.0.20",
   updatedAt: "09/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S7",
-  downloadName: "superlovable-09.09.S7.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S8",
+  downloadName: "superlovable-09.09.S8.zip",
   changelog: [
+    {
+      version: "09.09.S8",
+      date: "09/09/2026",
+      changes: [
+        "Histórico passa a registrar também comandos capturados diretamente do chat da Lovable.",
+        "Commits diretos ficam disponíveis na aba GitHub com link e reversão mesmo quando o histórico remoto demora a sincronizar.",
+        "O botão Parar execução passa a aparecer em qualquer execução ativa, inclusive comandos disparados pelo chat da Lovable.",
+      ],
+    },
     {
       version: "09.09.S7",
       date: "09/09/2026",
