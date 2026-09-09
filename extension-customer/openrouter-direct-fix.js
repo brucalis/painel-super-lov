@@ -1,7 +1,10 @@
 (() => {
   if (globalThis.SUPER_LOVABLE_EDITION?.mode !== "customer") return;
 
-  const API = "https://painel-super-lov.lovable.app/api/public/agent/ai-credentials-openrouter";
+  // Usa a rota de credenciais já registrada no routeTree do painel.
+  // A rota exclusiva criada anteriormente não estava registrada no routeTree
+  // gerado do TanStack Router e, por isso, respondia HTTP 404 em produção.
+  const API = "https://painel-super-lov.lovable.app/api/public/agent/ai-credentials";
 
   function setStatus(kind, text) {
     const status = document.getElementById("sl-ai-openrouter-status");
@@ -39,7 +42,7 @@
       button.disabled = true;
       button.textContent = "Validando…";
     }
-    setStatus("warning", "Validando OpenRouter pela rota direta…");
+    setStatus("warning", "Validando OpenRouter…");
 
     try {
       const session = await storageGet(["ql_session_id"]);
@@ -52,7 +55,11 @@
           "Content-Type": "application/json",
           "X-Super-Lovable-Edition": "customer-s1",
         },
-        body: JSON.stringify({ api_key: apiKey }),
+        body: JSON.stringify({
+          provider: "openrouter",
+          ai_provider: "openrouter",
+          api_key: apiKey,
+        }),
       });
 
       const data = await response.json().catch(() => ({}));
