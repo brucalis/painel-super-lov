@@ -26,6 +26,10 @@ export const Route = createFileRoute("/api/public/agent/status")({
             ok: true,
             advisory: true,
           };
+          const customerOperational = Boolean(customerAi?.configured);
+          const actualGroq = customerAi?.groq || { configured: false };
+          const actualGemini = customerAi?.gemini || { configured: false };
+          const actualOpenRouter = customerAi?.openrouter || { configured: false };
           return json({
             ok: true,
             flow_mode: "direct-main-v2",
@@ -36,9 +40,17 @@ export const Route = createFileRoute("/api/public/agent/status")({
               process.env.GITHUB_APP_SLUG
             ),
             ai: {
-              customerConfigured: Boolean(customerAi?.configured),
-              groq: customerEdition ? customerAi?.groq || { configured: false } : Boolean(process.env.GROQ_API_KEY),
-              gemini: customerEdition ? customerAi?.gemini || { configured: false } : Boolean(process.env.GEMINI_API_KEY),
+              customerConfigured: customerOperational,
+              configuredCount: Number(customerAi?.configuredCount || 0),
+              // O painel legado usa groq && gemini para liberar o chat. Na edição comercial,
+              // qualquer provedor salvo já torna o agente operacional; os estados reais ficam
+              // disponíveis em providerStatus e no painel de conexões do cliente.
+              groq: customerEdition ? { ...actualGroq, configured: customerOperational } : Boolean(process.env.GROQ_API_KEY),
+              gemini: customerEdition ? { ...actualGemini, configured: customerOperational } : Boolean(process.env.GEMINI_API_KEY),
+              openrouter: customerEdition ? actualOpenRouter : { configured: false },
+              providerStatus: customerEdition
+                ? { groq: actualGroq, gemini: actualGemini, openrouter: actualOpenRouter }
+                : null,
             },
             runner,
             connection,
