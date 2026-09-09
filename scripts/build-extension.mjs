@@ -12,7 +12,7 @@ const adminBuildDir = path.join(buildRoot, "admin");
 const customerBuildDir = path.join(buildRoot, "customer");
 const publicDir = path.join(root, "public");
 const adminZip = path.join(publicDir, "super-lovable-admin-v32.0.44.zip");
-const customerZip = path.join(publicDir, "super-lovable-09.09.S5.zip");
+const customerZip = path.join(publicDir, "super-lovable-09.09.S6.zip");
 const stableCustomerZip = path.join(publicDir, "super-lovable.zip");
 
 const requiredScripts = [
@@ -69,9 +69,9 @@ await cp(overlayDir, customerBuildDir, { recursive: true });
 const customerManifestPath = path.join(customerBuildDir, "manifest.json");
 const customerManifest = JSON.parse(await readFile(customerManifestPath, "utf8"));
 customerManifest.name = "Superlovable";
-customerManifest.version = "33.0.17";
-customerManifest.version_name = "09.09.S5";
-customerManifest.description = "Superlovable — Cloudflare principal com histórico de commits e reversão integrada.";
+customerManifest.version = "33.0.18";
+customerManifest.version_name = "09.09.S6";
+customerManifest.description = "Superlovable — Cloudflare principal, histórico integrado e controle de parada de execução.";
 await writeFile(customerManifestPath, JSON.stringify(customerManifest, null, 2) + "\n");
 
 await validatePackage(adminBuildDir);
