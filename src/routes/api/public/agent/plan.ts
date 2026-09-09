@@ -47,32 +47,74 @@ export const Route = createFileRoute("/api/public/agent/plan")({
           const failures: Array<{ provider: string; status: number; message: string }> = [];
           let lastError: unknown = null;
 
-          for (const credential of providers) {
-            try {
-              const result = await customerAgent.planAgentRunCustomerProvider(auth, prompt, credential);
-              return json({ ok: true, resilient: true, providerUsed: credential.provider, ...result });
-            } catch (error) {
-              lastError = error;
-              let status = 503;
-              let message = "indisponível nesta tentativa";
-              if (error instanceof Response) {
-                status = error.status;
-                message = await error.clone().text().catch(() => message);
-              } else {
-                const details = agent.agentErrorDetails(error);
-                status = details.status;
-                message = details.message;
-              }
-              const safeMessage = String(message || "indisponível nesta tentativa")
-                .replace(/(?:sk|AIza|gsk_|eyJ)[A-Za-z0-9._-]{12,}/g, "[credencial oculta]")
-                .slice(0, 180);
-              failures.push({ provider: credential.provider, status, message: safeMessage });
-              console.warn("[github-agent/customer-stack] provedor falhou; tentando próximo", {
-                provider: credential.provider,
-                status,
-                message: safeMessage,
-              });
+          const readFailure = async (error: unknown) => {
+            let status = 503;
+            let message = "indisponível nesta tentativa";
+            if (error instanceof Response) {
+              status = error.status;
+              message = await error.clone().text().catch(() => message);
+            } else {
+              const details = agent.agentErrorDetails(error);
+              status = details.status;
+              message = details.message;
             }
+            const safeMessage = String(message || "indisponível nesta tentativa")
+              .replace(/(?:sk|AIza|gsk_|eyJ)[A-Za-z0-9._-]{12,}/g, "[credencial oculta]")
+              .slice(0, 180);
+            return { status, message: safeMessage };
+          };
+
+          const shouldRetryOpenRouterJson = (status: number, message: string) =>
+            status === 500 || status === 502
+              ? /JSON|property name|unexpected token|position \d+|plano de código válido/i.test(message)
+              : false;
+
+          for (const credential of providers) {
+            let providerError: unknown = null;
+            let providerFailure: { status: number; message: string } | null = null;
+            const maxAttempts = credential.provider === "openrouter" ? 2 : 1;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+              try {
+                const retryPrompt =
+                  credential.provider === "openrouter" && attempt > 1
+                    ? `${prompt}\n\n[RECUPERAÇÃO TÉCNICA] Retorne obrigatoriamente um único objeto JSON válido, sem markdown, comentários ou texto antes/depois do JSON.`
+                    : prompt;
+                const result = await customerAgent.planAgentRunCustomerProvider(auth, retryPrompt, credential);
+                return json({
+                  ok: true,
+                  resilient: true,
+                  providerUsed: credential.provider,
+                  providerAttempt: attempt,
+                  ...result,
+                });
+              } catch (error) {
+                providerError = error;
+                providerFailure = await readFailure(error);
+                const retryMalformedJson =
+                  credential.provider === "openrouter" &&
+                  attempt < maxAttempts &&
+                  shouldRetryOpenRouterJson(providerFailure.status, providerFailure.message);
+
+                if (retryMalformedJson) {
+                  console.warn("[github-agent/customer-stack] OpenRouter retornou JSON malformado; repetindo uma vez", {
+                    status: providerFailure.status,
+                    message: providerFailure.message,
+                  });
+                  continue;
+                }
+                break;
+              }
+            }
+
+            lastError = providerError;
+            const failure = providerFailure || { status: 503, message: "indisponível nesta tentativa" };
+            failures.push({ provider: credential.provider, ...failure });
+            console.warn("[github-agent/customer-stack] provedor falhou; tentando próximo", {
+              provider: credential.provider,
+              status: failure.status,
+              message: failure.message,
+            });
           }
 
           const summary = failures
