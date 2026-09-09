@@ -1,10 +1,19 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "09.09.S5",
-  technicalVersion: "33.0.17",
+  version: "09.09.S6",
+  technicalVersion: "33.0.18",
   updatedAt: "09/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S5",
-  downloadName: "superlovable-09.09.S5.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S6",
+  downloadName: "superlovable-09.09.S6.zip",
   changelog: [
+    {
+      version: "09.09.S6",
+      date: "09/09/2026",
+      changes: [
+        "Execuções em andamento ganham o botão Parar execução.",
+        "Ao interromper, novas etapas, tentativas e retomadas automáticas são canceladas e o usuário pode enviar um novo comando.",
+        "Se um commit já tiver sido confirmado antes da interrupção, ele permanece no histórico e pode ser desfeito pela ação de reversão.",
+      ],
+    },
     {
       version: "09.09.S5",
       date: "09/09/2026",
