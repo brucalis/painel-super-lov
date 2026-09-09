@@ -31,26 +31,26 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build:extension
       - run: unzip -t public/super-lovable.zip
-      - run: unzip -t public/super-lovable-09.09.S8.zip
+      - run: unzip -t public/super-lovable-09.09.S9.zip
       - run: unzip -t public/super-lovable-admin-v32.0.44.zip
       - name: Publicar pacote atualizado
         run: |
           set -e
           mkdir -p /tmp/super-lovable-build
           cp public/super-lovable.zip /tmp/super-lovable-build/
-          cp public/super-lovable-09.09.S8.zip /tmp/super-lovable-build/
+          cp public/super-lovable-09.09.S9.zip /tmp/super-lovable-build/
           cp public/super-lovable-admin-v32.0.44.zip /tmp/super-lovable-build/
 
           git fetch origin main
           git reset --hard origin/main
 
           cp /tmp/super-lovable-build/super-lovable.zip public/super-lovable.zip
-          cp /tmp/super-lovable-build/super-lovable-09.09.S8.zip public/super-lovable-09.09.S8.zip
+          cp /tmp/super-lovable-build/super-lovable-09.09.S9.zip public/super-lovable-09.09.S9.zip
           cp /tmp/super-lovable-build/super-lovable-admin-v32.0.44.zip public/super-lovable-admin-v32.0.44.zip
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/super-lovable.zip public/super-lovable-09.09.S8.zip public/super-lovable-admin-v32.0.44.zip
+          git add public/super-lovable.zip public/super-lovable-09.09.S9.zip public/super-lovable-admin-v32.0.44.zip
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "build: atualizar pacotes das extensões 09.09.S8 e 32.0.44"
+          git commit -m "build: atualizar pacotes das extensões 09.09.S9 e 32.0.44"
           git push origin main
