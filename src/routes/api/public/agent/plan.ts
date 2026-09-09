@@ -44,29 +44,52 @@ export const Route = createFileRoute("/api/public/agent/plan")({
           const providers = [stack.cloudflare, stack.gemini, stack.openrouter].filter(
             (credential): credential is NonNullable<typeof credential> => Boolean(credential),
           );
+          const failures: Array<{ provider: string; status: number; message: string }> = [];
           let lastError: unknown = null;
+
           for (const credential of providers) {
             try {
               const result = await customerAgent.planAgentRunCustomerProvider(auth, prompt, credential);
               return json({ ok: true, resilient: true, providerUsed: credential.provider, ...result });
             } catch (error) {
               lastError = error;
-              const details = agent.agentErrorDetails(error);
+              let status = 503;
+              let message = "indisponível nesta tentativa";
+              if (error instanceof Response) {
+                status = error.status;
+                message = await error.clone().text().catch(() => message);
+              } else {
+                const details = agent.agentErrorDetails(error);
+                status = details.status;
+                message = details.message;
+              }
+              const safeMessage = String(message || "indisponível nesta tentativa")
+                .replace(/(?:sk|AIza|gsk_|eyJ)[A-Za-z0-9._-]{12,}/g, "[credencial oculta]")
+                .slice(0, 180);
+              failures.push({ provider: credential.provider, status, message: safeMessage });
               console.warn("[github-agent/customer-stack] provedor falhou; tentando próximo", {
                 provider: credential.provider,
-                code: details.code,
-                status: details.status,
-                message: details.message,
+                status,
+                message: safeMessage,
               });
             }
           }
+
+          const summary = failures
+            .map((item) => `${item.provider}: ${item.status}${item.message ? ` (${item.message})` : ""}`)
+            .join(" · ")
+            .slice(0, 520);
+          const errorMessage = summary
+            ? `Nenhuma das IAs configuradas conseguiu concluir o planejamento. Diagnóstico: ${summary}`
+            : "Nenhuma das IAs configuradas conseguiu concluir o planejamento agora. Suas credenciais continuam salvas para a próxima tentativa.";
 
           if (lastError instanceof Response) {
             return json(
               {
                 ok: false,
-                error: "Nenhuma das IAs configuradas conseguiu concluir o planejamento agora. Suas credenciais continuam salvas para a próxima tentativa.",
+                error: errorMessage,
                 code: "CUSTOMER_AI_STACK_EXHAUSTED",
+                providerFailures: failures,
               },
               lastError.status >= 400 && lastError.status < 600 ? lastError.status : 503,
             );
@@ -74,8 +97,9 @@ export const Route = createFileRoute("/api/public/agent/plan")({
           return json(
             {
               ok: false,
-              error: "Nenhuma das IAs configuradas conseguiu concluir o planejamento agora. Suas credenciais continuam salvas para a próxima tentativa.",
+              error: errorMessage,
               code: "CUSTOMER_AI_STACK_EXHAUSTED",
+              providerFailures: failures,
             },
             503,
           );
