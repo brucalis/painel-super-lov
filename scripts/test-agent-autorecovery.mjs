@@ -9,6 +9,9 @@ const sidepanel = await readFile(new URL("../extension/sidepanel.js", import.met
 const batches = await readFile(new URL("../src/lib/github-agent-batches.server.ts", import.meta.url), "utf8");
 const agentServer = await readFile(new URL("../src/lib/github-agent.server.ts", import.meta.url), "utf8");
 const resilient = await readFile(new URL("../src/lib/github-agent-resilient.server.ts", import.meta.url), "utf8");
+const credentials = await readFile(new URL("../src/lib/customer-ai-credentials.server.ts", import.meta.url), "utf8");
+const openrouterAgent = await readFile(new URL("../src/lib/github-agent-openrouter.server.ts", import.meta.url), "utf8");
+const planRoute = await readFile(new URL("../src/routes/api/public/agent/plan.ts", import.meta.url), "utf8");
 
 test("a retomada não depende de botões ou cliques no DOM", () => {
   assert.doesNotMatch(panel, /Retomar da etapa|Continuar da etapa/);
@@ -44,7 +47,6 @@ test("erros de autenticação não entram em repetição automática", () => {
   assert.match(panel, /kind === "terminal"/);
 });
 
-
 test("requisições usam limites específicos por operação", () => {
   assert.match(panel, /REQUEST_TIMEOUT_MS = 90_000/);
   assert.match(panel, /PLAN_TIMEOUT_MS = 180_000/);
@@ -79,15 +81,37 @@ test("tentativas de provedor não são multiplicadas entre camadas", () => {
   assert.match(resilient, /três tentativas automáticas por \/plan/);
 });
 
+test("OpenRouter entra como terceira contingência gratuita", () => {
+  assert.match(credentials, /"groq", "gemini", "openrouter"/);
+  assert.match(credentials, /openrouter\/free/);
+  assert.match(openrouterAgent, /https:\/\/openrouter\.ai\/api\/v1\/chat\/completions/);
+  assert.match(openrouterAgent, /response_format: \{ type: "json_object" \}/);
+  assert.match(planRoute, /Groq\/Gemini falharam; acionando OpenRouter/);
+  assert.match(planRoute, /planAgentRunOpenRouter/);
+});
+
+test("uma IA configurada mantém o produto operacional e as demais viram contingência", () => {
+  assert.match(customerSettings, /const aiReady = configuredCount > 0/);
+  assert.match(customerSettings, /const operational = aiReady && projectReady/);
+  assert.match(customerSettings, /3 IAs configuradas · contingência completa/);
+  assert.match(customerSettings, /adicione outra API para ampliar a contingência/);
+  assert.match(customerSettings, /OpenRouter · 3ª tentativa/);
+  assert.match(customerSettings, /A nova chave não foi aceita\. A conexão anterior/);
+});
+
+test("falha temporária de consulta não apaga conexões já conhecidas", () => {
+  assert.match(customerSettings, /A chave salva foi mantida/);
+  assert.doesNotMatch(customerSettings, /connectionState\[provider\] = false;\s*const status = document\.getElementById/);
+});
+
 test("tarefas encerradas não entram novamente no ciclo automático", () => {
   assert.match(panel, /TERMINAL_TASK_STATUSES/);
   assert.match(panel, /TERMINAL_TASK_STATUSES\.has\(task\.status\)/);
   assert.match(panel, /não será retomada em loop/);
 });
 
-
 test("painel comercial recolhe conexões completas e permite rolagem", () => {
-  assert.match(customerSettings, /becameComplete \|\| !userOpenedCompletePanel/);
+  assert.match(customerSettings, /becameOperational \|\| !userOpenedCompletePanel/);
   assert.match(customerSettings, /\.sp-body \{ overflow-y: auto !important/);
   assert.match(customerSettings, /superLovableCloseConnectionStatus/);
 });
