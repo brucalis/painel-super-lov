@@ -1,18 +1,47 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const CREDENTIAL_API_VERSION = "ai-credentials-v2-openrouter";
+const CREDENTIAL_API_VERSION = "ai-credentials-v3-provider-resilience";
 const SUPPORTED_AI_PROVIDERS = ["groq", "gemini", "openrouter"] as const;
 
-function normalizeProvider(value: unknown) {
+type Provider = (typeof SUPPORTED_AI_PROVIDERS)[number];
+
+type CredentialBody = {
+  provider?: unknown;
+  ai_provider?: unknown;
+  providerId?: unknown;
+  type?: unknown;
+  api_key?: unknown;
+  apiKey?: unknown;
+  key?: unknown;
+};
+
+function normalizeProvider(value: unknown): Provider | "" {
   const normalized = String(value ?? "")
     .trim()
     .toLowerCase()
-    .replace(/[\s_-]+/g, "");
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
 
-  if (normalized === "groq") return "groq";
-  if (normalized === "gemini") return "gemini";
-  if (normalized === "openrouter") return "openrouter";
+  if (normalized.includes("openrouter")) return "openrouter";
+  if (normalized.includes("groq")) return "groq";
+  if (normalized.includes("gemini")) return "gemini";
   return "";
+}
+
+function inferProviderFromKey(value: unknown): Provider | "" {
+  const apiKey = String(value ?? "").trim();
+  if (/^sk-or-/i.test(apiKey)) return "openrouter";
+  if (/^gsk_/i.test(apiKey)) return "groq";
+  if (/^AIza/i.test(apiKey)) return "gemini";
+  return "";
+}
+
+function resolveProvider(body: CredentialBody) {
+  const apiKey = String(body.api_key ?? body.apiKey ?? body.key ?? "").trim();
+  const candidates = [body.provider, body.ai_provider, body.providerId, body.type];
+  const provider = candidates.map(normalizeProvider).find(Boolean) || inferProviderFromKey(apiKey);
+  return { provider, apiKey };
 }
 
 export const Route = createFileRoute("/api/public/agent/ai-credentials")({
@@ -48,12 +77,22 @@ export const Route = createFileRoute("/api/public/agent/ai-credentials")({
           if (!credentials.isCustomerEdition(request)) {
             return json({ ok: false, error: "Recurso exclusivo da edição do cliente." }, 404);
           }
-          const body = (await request.json()) as { provider?: string; api_key?: string };
-          const provider = normalizeProvider(body.provider);
-          if (!provider) return json({ ok: false, error: "Provedor inválido." }, 400);
+          const body = (await request.json()) as CredentialBody;
+          const { provider, apiKey } = resolveProvider(body);
+          if (!provider) {
+            return json(
+              {
+                ok: false,
+                error: "Provedor inválido.",
+                credentialApiVersion: CREDENTIAL_API_VERSION,
+                supportedProviders: [...SUPPORTED_AI_PROVIDERS],
+              },
+              400,
+            );
+          }
           return json({
             ok: true,
-            ...(await credentials.saveCustomerAiKey(auth.license.id, provider, body.api_key || "")),
+            ...(await credentials.saveCustomerAiKey(auth.license.id, provider, apiKey)),
             credentialApiVersion: CREDENTIAL_API_VERSION,
           });
         } catch (error) {
