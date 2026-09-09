@@ -9,60 +9,55 @@ export const Route = createFileRoute("/api/public/agent/plan")({
         try {
           const agent = await import("@/lib/github-agent.server");
           const resilient = await import("@/lib/github-agent-resilient.server");
-          const openrouterAgent = await import("@/lib/github-agent-openrouter.server");
           const credentials = await import("@/lib/customer-ai-credentials.server");
+          const customerAgent = await import("@/lib/github-agent-customer-stack.server");
           const auth = await agent.requireAgentLicense(request);
           const customerEdition = credentials.isCustomerEdition(request);
-          const [ai, openrouter] = await Promise.all([
-            credentials.customerAiProvider(request, auth.license.id, false),
-            credentials.customerOpenRouterProvider(request, auth.license.id),
-          ]);
           const body = (await request.json()) as { prompt?: string; reduced_context?: boolean };
           const prompt = String(body.prompt || "").trim();
           if (prompt.length < 3) return json({ ok: false, error: "Descreva a alteração desejada." }, 400);
           if (prompt.length > 8_000) return json({ ok: false, error: "O pedido é muito longo." }, 413);
 
-          if (customerEdition && !ai && !openrouter) {
+          if (!customerEdition) {
+            return json({
+              ok: true,
+              resilient: true,
+              ...(await resilient.planAgentRunResilient(auth, prompt, {
+                reducedContext: Boolean(body.reduced_context),
+              })),
+            });
+          }
+
+          const stack = await credentials.customerProviderStack(request, auth.license.id);
+          if (!stack.grok || !stack.cloudflare) {
             return json(
               {
                 ok: false,
-                error: "Conecte pelo menos uma API: Groq, Gemini ou OpenRouter.",
-                code: "CUSTOMER_AI_NOT_CONFIGURED",
+                error: "Conecte Grok e Cloudflare para usar a Super Lovable. Gemini e OpenRouter são contingências opcionais.",
+                code: "CUSTOMER_REQUIRED_AI_NOT_CONFIGURED",
+                requiredProviders: ["grok", "cloudflare"],
               },
               428,
             );
           }
 
-          if (ai || !customerEdition) {
+          const providers = [stack.grok, stack.cloudflare, stack.gemini, stack.openrouter].filter(
+            (credential): credential is NonNullable<typeof credential> => Boolean(credential),
+          );
+          let lastError: unknown = null;
+          for (const credential of providers) {
             try {
-              return json({
-                ok: true,
-                resilient: true,
-                ...(await resilient.planAgentRunResilient(auth, prompt, {
-                  reducedContext: Boolean(body.reduced_context),
-                  ai,
-                })),
-              });
-            } catch (primaryError) {
-              const details = agent.agentErrorDetails(primaryError);
-              const fallbackCodes = new Set([
-                "AI_RATE_LIMITED",
-                "AI_PROVIDER_UNAVAILABLE",
-                "CUSTOMER_AI_UNAUTHORIZED",
-                "AI_CONTEXT_TOO_LARGE",
-                "AI_PLAN_TRUNCATED",
-                "CONTEXT_ROUNDS_EXHAUSTED",
-                "AI_EDIT_NOT_UNIQUE",
-                "AI_INVALID_EDIT_PATH",
-                "AI_CHANGE_TOO_BROAD",
-              ]);
-              const canFallback = Boolean(
-                customerEdition &&
-                  openrouter &&
-                  (details.retryable || fallbackCodes.has(details.code) || details.status >= 500),
+              const result = await customerAgent.planAgentRunCustomerProvider(
+                auth,
+                prompt,
+                credential,
               );
-              if (!canFallback) throw primaryError;
-              console.warn("[github-agent/plan] Groq/Gemini falharam; acionando OpenRouter", {
+              return json({ ok: true, resilient: true, providerUsed: credential.provider, ...result });
+            } catch (error) {
+              lastError = error;
+              const details = agent.agentErrorDetails(error);
+              console.warn("[github-agent/customer-stack] provedor falhou; tentando próximo", {
+                provider: credential.provider,
                 code: details.code,
                 status: details.status,
                 message: details.message,
@@ -70,16 +65,22 @@ export const Route = createFileRoute("/api/public/agent/plan")({
             }
           }
 
-          if (customerEdition && openrouter) {
-            return json({
-              ok: true,
-              resilient: true,
-              ...(await openrouterAgent.planAgentRunOpenRouter(auth, prompt, openrouter)),
-            });
+          if (lastError instanceof Response) {
+            return json(
+              {
+                ok: false,
+                error: "Nenhuma das IAs configuradas conseguiu concluir o planejamento agora. Suas credenciais continuam salvas para a próxima tentativa.",
+                code: "CUSTOMER_AI_STACK_EXHAUSTED",
+              },
+              lastError.status >= 400 && lastError.status < 600 ? lastError.status : 503,
+            );
           }
-
           return json(
-            { ok: false, error: "Nenhum provedor de IA conseguiu iniciar o planejamento." },
+            {
+              ok: false,
+              error: "Nenhuma das IAs configuradas conseguiu concluir o planejamento agora. Suas credenciais continuam salvas para a próxima tentativa.",
+              code: "CUSTOMER_AI_STACK_EXHAUSTED",
+            },
             503,
           );
         } catch (error) {
