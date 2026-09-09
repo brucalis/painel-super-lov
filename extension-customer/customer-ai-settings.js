@@ -2,27 +2,24 @@
   if (globalThis.SUPER_LOVABLE_EDITION?.mode !== "customer") return;
 
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
-  const PANEL_OPEN_KEY = "sl_connection_panel_open_v4";
+  const PANEL_OPEN_KEY = "sl_connection_panel_open_v5";
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
   const CONTEXT_RECOVERY_KEY = "sl_context_recovery_v2";
   const WATCHDOG_RECOVERY_KEY = "sl_watchdog_recovery_v2";
-  const AI_PROVIDERS = ["grok", "cloudflare", "gemini", "openrouter"];
-  const REQUIRED_PROVIDERS = ["grok", "cloudflare"];
+  const AI_PROVIDERS = ["cloudflare", "gemini", "openrouter"];
+  const REQUIRED_PROVIDERS = ["cloudflare"];
   const providerLabel = {
-    grok: "Grok",
     cloudflare: "Cloudflare",
     gemini: "Gemini",
     openrouter: "OpenRouter",
   };
   const providerLinks = {
-    grok: "https://console.x.ai/",
     cloudflare: "https://dash.cloudflare.com/",
     gemini: "https://aistudio.google.com/app/apikey",
     openrouter: "https://openrouter.ai/keys",
   };
 
   const connectionState = {
-    grok: false,
     cloudflare: false,
     gemini: false,
     openrouter: false,
@@ -119,7 +116,13 @@
       },
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.error || "Não foi possível concluir a configuração.");
+    if (!response.ok || data.ok === false) {
+      const raw = data.error || "Não foi possível concluir a configuração.";
+      if (/Provedor inválido/i.test(raw)) {
+        throw new Error("O backend do painel ainda está em uma versão anterior. Publique a atualização do Painel Super Lovable e tente novamente.");
+      }
+      throw new Error(raw);
+    }
     return data;
   };
 
@@ -180,11 +183,11 @@
     if (summary.dataset.state !== stateKey) {
       summary.dataset.state = stateKey;
       summary.dataset.kind = operational ? "success" : "warning";
-      let helper = "Conecte Grok e Cloudflare para habilitar a ferramenta";
-      if (requiredReady && !projectReady) helper = "IAs principais prontas · conclua a conexão do projeto";
+      let helper = "Conecte a Cloudflare para habilitar a ferramenta";
+      if (requiredReady && !projectReady) helper = "Cloudflare pronta · conclua a conexão do projeto";
       if (operational) helper = fullRedundancy
-        ? "Grok + Cloudflare ativos · Gemini + OpenRouter em contingência"
-        : `Base principal ativa · ${optionalCount}/2 contingências opcionais`;
+        ? "Cloudflare ativa · Gemini + OpenRouter em contingência"
+        : `Cloudflare ativa · ${optionalCount}/2 contingências opcionais`;
       summary.innerHTML = `
         <span class="sl-connection-dot"></span>
         <span><strong>Status:</strong> ${operational ? "Conectado" : "Configuração necessária"}</span>
@@ -193,15 +196,14 @@
     }
 
     if (list) {
-      const checklistState = [connectionState.grok, connectionState.cloudflare, connectionState.gemini, connectionState.openrouter, projectReady].map(Boolean).join(":");
+      const checklistState = [connectionState.cloudflare, connectionState.gemini, connectionState.openrouter, projectReady].map(Boolean).join(":");
       if (list.dataset.state !== checklistState) {
         list.dataset.state = checklistState;
         const item = (done, text) => `<span class="${done ? "is-ready" : ""}"><b>${done ? "✓" : "○"}</b>${text}</span>`;
         list.innerHTML =
-          item(connectionState.grok, "Grok · obrigatório") +
-          item(connectionState.cloudflare, "Cloudflare · obrigatório") +
-          item(connectionState.gemini, "Gemini · opcional") +
-          item(connectionState.openrouter, "OpenRouter · opcional") +
+          item(connectionState.cloudflare, "Cloudflare · obrigatória") +
+          item(connectionState.gemini, "Gemini · contingência") +
+          item(connectionState.openrouter, "OpenRouter · contingência") +
           item(projectReady, "Projeto");
       }
     }
@@ -255,7 +257,7 @@
     const hadConnection = Boolean(connectionState[provider]);
     setStatusText(status, "warning", `Validando ${providerLabel[provider]}…`);
     try {
-      const payload = { provider, api_key: apiKey };
+      const payload = { provider, ai_provider: provider, api_key: apiKey };
       if (provider === "cloudflare") payload.account_id = accountId;
       await request("", { method: "PUT", body: JSON.stringify(payload) });
       if (input) input.value = "";
@@ -400,12 +402,11 @@
     details.innerHTML = `
       <summary id="sl-connection-summary" data-kind="warning"></summary>
       <div class="sl-connection-content">
-        <p class="sl-connection-intro"><strong>Grok e Cloudflare são obrigatórios.</strong> Gemini e OpenRouter são contingências opcionais para manter a execução disponível quando necessário.</p>
+        <p class="sl-connection-intro"><strong>Cloudflare é a IA principal obrigatória.</strong> Gemini é a segunda tentativa e OpenRouter é a última contingência; ambos são opcionais.</p>
         <div id="sl-connection-checklist" class="sl-connection-checklist"></div>
-        ${providerForm("grok", "Grok · Principal 1", "Primeira IA usada para planejar suas alterações.", "Cole aqui sua API key da xAI")}
-        ${providerForm("cloudflare", "Cloudflare · Principal 2", "Segunda IA principal e fallback imediato do Grok.", "Cole aqui seu API Token Workers AI")}
-        ${providerForm("gemini", "Gemini · Contingência opcional", "Usado automaticamente se as duas IAs principais não concluírem.", "Cole aqui a chave Gemini")}
-        ${providerForm("openrouter", "OpenRouter · Contingência opcional", "Última alternativa, usando o roteador gratuito quando disponível.", "Cole aqui a chave OpenRouter")}
+        ${providerForm("cloudflare", "Cloudflare · Principal", "Primeira IA usada para planejar suas alterações.", "Cole aqui seu API Token Workers AI")}
+        ${providerForm("gemini", "Gemini · 2ª tentativa opcional", "Assume automaticamente se a Cloudflare não conseguir concluir.", "Cole aqui a chave Gemini")}
+        ${providerForm("openrouter", "OpenRouter · Última contingência", "Última alternativa, usando o roteador gratuito quando disponível.", "Cole aqui a chave OpenRouter")}
         <div id="sl-project-connection" class="sl-project-connection"></div>
       </div>`;
     host.appendChild(details);
