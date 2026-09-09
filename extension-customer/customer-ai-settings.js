@@ -6,15 +6,18 @@
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
   const CONTEXT_RECOVERY_KEY = "sl_context_recovery_v2";
   const WATCHDOG_RECOVERY_KEY = "sl_watchdog_recovery_v2";
-  const providerLabel = { groq: "Groq", gemini: "Gemini" };
+  const AI_PROVIDERS = ["groq", "gemini", "openrouter"];
+  const providerLabel = { groq: "Groq", gemini: "Gemini", openrouter: "OpenRouter" };
   const providerLinks = {
     groq: "https://console.groq.com/keys",
     gemini: "https://aistudio.google.com/app/apikey",
+    openrouter: "https://openrouter.ai/keys",
   };
 
   const connectionState = {
     groq: false,
     gemini: false,
+    openrouter: false,
     github: false,
     project: false,
     repository: "",
@@ -189,39 +192,56 @@
     const list = document.getElementById("sl-connection-checklist");
     if (!summary || !details) return;
 
-    const complete = connectionState.groq && connectionState.gemini && connectionState.github && connectionState.project;
-    const becameComplete = complete && !connectionState.ready;
-    connectionState.ready = complete;
+    const configuredCount = AI_PROVIDERS.filter((provider) => connectionState[provider]).length;
+    const aiReady = configuredCount > 0;
+    const projectReady = connectionState.github && connectionState.project;
+    const operational = aiReady && projectReady;
+    const fullRedundancy = configuredCount === AI_PROVIDERS.length;
+    const becameOperational = operational && !connectionState.ready;
+    connectionState.ready = operational;
 
-    const stateKey = complete ? "complete" : "incomplete";
+    const stateKey = `${operational ? "connected" : "disconnected"}:${configuredCount}:${fullRedundancy}`;
     if (summary.dataset.state !== stateKey) {
       summary.dataset.state = stateKey;
-      summary.dataset.kind = complete ? "success" : "warning";
+      summary.dataset.kind = operational && fullRedundancy ? "success" : "warning";
+      const helper = operational
+        ? fullRedundancy
+          ? "3 IAs configuradas · contingência completa"
+          : `${configuredCount}/3 IAs configuradas · adicione outra API para ampliar a contingência`
+        : aiReady
+          ? "IA disponível · conclua a conexão do projeto"
+          : "Conecte pelo menos uma API para começar";
       summary.innerHTML = `
         <span class="sl-connection-dot"></span>
-        <span><strong>Status:</strong> ${complete ? "Conectado" : "Não conectado"}</span>
-        <small>${complete ? "Tudo pronto para usar" : "Clique para concluir a configuração"}</small>
+        <span><strong>Status:</strong> ${operational ? "Conectado" : "Não conectado"}</span>
+        <small>${helper}</small>
         <span class="sl-connection-chevron">⌄</span>`;
     }
 
     if (list) {
-      const checklistState = [connectionState.groq, connectionState.gemini, connectionState.github && connectionState.project].map(Boolean).join(":");
+      const checklistState = [
+        connectionState.groq,
+        connectionState.gemini,
+        connectionState.openrouter,
+        connectionState.github && connectionState.project,
+      ].map(Boolean).join(":");
       if (list.dataset.state !== checklistState) {
         list.dataset.state = checklistState;
         const item = (done, text) => `<span class="${done ? "is-ready" : ""}"><b>${done ? "✓" : "○"}</b>${text}</span>`;
         list.innerHTML =
-          item(connectionState.groq, "Conexão principal") +
-          item(connectionState.gemini, "Conexão de contingência") +
+          item(connectionState.groq, "Groq") +
+          item(connectionState.gemini, "Gemini") +
+          item(connectionState.openrouter, "OpenRouter") +
           item(connectionState.github && connectionState.project, "Projeto");
       }
     }
 
     renderProjectStatus();
 
-    if (!complete) {
+    if (!operational) {
       userOpenedCompletePanel = false;
       setPanelOpen(details, true);
-    } else if (becameComplete || !userOpenedCompletePanel) {
+    } else if (becameOperational || !userOpenedCompletePanel) {
       setPanelOpen(details, false);
       void persistPanelPreference(false);
     }
@@ -249,12 +269,19 @@
       const data = await request();
       updateProvider("groq", data.groq);
       updateProvider("gemini", data.gemini);
+      updateProvider("openrouter", data.openrouter);
     } catch (error) {
       if (recoverInvalidatedContext(error)) return;
-      ["groq", "gemini"].forEach((provider) => {
-        connectionState[provider] = false;
+      AI_PROVIDERS.forEach((provider) => {
         const status = document.getElementById(`sl-ai-${provider}-status`);
-        if (status) setStatusText(status, "error", error.message);
+        if (!status) return;
+        setStatusText(
+          status,
+          connectionState[provider] ? "warning" : "error",
+          connectionState[provider]
+            ? "Não foi possível verificar agora. A chave salva foi mantida."
+            : error.message,
+        );
       });
       renderOverallStatus();
     }
@@ -269,6 +296,7 @@
       setStatusText(status, "error", "Cole sua chave para continuar.");
       return;
     }
+    const hadConnection = Boolean(connectionState[provider]);
     setStatusText(status, "warning", "Validando conexão…");
     try {
       await request("", { method: "PUT", body: JSON.stringify({ provider, api_key: apiKey }) });
@@ -277,7 +305,14 @@
       await globalThis.superLovableGithubAgentRefresh?.();
     } catch (error) {
       if (recoverInvalidatedContext(error)) return;
-      setStatusText(status, "error", error.message);
+      setStatusText(
+        status,
+        hadConnection ? "warning" : "error",
+        hadConnection
+          ? `A nova chave não foi aceita. A conexão anterior com ${providerLabel[provider]} foi mantida.`
+          : error.message,
+      );
+      renderOverallStatus();
     }
   }
 
@@ -439,10 +474,11 @@
     details.innerHTML = `
       <summary id="sl-connection-summary" data-kind="warning"></summary>
       <div class="sl-connection-content">
-        <p class="sl-connection-intro">Conclua as três conexões uma única vez para liberar todos os recursos.</p>
+        <p class="sl-connection-intro">Conecte pelo menos uma IA para começar. Quanto mais APIs você adicionar, maior a contingência automática.</p>
         <div id="sl-connection-checklist" class="sl-connection-checklist"></div>
-        ${providerForm("groq", "Conexão principal", "Utilizada primeiro para executar suas solicitações.", "Cole aqui a chave gerada")}
-        ${providerForm("gemini", "Conexão de contingência", "Assume automaticamente quando necessário.", "Cole aqui a chave gerada")}
+        ${providerForm("groq", "Groq · 1ª tentativa", "Utilizada primeiro para executar suas solicitações.", "Cole aqui a chave gerada")}
+        ${providerForm("gemini", "Gemini · 2ª tentativa", "Assume automaticamente quando o Groq não consegue concluir.", "Cole aqui a chave gerada")}
+        ${providerForm("openrouter", "OpenRouter · 3ª tentativa", "Usa o roteador gratuito para buscar um modelo free disponível quando necessário.", "Cole aqui a chave OpenRouter")}
         <div id="sl-project-connection" class="sl-project-connection"></div>
       </div>`;
     host.appendChild(details);
@@ -452,7 +488,7 @@
       if (connectionState.ready) userOpenedCompletePanel = details.open;
       void persistPanelPreference(details.open);
     });
-    ["groq", "gemini"].forEach((provider) => {
+    AI_PROVIDERS.forEach((provider) => {
       document.getElementById(`sl-ai-${provider}-form`)?.addEventListener("submit", (event) => save(event, provider));
       document.getElementById(`sl-ai-${provider}-remove`)?.addEventListener("click", () => remove(provider));
     });
