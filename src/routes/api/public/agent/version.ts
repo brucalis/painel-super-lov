@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 const FLOW_MODE = "direct-main-v3";
+const CREDENTIAL_API_VERSION = "ai-credentials-v2-openrouter";
+const SUPPORTED_AI_PROVIDERS = ["groq", "gemini", "openrouter"] as const;
 
 export const Route = createFileRoute("/api/public/agent/version")({
   server: {
@@ -15,6 +17,8 @@ export const Route = createFileRoute("/api/public/agent/version")({
           creates_pull_requests: false,
           target_branch: "main",
           validation_mode: "static-before-direct-commit",
+          credential_api_version: CREDENTIAL_API_VERSION,
+          supported_ai_providers: [...SUPPORTED_AI_PROVIDERS],
         });
       },
     },
