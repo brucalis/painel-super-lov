@@ -1,10 +1,19 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "09.09.S9",
-  technicalVersion: "33.0.21",
+  version: "09.09.S10",
+  technicalVersion: "33.0.22",
   updatedAt: "09/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S9",
-  downloadName: "superlovable-09.09.S9.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S10",
+  downloadName: "superlovable-09.09.S10.zip",
   changelog: [
+    {
+      version: "09.09.S10",
+      date: "09/09/2026",
+      changes: [
+        "Hotfix de desempenho: removido o loop de MutationObserver do controle Parar execução.",
+        "A validação da licença e o carregamento inicial deixam de sofrer re-renderizações contínuas.",
+        "O botão Parar execução continua disponível durante tarefas ativas por monitoramento leve, somente enquanto há execução.",
+      ],
+    },
     {
       version: "09.09.S9",
       date: "09/09/2026",
