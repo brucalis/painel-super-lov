@@ -1,10 +1,19 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "09.09.S6",
-  technicalVersion: "33.0.18",
+  version: "09.09.S7",
+  technicalVersion: "33.0.19",
   updatedAt: "09/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S6",
-  downloadName: "superlovable-09.09.S6.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S7",
+  downloadName: "superlovable-09.09.S7.zip",
   changelog: [
+    {
+      version: "09.09.S7",
+      date: "09/09/2026",
+      changes: [
+        "Hotfix de desempenho no controle Parar execução.",
+        "O monitoramento de parada não acompanha mais cada alteração de texto da interface durante login e validação da licença.",
+        "A validação inicial e o carregamento da página ficam mais leves, mantendo o botão Parar execução somente durante tarefas ativas.",
+      ],
+    },
     {
       version: "09.09.S6",
       date: "09/09/2026",
