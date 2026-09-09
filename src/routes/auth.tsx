@@ -30,16 +30,34 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+type AuthMode = "login" | "forgot" | "recovery";
+
 function AuthPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<AuthMode>(() => {
+    if (typeof window === "undefined") return "login";
+    return new URLSearchParams(window.location.search).get("mode") === "recovery"
+      ? "recovery"
+      : "login";
+  });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/admin" });
+    const recoveryMode =
+      new URLSearchParams(window.location.search).get("mode") === "recovery";
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setMode("recovery");
     });
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session && !recoveryMode) navigate({ to: "/admin" });
+    });
+
+    return () => listener.subscription.unsubscribe();
   }, [navigate]);
 
   async function signIn(e: React.FormEvent) {
@@ -64,6 +82,116 @@ function AuthPage() {
     toast.success("Conta criada. Se o login não abrir sozinho, entre com seus dados.");
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (!signInError) navigate({ to: "/admin" });
+  }
+
+  async function sendPasswordReset(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/auth?mode=recovery`,
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Enviamos um link de recuperação para o seu e-mail.");
+    setMode("login");
+  }
+
+  async function updatePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (password.length < 6) return toast.error("A nova senha precisa ter pelo menos 6 caracteres.");
+    if (password !== confirmPassword) return toast.error("As senhas não coincidem.");
+
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+
+    toast.success("Senha atualizada com sucesso.");
+    setPassword("");
+    setConfirmPassword("");
+    navigate({ to: "/admin" });
+  }
+
+  if (mode === "forgot") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Recuperar senha</CardTitle>
+            <CardDescription>
+              Informe o e-mail do administrador e enviaremos um link seguro para criar uma nova senha.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={sendPasswordReset}>
+              <div className="space-y-2">
+                <Label htmlFor="reset-email">E-mail</Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy ? "Enviando…" : "Enviar link de recuperação"}
+              </Button>
+              <Button type="button" variant="ghost" className="w-full" onClick={() => setMode("login")}>
+                Voltar para o login
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  if (mode === "recovery") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Criar nova senha</CardTitle>
+            <CardDescription>
+              Digite uma nova senha para voltar a acessar o painel administrativo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={updatePassword}>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Nova senha</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirmar nova senha</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy ? "Atualizando…" : "Salvar nova senha"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    );
   }
 
   return (
@@ -111,6 +239,17 @@ function AuthPage() {
                       autoComplete={tab === "signin" ? "current-password" : "new-password"}
                     />
                   </div>
+                  {tab === "signin" && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-primary hover:underline"
+                        onClick={() => setMode("forgot")}
+                      >
+                        Esqueci minha senha
+                      </button>
+                    </div>
+                  )}
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy ? "Aguarde…" : tab === "signin" ? "Entrar" : "Criar conta"}
                   </Button>
