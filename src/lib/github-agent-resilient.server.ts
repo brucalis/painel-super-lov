@@ -6,7 +6,10 @@ import {
 } from "@/lib/github-agent.server";
 import { commitAgentRunDirect } from "@/lib/github-agent-direct.server";
 
-const MAX_PLAN_ATTEMPTS = 3;
+// O painel já possui três tentativas automáticas por /plan. Manter uma única
+// tentativa resiliente no servidor evita multiplicar ciclos 3x3 dentro dos
+// 180 s de PLAN_TIMEOUT_MS; a recuperação externa continua responsável pelo replanejamento.
+const MAX_PLAN_ATTEMPTS = 1;
 const LOGIC_RETRY_DELAY_MS = [0, 180, 420, 850, 1_400];
 const PROVIDER_RETRY_DELAY_MS = [0, 1_200, 3_000, 6_000, 10_000];
 
