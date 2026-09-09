@@ -12,7 +12,7 @@ const adminBuildDir = path.join(buildRoot, "admin");
 const customerBuildDir = path.join(buildRoot, "customer");
 const publicDir = path.join(root, "public");
 const adminZip = path.join(publicDir, "super-lovable-admin-v32.0.44.zip");
-const customerZip = path.join(publicDir, "super-lovable-09.09.S3.zip");
+const customerZip = path.join(publicDir, "super-lovable-09.09.S4.zip");
 const stableCustomerZip = path.join(publicDir, "super-lovable.zip");
 
 const requiredScripts = [
@@ -29,8 +29,7 @@ async function exists(file) {
 
 async function validatePackage(buildDir) {
   const manifest = JSON.parse(await readFile(path.join(buildDir, "manifest.json"), "utf8"));
-  if (!/^\d+\.\d+\.\d+$/.test(String(manifest.version || "")))
-    throw new Error("Versão técnica inválida no manifest.");
+  if (!/^\d+\.\d+\.\d+$/.test(String(manifest.version || ""))) throw new Error("Versão técnica inválida no manifest.");
   const required = new Set([
     manifest.background?.service_worker,
     manifest.action?.default_popup,
@@ -70,9 +69,9 @@ await cp(overlayDir, customerBuildDir, { recursive: true });
 const customerManifestPath = path.join(customerBuildDir, "manifest.json");
 const customerManifest = JSON.parse(await readFile(customerManifestPath, "utf8"));
 customerManifest.name = "Superlovable";
-customerManifest.version = "33.0.15";
-customerManifest.version_name = "09.09.S3";
-customerManifest.description = "Superlovable — edição estável com Grok, Cloudflare e contingências opcionais.";
+customerManifest.version = "33.0.16";
+customerManifest.version_name = "09.09.S4";
+customerManifest.description = "Superlovable — Cloudflare principal com Gemini e OpenRouter em contingência.";
 await writeFile(customerManifestPath, JSON.stringify(customerManifest, null, 2) + "\n");
 
 await validatePackage(adminBuildDir);
