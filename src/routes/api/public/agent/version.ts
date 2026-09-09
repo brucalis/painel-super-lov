@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const FLOW_MODE = "direct-main-v3";
-const CREDENTIAL_API_VERSION = "ai-credentials-v5-library-normalization";
-const SUPPORTED_AI_PROVIDERS = ["groq", "gemini", "openrouter"] as const;
+const FLOW_MODE = "direct-main-v4-grok-cloudflare";
+const CREDENTIAL_API_VERSION = "ai-credentials-v6-grok-cloudflare-stack";
+const SUPPORTED_AI_PROVIDERS = ["grok", "cloudflare", "gemini", "openrouter"] as const;
+const REQUIRED_AI_PROVIDERS = ["grok", "cloudflare"] as const;
 
 export const Route = createFileRoute("/api/public/agent/version")({
   server: {
@@ -21,6 +22,8 @@ export const Route = createFileRoute("/api/public/agent/version")({
           credential_api_version: CREDENTIAL_API_VERSION,
           customer_ai_module_version: credentials.CUSTOMER_AI_CREDENTIALS_VERSION,
           supported_ai_providers: [...SUPPORTED_AI_PROVIDERS],
+          required_ai_providers: [...REQUIRED_AI_PROVIDERS],
+          ai_fallback_order: [...SUPPORTED_AI_PROVIDERS],
         });
       },
     },
