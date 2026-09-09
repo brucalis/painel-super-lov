@@ -1,11 +1,11 @@
-// Super Lovable — controle persistente de interrupção da execução comercial.
+// Super Lovable — controle persistente e leve de interrupção da execução comercial.
 (() => {
   if (globalThis.__superLovableExecutionStopLoaded) return;
   globalThis.__superLovableExecutionStopLoaded = true;
   if (globalThis.SUPER_LOVABLE_EDITION?.mode !== "customer") return;
 
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
-  const EXECUTION_STATE_KEY = "sl_execution_state_v4";
+  const EXECUTION_STATE_KEY = "sl_execution_state_v5";
   const EXECUTION_PATH = /\/api\/public\/agent\/(decompose|plan|commit)(?:[/?#]|$)/i;
   const originalFetch = globalThis.fetch.bind(globalThis);
 
@@ -14,6 +14,8 @@
   let stage = "";
   let executionController = new AbortController();
   let idleTimer = null;
+  let activeUiTimer = null;
+  let lastRenderedSignature = "";
 
   const storageSet = (value) => new Promise((resolve) => chrome.storage.local.set(value, resolve));
   const storageRemove = (keys) => new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
@@ -56,9 +58,9 @@
   }
 
   function renderPersistentBar() {
-    ensureStyles();
     const panel = document.getElementById("sl-github-agent");
     if (!panel) return;
+
     let bar = document.getElementById("sl-stop-bar");
     if (!bar) {
       bar = document.createElement("div");
@@ -68,7 +70,13 @@
       if (progress?.parentElement) progress.parentElement.insertBefore(bar, progress);
       else panel.appendChild(bar);
     }
+
     bar.hidden = !active;
+    if (!active) return;
+
+    const signature = `${active}|${stopped}|${stage}`;
+    if (bar.dataset.signature === signature) return;
+    bar.dataset.signature = signature;
     bar.innerHTML = `
       <div class="sl-stop-copy"><strong>Execução em andamento</strong><small>${stage || "Processando alteração…"}</small></div>
       <button type="button" class="sl-stop-button" ${stopped ? "disabled" : ""}>${stopped ? "Parando…" : "Parar execução"}</button>`;
@@ -87,15 +95,38 @@
       button = document.createElement("button");
       button.type = "button";
       button.className = "sl-history-stop";
-      button.textContent = "Parar execução";
+      button.textContent = stopped ? "Parando…" : "Parar execução";
+      button.disabled = stopped;
       button.addEventListener("click", () => void stopExecution());
       toolbar.appendChild(button);
+    } else {
+      button.textContent = stopped ? "Parando…" : "Parar execução";
+      button.disabled = stopped;
     }
   }
 
   function syncUi() {
+    ensureStyles();
     renderPersistentBar();
     renderHistoryStopButton();
+  }
+
+  function stopActiveUiTimer() {
+    if (activeUiTimer) clearInterval(activeUiTimer);
+    activeUiTimer = null;
+  }
+
+  function startActiveUiTimer() {
+    if (activeUiTimer) return;
+    // O polling só existe enquanto uma execução está realmente ativa.
+    // Isso evita observar a página inteira durante login/validação da licença.
+    activeUiTimer = setInterval(() => {
+      if (!active) {
+        stopActiveUiTimer();
+        return;
+      }
+      syncUi();
+    }, 800);
   }
 
   function setActive(kind) {
@@ -106,6 +137,7 @@
     if (executionController.signal.aborted) executionController = new AbortController();
     void persistState();
     syncUi();
+    startActiveUiTimer();
   }
 
   function finishSoon(delay = 12000) {
@@ -115,6 +147,7 @@
       stage = "";
       void persistState();
       syncUi();
+      stopActiveUiTimer();
     }, delay);
   }
 
@@ -124,6 +157,7 @@
     stage = "";
     void persistState();
     syncUi();
+    stopActiveUiTimer();
   }
 
   function combinedSignal(existing) {
@@ -170,16 +204,15 @@
     finishNow();
   }
 
-  const observer = new MutationObserver(() => syncUi());
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  // Recria a barra ao trocar de aba, sem observar mutações globais do DOM.
   document.addEventListener("click", (event) => {
     if (event.target?.closest?.('.sp-tab[data-tab="prompt"], .sp-tab[data-tab="history"], .sl-history-tabs button')) {
       setTimeout(syncUi, 120);
+      setTimeout(syncUi, 420);
     }
   }, true);
 
   ensureStyles();
-  syncUi();
   globalThis.superLovableStopExecution = stopExecution;
   globalThis.superLovableExecutionIsActive = () => active;
 })();
