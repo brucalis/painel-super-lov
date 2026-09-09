@@ -2,20 +2,28 @@
   if (globalThis.SUPER_LOVABLE_EDITION?.mode !== "customer") return;
 
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
-  const PANEL_OPEN_KEY = "sl_connection_panel_open_v3";
+  const PANEL_OPEN_KEY = "sl_connection_panel_open_v4";
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
   const CONTEXT_RECOVERY_KEY = "sl_context_recovery_v2";
   const WATCHDOG_RECOVERY_KEY = "sl_watchdog_recovery_v2";
-  const AI_PROVIDERS = ["groq", "gemini", "openrouter"];
-  const providerLabel = { groq: "Groq", gemini: "Gemini", openrouter: "OpenRouter" };
+  const AI_PROVIDERS = ["grok", "cloudflare", "gemini", "openrouter"];
+  const REQUIRED_PROVIDERS = ["grok", "cloudflare"];
+  const providerLabel = {
+    grok: "Grok",
+    cloudflare: "Cloudflare",
+    gemini: "Gemini",
+    openrouter: "OpenRouter",
+  };
   const providerLinks = {
-    groq: "https://console.groq.com/keys",
+    grok: "https://console.x.ai/",
+    cloudflare: "https://dash.cloudflare.com/",
     gemini: "https://aistudio.google.com/app/apikey",
     openrouter: "https://openrouter.ai/keys",
   };
 
   const connectionState = {
-    groq: false,
+    grok: false,
+    cloudflare: false,
     gemini: false,
     openrouter: false,
     github: false,
@@ -24,7 +32,6 @@
     ready: false,
   };
 
-  let panelPreferenceLoaded = false;
   let panelPreferredOpen = null;
   let suppressPanelToggle = false;
   let userOpenedCompletePanel = false;
@@ -36,15 +43,12 @@
   function isContextInvalidated(value) {
     return /Extension context invalidated/i.test(String(value?.message || value || ""));
   }
-
   function localNumber(key) {
     try { return Number(localStorage.getItem(key) || 0); } catch { return 0; }
   }
-
   function setLocalNumber(key, value) {
     try { localStorage.setItem(key, String(value)); } catch {}
   }
-
   function showRecoveryMessage(message) {
     const agent = document.getElementById("sl-github-agent");
     const progress = document.getElementById("sl-agent-progress");
@@ -57,7 +61,6 @@
       if (progress.innerHTML !== html) progress.innerHTML = html;
     }
   }
-
   function reloadForRecovery(message, guardKey, minimumIntervalMs) {
     if (recoveryScheduled) return;
     const now = Date.now();
@@ -67,14 +70,9 @@
     showRecoveryMessage(message);
     setTimeout(() => location.reload(), 700);
   }
-
   function recoverInvalidatedContext(error) {
     if (!isContextInvalidated(error)) return false;
-    reloadForRecovery(
-      "A extensão foi atualizada. Reconectando…",
-      CONTEXT_RECOVERY_KEY,
-      15_000,
-    );
+    reloadForRecovery("A extensão foi atualizada. Reconectando…", CONTEXT_RECOVERY_KEY, 15_000);
     return true;
   }
 
@@ -87,12 +85,9 @@
           if (runtimeError) reject(new Error(runtimeError.message));
           else resolve(result || {});
         });
-      } catch (error) {
-        reject(error);
-      }
+      } catch (error) { reject(error); }
     });
   }
-
   function storageSet(values) {
     return new Promise((resolve, reject) => {
       try {
@@ -102,28 +97,14 @@
           if (runtimeError) reject(new Error(runtimeError.message));
           else resolve();
         });
-      } catch (error) {
-        reject(error);
-      }
+      } catch (error) { reject(error); }
     });
   }
-
   async function safeStorageGet(keys) {
-    try {
-      return await storageGet(keys);
-    } catch (error) {
-      recoverInvalidatedContext(error);
-      throw error;
-    }
+    try { return await storageGet(keys); } catch (error) { recoverInvalidatedContext(error); throw error; }
   }
-
   async function safeStorageSet(values) {
-    try {
-      await storageSet(values);
-    } catch (error) {
-      recoverInvalidatedContext(error);
-      throw error;
-    }
+    try { await storageSet(values); } catch (error) { recoverInvalidatedContext(error); throw error; }
   }
 
   const request = async (path = "", options = {}) => {
@@ -148,21 +129,17 @@
     details.open = open;
     queueMicrotask(() => { suppressPanelToggle = false; });
   }
-
   async function persistPanelPreference(open) {
     panelPreferredOpen = open;
     try { await safeStorageSet({ [PANEL_OPEN_KEY]: open }); } catch {}
   }
-
   async function loadPanelPreference() {
     try {
       const stored = await safeStorageGet([PANEL_OPEN_KEY]);
       if (typeof stored[PANEL_OPEN_KEY] === "boolean") panelPreferredOpen = stored[PANEL_OPEN_KEY];
     } catch {}
-    panelPreferenceLoaded = true;
     renderOverallStatus();
   }
-
   function setStatusText(element, kind, text) {
     if (!element) return;
     if (element.dataset.kind !== kind) element.dataset.kind = kind;
@@ -174,8 +151,7 @@
     if (!status) return;
     const switchButton = document.getElementById("sl-agent-switch-project");
     if (connectionState.github && connectionState.project) {
-      const repository = connectionState.repository || "projeto selecionado";
-      setStatusText(status, "success", `Repositório selecionado: ${repository}`);
+      setStatusText(status, "success", `Repositório selecionado: ${connectionState.repository || "projeto selecionado"}`);
       if (switchButton) switchButton.style.display = "inline-flex";
     } else if (connectionState.github) {
       setStatusText(status, "warning", "GitHub conectado. Selecione o repositório para continuar.");
@@ -192,52 +168,44 @@
     const list = document.getElementById("sl-connection-checklist");
     if (!summary || !details) return;
 
-    const configuredCount = AI_PROVIDERS.filter((provider) => connectionState[provider]).length;
-    const aiReady = configuredCount > 0;
+    const requiredReady = REQUIRED_PROVIDERS.every((provider) => connectionState[provider]);
+    const optionalCount = ["gemini", "openrouter"].filter((provider) => connectionState[provider]).length;
     const projectReady = connectionState.github && connectionState.project;
-    const operational = aiReady && projectReady;
-    const fullRedundancy = configuredCount === AI_PROVIDERS.length;
+    const operational = requiredReady && projectReady;
+    const fullRedundancy = optionalCount === 2;
     const becameOperational = operational && !connectionState.ready;
     connectionState.ready = operational;
 
-    const stateKey = `${operational ? "connected" : "disconnected"}:${configuredCount}:${fullRedundancy}`;
+    const stateKey = `${operational}:${requiredReady}:${optionalCount}:${projectReady}`;
     if (summary.dataset.state !== stateKey) {
       summary.dataset.state = stateKey;
-      summary.dataset.kind = operational && fullRedundancy ? "success" : "warning";
-      const helper = operational
-        ? fullRedundancy
-          ? "3 IAs configuradas · contingência completa"
-          : `${configuredCount}/3 IAs configuradas · adicione outra API para ampliar a contingência`
-        : aiReady
-          ? "IA disponível · conclua a conexão do projeto"
-          : "Conecte pelo menos uma API para começar";
+      summary.dataset.kind = operational ? "success" : "warning";
+      let helper = "Conecte Grok e Cloudflare para habilitar a ferramenta";
+      if (requiredReady && !projectReady) helper = "IAs principais prontas · conclua a conexão do projeto";
+      if (operational) helper = fullRedundancy
+        ? "Grok + Cloudflare ativos · Gemini + OpenRouter em contingência"
+        : `Base principal ativa · ${optionalCount}/2 contingências opcionais`;
       summary.innerHTML = `
         <span class="sl-connection-dot"></span>
-        <span><strong>Status:</strong> ${operational ? "Conectado" : "Não conectado"}</span>
+        <span><strong>Status:</strong> ${operational ? "Conectado" : "Configuração necessária"}</span>
         <small>${helper}</small>
         <span class="sl-connection-chevron">⌄</span>`;
     }
 
     if (list) {
-      const checklistState = [
-        connectionState.groq,
-        connectionState.gemini,
-        connectionState.openrouter,
-        connectionState.github && connectionState.project,
-      ].map(Boolean).join(":");
+      const checklistState = [connectionState.grok, connectionState.cloudflare, connectionState.gemini, connectionState.openrouter, projectReady].map(Boolean).join(":");
       if (list.dataset.state !== checklistState) {
         list.dataset.state = checklistState;
         const item = (done, text) => `<span class="${done ? "is-ready" : ""}"><b>${done ? "✓" : "○"}</b>${text}</span>`;
         list.innerHTML =
-          item(connectionState.groq, "Groq") +
-          item(connectionState.gemini, "Gemini") +
-          item(connectionState.openrouter, "OpenRouter") +
-          item(connectionState.github && connectionState.project, "Projeto");
+          item(connectionState.grok, "Grok · obrigatório") +
+          item(connectionState.cloudflare, "Cloudflare · obrigatório") +
+          item(connectionState.gemini, "Gemini · opcional") +
+          item(connectionState.openrouter, "OpenRouter · opcional") +
+          item(projectReady, "Projeto");
       }
     }
-
     renderProjectStatus();
-
     if (!operational) {
       userOpenedCompletePanel = false;
       setPanelOpen(details, true);
@@ -254,12 +222,8 @@
     if (!status) return;
     const configured = Boolean(data?.configured);
     connectionState[provider] = configured;
-    setStatusText(
-      status,
-      configured ? "success" : "warning",
-      configured ? `${providerLabel[provider]} conectado (${data.keyHint || "chave protegida"})` : "Ainda não conectado",
-    );
-    if (button && button.textContent !== (configured ? "Substituir" : "Conectar")) button.textContent = configured ? "Substituir" : "Conectar";
+    setStatusText(status, configured ? "success" : "warning", configured ? `${providerLabel[provider]} conectado (${data.keyHint || "chave protegida"})` : "Ainda não conectado");
+    if (button) button.textContent = configured ? "Substituir" : "Conectar";
     if (remove) remove.style.display = configured ? "inline-flex" : "none";
     renderOverallStatus();
   }
@@ -267,21 +231,13 @@
   async function refresh() {
     try {
       const data = await request();
-      updateProvider("groq", data.groq);
-      updateProvider("gemini", data.gemini);
-      updateProvider("openrouter", data.openrouter);
+      AI_PROVIDERS.forEach((provider) => updateProvider(provider, data[provider]));
     } catch (error) {
       if (recoverInvalidatedContext(error)) return;
       AI_PROVIDERS.forEach((provider) => {
         const status = document.getElementById(`sl-ai-${provider}-status`);
         if (!status) return;
-        setStatusText(
-          status,
-          connectionState[provider] ? "warning" : "error",
-          connectionState[provider]
-            ? "Não foi possível verificar agora. A chave salva foi mantida."
-            : error.message,
-        );
+        setStatusText(status, connectionState[provider] ? "warning" : "error", connectionState[provider] ? "Não foi possível verificar agora. A credencial salva foi mantida." : error.message);
       });
       renderOverallStatus();
     }
@@ -290,50 +246,51 @@
   async function save(event, provider) {
     event.preventDefault();
     const input = document.getElementById(`sl-ai-${provider}-key`);
+    const accountInput = provider === "cloudflare" ? document.getElementById("sl-ai-cloudflare-account") : null;
     const status = document.getElementById(`sl-ai-${provider}-status`);
     const apiKey = String(input?.value || "").trim();
-    if (!apiKey) {
-      setStatusText(status, "error", "Cole sua chave para continuar.");
-      return;
-    }
+    const accountId = String(accountInput?.value || "").trim();
+    if (!apiKey) { setStatusText(status, "error", "Cole sua chave para continuar."); return; }
+    if (provider === "cloudflare" && !accountId) { setStatusText(status, "error", "Informe também o Account ID da Cloudflare."); return; }
     const hadConnection = Boolean(connectionState[provider]);
-    setStatusText(status, "warning", "Validando conexão…");
+    setStatusText(status, "warning", `Validando ${providerLabel[provider]}…`);
     try {
-      await request("", { method: "PUT", body: JSON.stringify({ provider, api_key: apiKey }) });
-      input.value = "";
+      const payload = { provider, api_key: apiKey };
+      if (provider === "cloudflare") payload.account_id = accountId;
+      await request("", { method: "PUT", body: JSON.stringify(payload) });
+      if (input) input.value = "";
+      if (accountInput) accountInput.value = "";
       await refresh();
       await globalThis.superLovableGithubAgentRefresh?.();
     } catch (error) {
       if (recoverInvalidatedContext(error)) return;
-      setStatusText(
-        status,
-        hadConnection ? "warning" : "error",
-        hadConnection
-          ? `A nova chave não foi aceita. A conexão anterior com ${providerLabel[provider]} foi mantida.`
-          : error.message,
-      );
+      setStatusText(status, hadConnection ? "warning" : "error", hadConnection ? `A nova credencial não foi aceita. A conexão anterior com ${providerLabel[provider]} foi mantida.` : error.message);
       renderOverallStatus();
     }
   }
 
   async function remove(provider) {
-    if (!confirm(`Remover a chave ${providerLabel[provider]} desta licença?`)) return;
+    if (!confirm(`Remover a credencial ${providerLabel[provider]} desta licença?`)) return;
     try {
       await request(`?provider=${provider}`, { method: "DELETE" });
       await refresh();
       await globalThis.superLovableGithubAgentRefresh?.();
     } catch (error) {
-      if (!recoverInvalidatedContext(error)) console.warn("[Superlovable] Falha ao remover chave:", error);
+      if (!recoverInvalidatedContext(error)) console.warn("[Superlovable] Falha ao remover credencial:", error);
     }
   }
 
   function providerForm(provider, title, description, placeholder) {
+    const accountField = provider === "cloudflare"
+      ? `<input id="sl-ai-cloudflare-account" type="text" autocomplete="off" spellcheck="false" placeholder="Account ID da Cloudflare">`
+      : "";
     return `<form id="sl-ai-${provider}-form" class="sl-setup-block">
       <div class="sl-setup-heading">
         <div><strong>${title}</strong><small>${description}</small></div>
-        <a href="${providerLinks[provider]}" target="_blank" rel="noopener noreferrer">Criar chave ↗</a>
+        <a href="${providerLinks[provider]}" target="_blank" rel="noopener noreferrer">Criar credencial ↗</a>
       </div>
       <p id="sl-ai-${provider}-status" class="sl-setup-status" data-kind="info">Verificando…</p>
+      ${accountField}
       <input id="sl-ai-${provider}-key" type="password" autocomplete="off" spellcheck="false" placeholder="${placeholder}">
       <div class="sl-agent-actions">
         <button type="submit" id="sl-ai-${provider}-save">Conectar</button>
@@ -361,6 +318,7 @@
       #sl-project-controls > .sl-agent-actions { margin-top: 0; flex-wrap: wrap; }
       #sl-agent-switch-project { border-color: rgba(103,232,249,.4); color: #a5f3fc; }
       #sl-project-controls #sl-agent-project-row { margin-top: 8px; }
+      #sl-ai-cloudflare-account { margin-bottom: 6px; }
     `;
     document.head.appendChild(style);
   }
@@ -369,64 +327,43 @@
     const target = document.getElementById("sl-project-connection");
     if (!target) return null;
     let status = document.getElementById("sl-project-status");
-    if (!status) {
-      status = document.createElement("p");
-      status.id = "sl-project-status";
-      target.appendChild(status);
-    }
+    if (!status) { status = document.createElement("p"); status.id = "sl-project-status"; target.appendChild(status); }
     let controls = document.getElementById("sl-project-controls");
-    if (!controls) {
-      controls = document.createElement("div");
-      controls.id = "sl-project-controls";
-      target.appendChild(controls);
-    }
+    if (!controls) { controls = document.createElement("div"); controls.id = "sl-project-controls"; target.appendChild(controls); }
     return controls;
   }
-
   function executionIsVisible() {
     const progress = document.getElementById("sl-agent-progress");
     return Boolean(progress && !progress.hidden && String(progress.textContent || "").trim());
   }
-
   function syncAgentLayout() {
     syncScheduled = false;
     const agent = document.getElementById("sl-github-agent");
     if (!agent) return;
-
     const composer = document.querySelector(".sp-compose-card");
-    if (composer?.parentElement && (agent.parentElement !== composer.parentElement || agent.nextElementSibling !== composer)) {
-      composer.parentElement.insertBefore(agent, composer);
-    }
+    if (composer?.parentElement && (agent.parentElement !== composer.parentElement || agent.nextElementSibling !== composer)) composer.parentElement.insertBefore(agent, composer);
     if (!agent.classList.contains("sl-customer-execution-panel")) agent.classList.add("sl-customer-execution-panel");
-
     const title = agent.querySelector(".sl-agent-title");
-    if (title?.firstChild?.nodeType === Node.TEXT_NODE && title.firstChild.textContent !== "Execução atual ") {
-      title.firstChild.textContent = "Execução atual ";
-    }
-
+    if (title?.firstChild?.nodeType === Node.TEXT_NODE && title.firstChild.textContent !== "Execução atual ") title.firstChild.textContent = "Execução atual ";
     const controls = ensureProjectScaffold();
     const connectButton = document.getElementById("sl-agent-connect");
     const actionRow = connectButton?.parentElement;
     const projectRow = document.getElementById("sl-agent-project-row");
     if (controls && actionRow && actionRow.parentElement !== controls) controls.appendChild(actionRow);
     if (controls && projectRow && projectRow.parentElement !== controls) controls.appendChild(projectRow);
-
     const status = document.getElementById("sl-agent-status");
     const progress = document.getElementById("sl-agent-progress");
     const combinedText = `${status?.textContent || ""} ${progress?.textContent || ""}`;
     if (isContextInvalidated(combinedText)) recoverInvalidatedContext(combinedText);
-
     const shouldHide = !executionIsVisible();
     if (agent.hidden !== shouldHide) agent.hidden = shouldHide;
     renderProjectStatus();
   }
-
   function scheduleSyncAgentLayout() {
     if (syncScheduled) return;
     syncScheduled = true;
     setTimeout(syncAgentLayout, 120);
   }
-
   function updateExecutionActivity() {
     const status = document.getElementById("sl-agent-status");
     const progress = document.getElementById("sl-agent-progress");
@@ -437,7 +374,6 @@
       scheduleSyncAgentLayout();
     }
   }
-
   async function watchdog() {
     updateExecutionActivity();
     if (recoveryScheduled || Date.now() - lastExecutionActivityAt < 180_000) return;
@@ -449,24 +385,14 @@
       const guard = `${task.rootTaskId || "task"}:${task.nextIndex || 0}`;
       const previousGuard = (() => { try { return localStorage.getItem(WATCHDOG_RECOVERY_KEY) || ""; } catch { return ""; } })();
       if (previousGuard === guard && Date.now() - localNumber(`${WATCHDOG_RECOVERY_KEY}:time`) < 240_000) return;
-      try {
-        localStorage.setItem(WATCHDOG_RECOVERY_KEY, guard);
-        setLocalNumber(`${WATCHDOG_RECOVERY_KEY}:time`, Date.now());
-      } catch {}
-      reloadForRecovery(
-        "A execução ficou sem resposta. Retomando do último ponto seguro…",
-        `${WATCHDOG_RECOVERY_KEY}:reload`,
-        180_000,
-      );
-    } catch (error) {
-      recoverInvalidatedContext(error);
-    }
+      try { localStorage.setItem(WATCHDOG_RECOVERY_KEY, guard); setLocalNumber(`${WATCHDOG_RECOVERY_KEY}:time`, Date.now()); } catch {}
+      reloadForRecovery("A execução ficou sem resposta. Retomando do último ponto seguro…", `${WATCHDOG_RECOVERY_KEY}:reload`, 180_000);
+    } catch (error) { recoverInvalidatedContext(error); }
   }
 
   function mount() {
     const host = document.getElementById("sl-connection-status-host");
     if (!host || document.getElementById("sl-connection-status")) return;
-
     injectCustomerLayoutStyles();
     const details = document.createElement("details");
     details.id = "sl-connection-status";
@@ -474,11 +400,12 @@
     details.innerHTML = `
       <summary id="sl-connection-summary" data-kind="warning"></summary>
       <div class="sl-connection-content">
-        <p class="sl-connection-intro">Conecte pelo menos uma IA para começar. Quanto mais APIs você adicionar, maior a contingência automática.</p>
+        <p class="sl-connection-intro"><strong>Grok e Cloudflare são obrigatórios.</strong> Gemini e OpenRouter são contingências opcionais para manter a execução disponível quando necessário.</p>
         <div id="sl-connection-checklist" class="sl-connection-checklist"></div>
-        ${providerForm("groq", "Groq · 1ª tentativa", "Utilizada primeiro para executar suas solicitações.", "Cole aqui a chave gerada")}
-        ${providerForm("gemini", "Gemini · 2ª tentativa", "Assume automaticamente quando o Groq não consegue concluir.", "Cole aqui a chave gerada")}
-        ${providerForm("openrouter", "OpenRouter · 3ª tentativa", "Usa o roteador gratuito para buscar um modelo free disponível quando necessário.", "Cole aqui a chave OpenRouter")}
+        ${providerForm("grok", "Grok · Principal 1", "Primeira IA usada para planejar suas alterações.", "Cole aqui sua API key da xAI")}
+        ${providerForm("cloudflare", "Cloudflare · Principal 2", "Segunda IA principal e fallback imediato do Grok.", "Cole aqui seu API Token Workers AI")}
+        ${providerForm("gemini", "Gemini · Contingência opcional", "Usado automaticamente se as duas IAs principais não concluírem.", "Cole aqui a chave Gemini")}
+        ${providerForm("openrouter", "OpenRouter · Contingência opcional", "Última alternativa, usando o roteador gratuito quando disponível.", "Cole aqui a chave OpenRouter")}
         <div id="sl-project-connection" class="sl-project-connection"></div>
       </div>`;
     host.appendChild(details);
@@ -521,19 +448,11 @@
     scheduleSyncAgentLayout();
   });
 
-  const observer = new MutationObserver(() => {
-    mount();
-    scheduleSyncAgentLayout();
-  });
+  const observer = new MutationObserver(() => { mount(); scheduleSyncAgentLayout(); });
   observer.observe(document.documentElement, { childList: true, subtree: true });
-
   setInterval(updateExecutionActivity, 5_000);
   setInterval(() => void watchdog(), 30_000);
-
-  setTimeout(() => {
-    try { localStorage.removeItem(CONTEXT_RECOVERY_KEY); } catch {}
-  }, 20_000);
-
+  setTimeout(() => { try { localStorage.removeItem(CONTEXT_RECOVERY_KEY); } catch {} }, 20_000);
   mount();
   scheduleSyncAgentLayout();
 })();
