@@ -126,7 +126,7 @@ async function validate(provider: CustomerProvider, apiKey: string, accountId = 
     }
     if (provider === "cloudflare") {
       if (!accountId) throw new Response("Informe também o Account ID da Cloudflare.", { status: 422 });
-      const model = "@cf/meta/llama-3.1-8b-instruct";
+      const model = "@cf/meta/llama-3.1-8b-instruct-fp8";
       const response = await checkedResponse(await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`, {
         method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "Responda apenas OK." }), signal: controller.signal,
       }), provider);
