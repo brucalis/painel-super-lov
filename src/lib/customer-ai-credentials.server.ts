@@ -5,7 +5,7 @@ const CUSTOMER_EDITION = "customer-s1";
 const FALLBACK_PREFIX = "customer_ai_credentials";
 const CUSTOMER_PROVIDERS = ["grok", "cloudflare", "gemini", "openrouter"] as const;
 
-export const CUSTOMER_AI_CREDENTIALS_VERSION = "customer-ai-credentials-v3-grok-cloudflare-stack";
+export const CUSTOMER_AI_CREDENTIALS_VERSION = "customer-ai-credentials-v4-cloudflare-required";
 export type CustomerProvider = (typeof CUSTOMER_PROVIDERS)[number];
 export type CustomerProviderCredential = {
   provider: CustomerProvider;
@@ -156,7 +156,7 @@ export async function customerCredentialStatus(licenseId: string) {
   return {
     grok: status("grok"), cloudflare: status("cloudflare"), gemini: status("gemini"), openrouter: status("openrouter"),
     configured: rows.some((row) => CUSTOMER_PROVIDERS.includes(row.provider)),
-    requiredConfigured: rows.some((row) => row.provider === "grok") && rows.some((row) => row.provider === "cloudflare"),
+    requiredConfigured: rows.some((row) => row.provider === "cloudflare"),
     configuredCount: CUSTOMER_PROVIDERS.filter((provider) => rows.some((row) => row.provider === provider)).length,
   };
 }
@@ -165,7 +165,7 @@ export async function saveCustomerAiKey(licenseId: string, providerValue: string
   const provider = normalizeCustomerProvider(providerValue);
   const apiKey = String(rawKey || "").trim();
   const accountId = String(options.accountId || "").trim();
-  if (!provider) throw new Response("Provedor inválido (credenciais v3).", { status: 400 });
+  if (!provider) throw new Response("Provedor inválido (credenciais v4).", { status: 400 });
   if (apiKey.length < 20) throw new Response("Informe uma chave de API válida.", { status: 422 });
   if (provider === "cloudflare" && accountId.length < 8) throw new Response("Informe o Account ID da Cloudflare.", { status: 422 });
   const model = await validate(provider, apiKey, accountId);
@@ -182,7 +182,7 @@ export async function saveCustomerAiKey(licenseId: string, providerValue: string
 
 export async function deleteCustomerAiKey(licenseId: string, providerValue: string) {
   const provider = normalizeCustomerProvider(providerValue);
-  if (!provider) throw new Response("Provedor inválido (credenciais v3).", { status: 400 });
+  if (!provider) throw new Response("Provedor inválido (credenciais v4).", { status: 400 });
   const { error: primaryError } = await db().from("github_license_ai_credentials").delete().eq("license_id", licenseId).eq("provider", provider);
   let fallbackError: unknown = null;
   try { await deleteFallbackRow(licenseId, provider); } catch (error) { fallbackError = error; }
