@@ -6,6 +6,9 @@ const CUSTOMER_EDITION = "customer-s1";
 const FALLBACK_PREFIX = "customer_ai_credentials";
 const CUSTOMER_PROVIDERS = ["groq", "gemini", "openrouter"] as const;
 
+export const CUSTOMER_AI_CREDENTIALS_VERSION =
+  "customer-ai-credentials-v2-provider-normalization";
+
 export type CustomerProvider = (typeof CUSTOMER_PROVIDERS)[number];
 type CredentialRow = {
   provider: CustomerProvider;
@@ -68,6 +71,30 @@ function providerLabel(provider: CustomerProvider) {
   return "OpenRouter";
 }
 
+function normalizeCustomerProvider(
+  providerValue: unknown,
+  rawKey: unknown = "",
+): CustomerProvider | "" {
+  const normalized = String(providerValue ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+
+  if (normalized.includes("openrouter")) return "openrouter";
+  if (normalized.includes("groq")) return "groq";
+  if (normalized.includes("gemini")) return "gemini";
+
+  const apiKey = String(rawKey ?? "").trim();
+  if (/^sk-or(?:-v\d+)?-/i.test(apiKey)) return "openrouter";
+  if (/^gsk_/i.test(apiKey)) return "groq";
+  if (/^AIza/i.test(apiKey)) return "gemini";
+  if (/^sk-/i.test(apiKey) && !/^gsk_/i.test(apiKey)) return "openrouter";
+
+  return "";
+}
+
 function storageError() {
   return new Response(
     "Não foi possível concluir a configuração segura agora. Tente novamente em alguns instantes.",
@@ -78,8 +105,8 @@ function storageError() {
 function safeCredentialRow(value: unknown): CredentialRow | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
-  const provider = String(row.provider || "") as CustomerProvider;
-  if (!CUSTOMER_PROVIDERS.includes(provider)) return null;
+  const provider = normalizeCustomerProvider(row.provider);
+  if (!provider) return null;
   const required = ["encrypted_key", "encryption_iv", "encryption_tag", "key_hint", "model"];
   if (required.some((key) => !String(row[key] || ""))) return null;
   return {
@@ -273,11 +300,11 @@ export async function saveCustomerAiKey(
   providerValue: string,
   rawKey: string,
 ) {
-  if (!CUSTOMER_PROVIDERS.includes(providerValue as CustomerProvider)) {
-    throw new Response("Provedor inválido.", { status: 400 });
-  }
-  const provider = providerValue as CustomerProvider;
   const apiKey = String(rawKey || "").trim();
+  const provider = normalizeCustomerProvider(providerValue, apiKey);
+  if (!provider) {
+    throw new Response("Provedor inválido (credenciais v2).", { status: 400 });
+  }
   if (apiKey.length < 20) throw new Response("Informe uma chave de API válida.", { status: 422 });
 
   const model = await validate(provider, apiKey);
@@ -320,10 +347,10 @@ export async function saveCustomerAiKey(
 }
 
 export async function deleteCustomerAiKey(licenseId: string, providerValue: string) {
-  if (!CUSTOMER_PROVIDERS.includes(providerValue as CustomerProvider)) {
-    throw new Response("Provedor inválido.", { status: 400 });
+  const provider = normalizeCustomerProvider(providerValue);
+  if (!provider) {
+    throw new Response("Provedor inválido (credenciais v2).", { status: 400 });
   }
-  const provider = providerValue as CustomerProvider;
   const { error: primaryError } = await db()
     .from("github_license_ai_credentials")
     .delete()
