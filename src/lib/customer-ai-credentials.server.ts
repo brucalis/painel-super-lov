@@ -4,8 +4,9 @@ import type { AgentAiProvider } from "@/lib/github-agent.server";
 
 const CUSTOMER_EDITION = "customer-s1";
 const FALLBACK_PREFIX = "customer_ai_credentials";
+const CUSTOMER_PROVIDERS = ["groq", "gemini", "openrouter"] as const;
 
-export type CustomerProvider = "groq" | "gemini";
+export type CustomerProvider = (typeof CUSTOMER_PROVIDERS)[number];
 type CredentialRow = {
   provider: CustomerProvider;
   encrypted_key: string;
@@ -61,6 +62,12 @@ const hint = (value: string) => `••••••••${value.slice(-4)}`;
 const fallbackKey = (licenseId: string, provider: CustomerProvider) =>
   `${FALLBACK_PREFIX}:${licenseId}:${provider}`;
 
+function providerLabel(provider: CustomerProvider) {
+  if (provider === "groq") return "Groq";
+  if (provider === "gemini") return "Gemini";
+  return "OpenRouter";
+}
+
 function storageError() {
   return new Response(
     "Não foi possível concluir a configuração segura agora. Tente novamente em alguns instantes.",
@@ -71,8 +78,8 @@ function storageError() {
 function safeCredentialRow(value: unknown): CredentialRow | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
-  const provider = String(row.provider || "");
-  if (provider !== "groq" && provider !== "gemini") return null;
+  const provider = String(row.provider || "") as CustomerProvider;
+  if (!CUSTOMER_PROVIDERS.includes(provider)) return null;
   const required = ["encrypted_key", "encryption_iv", "encryption_tag", "key_hint", "model"];
   if (required.some((key) => !String(row[key] || ""))) return null;
   return {
@@ -87,9 +94,7 @@ function safeCredentialRow(value: unknown): CredentialRow | null {
 }
 
 async function readFallbackRows(licenseId: string): Promise<CredentialRow[]> {
-  const keys = (["groq", "gemini"] as CustomerProvider[]).map((provider) =>
-    fallbackKey(licenseId, provider),
-  );
+  const keys = CUSTOMER_PROVIDERS.map((provider) => fallbackKey(licenseId, provider));
   const { data, error } = await db().from("app_settings").select("key,value").in("key", keys);
   if (error) throw error;
   return ((data || []) as AppSettingRow[]).flatMap((item) => {
@@ -189,20 +194,25 @@ async function validate(provider: CustomerProvider, apiKey: string) {
     const url =
       provider === "groq"
         ? "https://api.groq.com/openai/v1/models"
-        : `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
+        : provider === "gemini"
+          ? `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+          : "https://openrouter.ai/api/v1/models";
     const response = await fetch(url, {
-      headers: provider === "groq" ? { Authorization: `Bearer ${apiKey}` } : undefined,
+      headers:
+        provider === "groq" || provider === "openrouter"
+          ? { Authorization: `Bearer ${apiKey}` }
+          : undefined,
       signal: controller.signal,
     });
     if (response.status === 401 || response.status === 403) {
       throw new Response(
-        `A chave ${provider === "groq" ? "Groq" : "Gemini"} é inválida ou não possui acesso.`,
+        `A chave ${providerLabel(provider)} é inválida ou não possui acesso.`,
         { status: 422 },
       );
     }
     if (response.status === 429) {
       throw new Response(
-        `A conta ${provider === "groq" ? "Groq" : "Gemini"} atingiu o limite temporário.`,
+        `A conta ${providerLabel(provider)} atingiu o limite temporário.`,
         { status: 429 },
       );
     }
@@ -211,6 +221,7 @@ async function validate(provider: CustomerProvider, apiKey: string) {
       data?: Array<{ id?: string }>;
       models?: Array<{ name?: string }>;
     };
+    if (provider === "openrouter") return "openrouter/free";
     if (provider === "groq") {
       const models = new Set((data.data || []).map((item) => String(item.id || "")));
       return (
@@ -249,7 +260,11 @@ export async function customerCredentialStatus(licenseId: string) {
   return {
     groq: status("groq"),
     gemini: status("gemini"),
-    configured: rows.some((row) => row.provider === "groq" || row.provider === "gemini"),
+    openrouter: status("openrouter"),
+    configured: rows.some((row) => CUSTOMER_PROVIDERS.includes(row.provider)),
+    configuredCount: CUSTOMER_PROVIDERS.filter((provider) =>
+      rows.some((row) => row.provider === provider),
+    ).length,
   };
 }
 
@@ -258,7 +273,7 @@ export async function saveCustomerAiKey(
   providerValue: string,
   rawKey: string,
 ) {
-  if (!["groq", "gemini"].includes(providerValue)) {
+  if (!CUSTOMER_PROVIDERS.includes(providerValue as CustomerProvider)) {
     throw new Response("Provedor inválido.", { status: 400 });
   }
   const provider = providerValue as CustomerProvider;
@@ -286,12 +301,14 @@ export async function saveCustomerAiKey(
   if (primaryError) {
     console.warn("[customer-ai] armazenamento principal indisponível; usando contingência", {
       code: String(primaryError.code || "unknown"),
+      provider,
     });
     try {
       await saveFallbackRow(licenseId, row);
     } catch (fallbackError) {
       console.error("[customer-ai] falha também no armazenamento de contingência", {
         code: String((fallbackError as any)?.code || "unknown"),
+        provider,
       });
       throw storageError();
     }
@@ -303,7 +320,7 @@ export async function saveCustomerAiKey(
 }
 
 export async function deleteCustomerAiKey(licenseId: string, providerValue: string) {
-  if (!["groq", "gemini"].includes(providerValue)) {
+  if (!CUSTOMER_PROVIDERS.includes(providerValue as CustomerProvider)) {
     throw new Response("Provedor inválido.", { status: 400 });
   }
   const provider = providerValue as CustomerProvider;
@@ -332,9 +349,10 @@ export async function customerAiProvider(
   const rows = await credentialRows(licenseId);
   const groq = rows.find((row) => row.provider === "groq");
   const gemini = rows.find((row) => row.provider === "gemini");
+  const openrouter = rows.find((row) => row.provider === "openrouter");
   if (!groq && !gemini) {
-    if (required) {
-      throw new Response("Conecte sua chave do Groq ou Gemini antes de enviar comandos.", {
+    if (required && !openrouter) {
+      throw new Response("Conecte sua chave do Groq, Gemini ou OpenRouter antes de enviar comandos.", {
         status: 428,
       });
     }
@@ -345,4 +363,14 @@ export async function customerAiProvider(
     groq: groq ? { apiKey: decrypt(groq), model: groq.model } : undefined,
     gemini: gemini ? { apiKey: decrypt(gemini), model: gemini.model } : undefined,
   };
+}
+
+export async function customerOpenRouterProvider(
+  request: Request,
+  licenseId: string,
+): Promise<{ apiKey: string; model: string } | undefined> {
+  if (!isCustomerEdition(request)) return undefined;
+  const rows = await credentialRows(licenseId);
+  const openrouter = rows.find((row) => row.provider === "openrouter");
+  return openrouter ? { apiKey: decrypt(openrouter), model: openrouter.model || "openrouter/free" } : undefined;
 }
