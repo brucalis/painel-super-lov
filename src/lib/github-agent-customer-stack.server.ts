@@ -4,7 +4,6 @@ import type { CustomerProviderCredential } from "@/lib/customer-ai-credentials.s
 
 const GITHUB_API = "https://api.github.com";
 const USER_AGENT = "SuperLovable-CustomerAI";
-const PROVIDER_TIMEOUT_MS = 40_000;
 const MAX_CONTEXT_FILES = 5;
 const MAX_CONTEXT_CHARS = 30_000;
 const FOCUSED_CONTEXT_CHARS = 38_000;
@@ -152,17 +151,41 @@ function compactProviderPayload(payload: string, maxChars: number) {
     const parsed = JSON.parse(payload) as Record<string, unknown> & { files?: ContextFile[]; available_files?: string[] };
     const files = (parsed.files || []).map((file) => ({
       path: file.path,
-      content: String(file.content || "").slice(0, Math.max(2500, Math.floor(maxChars / Math.max(1, (parsed.files || []).length + 1)))),
+      content: String(file.content || "").slice(0, Math.max(1800, Math.floor(maxChars / Math.max(1, (parsed.files || []).length + 1)))),
     }));
-    return JSON.stringify({ ...parsed, available_files: (parsed.available_files || []).slice(0, 600), files }).slice(0, maxChars);
+    return JSON.stringify({ ...parsed, available_files: (parsed.available_files || []).slice(0, 420), files }).slice(0, maxChars);
   } catch {
     return payload.slice(0, maxChars);
   }
 }
 
+function providerTimeoutMs(provider: CustomerProviderCredential["provider"]) {
+  if (provider === "cloudflare") return 50_000;
+  if (provider === "openrouter") return 65_000;
+  if (provider === "gemini") return 30_000;
+  return 40_000;
+}
+
+async function resolveGeminiModel(apiKey: string, preferred: string, signal: AbortSignal) {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`, { signal });
+  if (!response.ok) return preferred || "gemini-2.5-flash";
+  const data = await response.json() as { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };
+  const available = (data.models || [])
+    .filter((item) => (item.supportedGenerationMethods || []).includes("generateContent"))
+    .map((item) => String(item.name || "").replace(/^models\//, ""))
+    .filter(Boolean);
+  if (preferred && available.includes(preferred)) return preferred;
+  return available.find((id) => id === "gemini-2.5-flash")
+    || available.find((id) => id === "gemini-2.5-flash-lite")
+    || available.find((id) => /flash/i.test(id))
+    || available[0]
+    || preferred
+    || "gemini-2.5-flash";
+}
+
 async function callProvider(payload: string, credential: CustomerProviderCredential) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), providerTimeoutMs(credential.provider));
   const label = providerLabel(credential.provider);
   try {
     let response: Response;
@@ -170,7 +193,7 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
     let model = credential.model;
     const providerPayload = compactProviderPayload(
       payload,
-      credential.provider === "cloudflare" ? 24_000 : credential.provider === "openrouter" ? 30_000 : 42_000,
+      credential.provider === "cloudflare" ? 16_000 : credential.provider === "openrouter" ? 22_000 : 30_000,
     );
 
     if (credential.provider === "grok") {
@@ -178,7 +201,7 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
       response = await fetch("https://api.x.ai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${credential.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, temperature: 0.1, max_tokens: 3000, response_format: { type: "json_object" }, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }] }),
+        body: JSON.stringify({ model, temperature: 0.1, max_tokens: 2200, response_format: { type: "json_object" }, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }] }),
         signal: controller.signal,
       });
       const text = await response.text();
@@ -194,7 +217,7 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
       response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(credential.accountId)}/ai/run/${model}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${credential.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }], max_tokens: 3000, temperature: 0.1 }),
+        body: JSON.stringify({ messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }], max_tokens: 1800, temperature: 0.1 }),
         signal: controller.signal,
       });
       const text = await response.text();
@@ -204,12 +227,17 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
       } else raw = text;
     } else if (credential.provider === "gemini") {
       model ||= "gemini-2.5-flash";
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(credential.apiKey)}`, {
+      const invokeGemini = async (modelId: string) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(credential.apiKey)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: systemPrompt }] }, contents: [{ role: "user", parts: [{ text: providerPayload }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 3000, responseMimeType: "application/json" } }),
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: systemPrompt }] }, contents: [{ role: "user", parts: [{ text: providerPayload }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 2600, responseMimeType: "application/json" } }),
         signal: controller.signal,
       });
+      response = await invokeGemini(model);
+      if (response.status === 404) {
+        model = await resolveGeminiModel(credential.apiKey, model, controller.signal);
+        response = await invokeGemini(model);
+      }
       const text = await response.text();
       if (response.ok) {
         const data = JSON.parse(text) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
@@ -220,7 +248,7 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
       response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${credential.apiKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://painel-super-lov.lovable.app", "X-Title": "Super Lovable" },
-        body: JSON.stringify({ model, temperature: 0.1, max_tokens: 3000, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }] }),
+        body: JSON.stringify({ model, temperature: 0.1, max_tokens: 2200, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }] }),
         signal: controller.signal,
       });
       const text = await response.text();
