@@ -1,10 +1,18 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "08.09.S3",
-  technicalVersion: "33.0.12",
-  updatedAt: "08/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=08.09.S3",
-  downloadName: "superlovable-08.09.S3.zip",
+  version: "09.09.S1",
+  technicalVersion: "33.0.13",
+  updatedAt: "09/09/2026 (horário de Brasília)",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=09.09.S1",
+  downloadName: "superlovable-09.09.S1.zip",
   changelog: [
+    {
+      version: "09.09.S1",
+      date: "09/09/2026",
+      changes: [
+        "Conexão do OpenRouter corrigida por uma rota dedicada, sem depender da identificação genérica de provedor.",
+        "Mensagens de validação do OpenRouter agora refletem diretamente a resposta real da API.",
+      ],
+    },
     {
       version: "08.09.S3",
       date: "08/09/2026",
