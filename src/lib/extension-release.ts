@@ -1,10 +1,18 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "08.09.S2",
-  technicalVersion: "33.0.11",
+  version: "08.09.S3",
+  technicalVersion: "33.0.12",
   updatedAt: "08/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=08.09.S2",
-  downloadName: "superlovable-08.09.S2.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=08.09.S3",
+  downloadName: "superlovable-08.09.S3.zip",
   changelog: [
+    {
+      version: "08.09.S3",
+      date: "08/09/2026",
+      changes: [
+        "OpenRouter adicionado como terceira IA de contingência.",
+        "A ferramenta permanece conectada quando uma API temporariamente atinge limite; as demais assumem automaticamente.",
+      ],
+    },
     {
       version: "08.09.S2",
       date: "08/09/2026",
