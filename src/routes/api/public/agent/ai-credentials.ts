@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const CREDENTIAL_API_VERSION = "ai-credentials-v6-grok-cloudflare-stack";
-const SUPPORTED_AI_PROVIDERS = ["grok", "cloudflare", "gemini", "openrouter"] as const;
-const REQUIRED_AI_PROVIDERS = ["grok", "cloudflare"] as const;
+const CREDENTIAL_API_VERSION = "ai-credentials-v7-cloudflare-primary";
+const SUPPORTED_AI_PROVIDERS = ["cloudflare", "gemini", "openrouter"] as const;
+const REQUIRED_AI_PROVIDERS = ["cloudflare"] as const;
 type Provider = (typeof SUPPORTED_AI_PROVIDERS)[number];
 
 type CredentialBody = {
@@ -18,11 +18,15 @@ type CredentialBody = {
 };
 
 function normalizeProvider(value: unknown): Provider | "" {
-  const normalized = String(value ?? "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "");
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
   if (normalized.includes("openrouter")) return "openrouter";
   if (normalized.includes("cloudflare")) return "cloudflare";
   if (normalized.includes("gemini")) return "gemini";
-  if (normalized.includes("grok") || normalized.includes("xai")) return "grok";
   return "";
 }
 
@@ -61,7 +65,7 @@ export const Route = createFileRoute("/api/public/agent/ai-credentials")({
           const provider = normalizeProvider(body.provider ?? body.ai_provider ?? body.providerId ?? body.type);
           const apiKey = String(body.api_key ?? body.apiKey ?? body.key ?? "").trim();
           const accountId = String(body.account_id ?? body.accountId ?? "").trim();
-          if (!provider) return json({ ok: false, error: "Provedor inválido (rota v6).", supportedProviders: [...SUPPORTED_AI_PROVIDERS] }, 400);
+          if (!provider) return json({ ok: false, error: "Provedor inválido (rota v7).", supportedProviders: [...SUPPORTED_AI_PROVIDERS] }, 400);
           return json({
             ok: true,
             ...(await credentials.saveCustomerAiKey(auth.license.id, provider, apiKey, { accountId })),
@@ -80,7 +84,7 @@ export const Route = createFileRoute("/api/public/agent/ai-credentials")({
           const auth = await agent.requireAgentLicense(request);
           if (!credentials.isCustomerEdition(request)) return json({ ok: false, error: "Recurso exclusivo da edição do cliente." }, 404);
           const provider = normalizeProvider(new URL(request.url).searchParams.get("provider"));
-          if (!provider) return json({ ok: false, error: "Provedor inválido (rota v6)." }, 400);
+          if (!provider) return json({ ok: false, error: "Provedor inválido (rota v7)." }, 400);
           await credentials.deleteCustomerAiKey(auth.license.id, provider);
           return json({ ok: true, provider, configured: false, credentialApiVersion: CREDENTIAL_API_VERSION });
         } catch (error) {
