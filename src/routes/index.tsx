@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { EXTENSION_RELEASE } from "@/lib/extension-release";
 import { PremiumFeatures } from "@/components/PremiumFeatures";
-import { TutorialPdfViewer } from "@/components/TutorialPdfViewer";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -167,7 +166,6 @@ function Index() {
           </div>
         </div>
 
-        <TutorialPdfViewer />
         <PremiumFeatures />
       </section>
     </main>
