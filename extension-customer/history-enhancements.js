@@ -59,8 +59,34 @@
     return Array.isArray(data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
   }
 
+  function dedupeHistory(history) {
+    const result = [];
+    const seen = new Map();
+    for (const item of history) {
+      if (!item) continue;
+      const key = `${String(item.text || "").trim()}::${String(item.runId || "")}`;
+      const previousIndex = seen.get(key);
+      if (previousIndex == null || !String(item.text || "").trim()) {
+        seen.set(key, result.length);
+        result.push(item);
+        continue;
+      }
+      const previous = result[previousIndex];
+      result[previousIndex] = {
+        ...previous,
+        ...item,
+        id: previous.id || item.id,
+        timestamp: previous.timestamp || item.timestamp,
+        status: item.status === "ok" || item.status === "merged" ? item.status : previous.status || item.status,
+        commitSha: item.commitSha || previous.commitSha,
+        runId: item.runId || previous.runId,
+      };
+    }
+    return result.slice(-200);
+  }
+
   async function writeLocalHistory(history) {
-    const trimmed = history.slice(-200);
+    const trimmed = dedupeHistory(history);
     await storageSet({ [HISTORY_KEY]: trimmed });
     const badge = document.querySelector('.sp-tab[data-tab="history"] .sp-tab-badge');
     if (badge) badge.textContent = String(trimmed.length);
@@ -70,41 +96,41 @@
   async function ensurePromptRecord(prompt) {
     const text = String(prompt || "").trim();
     if (!text) return null;
-    const history = await readLocalHistory();
-    const recent = [...history].reverse().find((item) => {
-      const age = Date.now() - new Date(item?.timestamp || item?.updatedAt || 0).getTime();
-      return item?.text === text && Number.isFinite(age) && age < 15000;
+    let history = await readLocalHistory();
+    const now = Date.now();
+    const matching = history.filter((item) => {
+      const age = now - new Date(item?.timestamp || item?.updatedAt || 0).getTime();
+      return item?.text === text && Number.isFinite(age) && age < 60_000;
     });
-    if (recent) {
-      await storageSet({ [ACTIVE_KEY]: recent.id });
-      return recent.id;
+    if (matching.length) {
+      const keep = matching.find((item) => item.runId) || matching[0];
+      history = history.filter((item) => item === keep || item?.text !== text || (now - new Date(item?.timestamp || item?.updatedAt || 0).getTime()) >= 60_000);
+      await writeLocalHistory(history);
+      await storageSet({ [ACTIVE_KEY]: keep.id });
+      return keep.id;
     }
     const id = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    history.push({
-      id,
-      text,
-      timestamp: new Date().toISOString(),
-      status: "processing",
-      source: "github-agent",
-    });
+    history.push({ id, text, timestamp: new Date().toISOString(), status: "processing", source: "github-agent" });
     await writeLocalHistory(history);
     await storageSet({ [ACTIVE_KEY]: id });
     return id;
   }
 
   async function attachRunId(runId, prompt = "") {
-    const history = await readLocalHistory();
-    let id = (await storageGet([ACTIVE_KEY]))[ACTIVE_KEY];
-    if (!id && prompt) id = await ensurePromptRecord(prompt);
-    if (!id) return;
-    const index = history.findIndex((item) => item?.id === id);
+    if (!runId) return;
+    let history = await readLocalHistory();
+    let active = (await storageGet([ACTIVE_KEY]))[ACTIVE_KEY];
+    if (!active && prompt) active = await ensurePromptRecord(prompt);
+    history = await readLocalHistory();
+    let index = history.findIndex((item) => item?.id === active);
+    if (index < 0) index = history.findIndex((item) => item?.text === prompt && item?.status === "processing");
     if (index < 0) return;
     history[index] = { ...history[index], runId, updatedAt: new Date().toISOString() };
     await writeLocalHistory(history);
   }
 
   async function completeLocalRecord(runId, result) {
-    const history = await readLocalHistory();
+    let history = await readLocalHistory();
     let index = history.findIndex((item) => item?.runId === runId);
     if (index < 0) {
       const active = (await storageGet([ACTIVE_KEY]))[ACTIVE_KEY];
@@ -136,8 +162,9 @@
 
     const kind = match[1];
     const body = bodyJson(init);
-    if (kind === "decompose" && body.prompt) await ensurePromptRecord(body.prompt).catch(() => {});
-    if (kind === "plan" && body.prompt) await ensurePromptRecord(body.prompt).catch(() => {});
+    if ((kind === "decompose" || kind === "plan") && body.prompt) {
+      await ensurePromptRecord(body.prompt).catch(() => {});
+    }
 
     const response = await originalFetch(input, init);
     try {
@@ -164,10 +191,10 @@
 
   async function combinedHistory() {
     const [backend, local] = await Promise.all([backendHistory(), readLocalHistory()]);
-    const bySha = new Map();
+    const bySha = new Set();
     const result = [];
     for (const item of backend) {
-      if (item?.commitSha) bySha.set(String(item.commitSha), item);
+      if (item?.commitSha) bySha.add(String(item.commitSha));
       result.push(item);
     }
     for (const item of [...local].reverse()) {
@@ -179,7 +206,7 @@
         branch: item.branch || "main",
         prompt: item.text || "",
         summary: item.summary || item.text || "Alteração aplicada pela Super Lovable",
-        status: item.status === "ok" ? "merged" : item.status,
+        status: "merged",
         commitSha: item.commitSha,
         commitUrl: commitUrl(item.repository || currentRepository(), item.commitSha),
         createdAt: item.timestamp || null,
@@ -203,10 +230,12 @@
     const previous = button?.textContent || "Desfazer";
     if (button) { button.disabled = true; button.textContent = "Desfazendo…"; }
     try {
-      const result = await request("/rollback", { method: "POST", body: JSON.stringify({ run_id: target.id }) });
+      const result = await request("/rollback", {
+        method: "POST",
+        body: JSON.stringify({ run_id: target.id, commit_sha: target.commitSha || "" }),
+      });
       alert(`Alteração desfeita com sucesso${result.commitSha ? `. Commit ${String(result.commitSha).slice(0, 7)}` : ""}.`);
-      document.querySelector(".sl-history-refresh")?.click();
-      setTimeout(() => enhance().catch(() => {}), 250);
+      setTimeout(() => enhance().catch(() => {}), 300);
     } catch (error) {
       alert(error.message || "Não foi possível desfazer a alteração.");
     } finally {
@@ -248,6 +277,7 @@
     button.textContent = "Desfazer última ação";
     button.addEventListener("click", () => rollbackLatest(button));
     toolbar.appendChild(button);
+    if (globalThis.superLovableExecutionIsActive?.()) globalThis.superLovableStopExecution && setTimeout(() => globalThis.dispatchEvent(new Event("sl-history-stop-sync")), 0);
   }
 
   async function enrichPromptCards(view) {
