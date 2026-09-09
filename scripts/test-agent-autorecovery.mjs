@@ -75,8 +75,8 @@ test("tentativas de provedor não são multiplicadas entre camadas", () => {
   assert.match(agentServer, /MAX_CONTEXT_ROUNDS = 2/);
   assert.match(agentServer, /PROVIDER_TIMEOUT_MS = 25_000/);
   assert.match(agentServer, /customer\s*\? \[customer\.model\]/);
-  assert.match(resilient, /MAX_PLAN_ATTEMPTS = 3/);
-  assert.match(resilient, /providerAttemptsExhausted/);
+  assert.match(resilient, /MAX_PLAN_ATTEMPTS = 1/);
+  assert.match(resilient, /três tentativas automáticas por \/plan/);
 });
 
 test("tarefas encerradas não entram novamente no ciclo automático", () => {
