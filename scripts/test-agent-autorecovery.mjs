@@ -10,7 +10,7 @@ const batches = await readFile(new URL("../src/lib/github-agent-batches.server.t
 const agentServer = await readFile(new URL("../src/lib/github-agent.server.ts", import.meta.url), "utf8");
 const resilient = await readFile(new URL("../src/lib/github-agent-resilient.server.ts", import.meta.url), "utf8");
 const credentials = await readFile(new URL("../src/lib/customer-ai-credentials.server.ts", import.meta.url), "utf8");
-const openrouterAgent = await readFile(new URL("../src/lib/github-agent-openrouter.server.ts", import.meta.url), "utf8");
+const customerStackAgent = await readFile(new URL("../src/lib/github-agent-customer-stack.server.ts", import.meta.url), "utf8");
 const planRoute = await readFile(new URL("../src/routes/api/public/agent/plan.ts", import.meta.url), "utf8");
 
 test("a retomada não depende de botões ou cliques no DOM", () => {
@@ -72,35 +72,48 @@ test("páginas completas recebem decomposição mínima segura", () => {
   assert.match(panel, /planAndCommit\(batchPrompt, label, true, batchDeadline\)/);
 });
 
-test("tentativas de provedor não são multiplicadas entre camadas", () => {
+test("tentativas do agente legado não são multiplicadas entre camadas", () => {
   assert.match(agentServer, /TRANSIENT_RETRY_DELAYS: number\[\] = \[\]/);
   assert.match(agentServer, /MAX_CONTEXT_ROUNDS = 2/);
   assert.match(agentServer, /PROVIDER_TIMEOUT_MS = 25_000/);
-  assert.match(agentServer, /customer\s*\? \[customer\.model\]/);
   assert.match(resilient, /MAX_PLAN_ATTEMPTS = 1/);
-  assert.match(resilient, /três tentativas automáticas por \/plan/);
 });
 
-test("OpenRouter entra como terceira contingência gratuita", () => {
-  assert.match(credentials, /"groq", "gemini", "openrouter"/);
+test("stack comercial exige Grok e Cloudflare e mantém Gemini e OpenRouter opcionais", () => {
+  assert.match(credentials, /\["grok", "cloudflare", "gemini", "openrouter"\]/);
+  assert.match(credentials, /requiredConfigured/);
+  assert.match(credentials, /grok-4\.6/);
+  assert.match(credentials, /llama-3\.1-8b-instruct-fp8/);
   assert.match(credentials, /openrouter\/free/);
-  assert.match(openrouterAgent, /https:\/\/openrouter\.ai\/api\/v1\/chat\/completions/);
-  assert.match(openrouterAgent, /response_format: \{ type: "json_object" \}/);
-  assert.match(planRoute, /Groq\/Gemini falharam; acionando OpenRouter/);
-  assert.match(planRoute, /planAgentRunOpenRouter/);
+  assert.match(planRoute, /!stack\.grok \|\| !stack\.cloudflare/);
+  assert.match(planRoute, /stack\.grok, stack\.cloudflare, stack\.gemini, stack\.openrouter/);
+  assert.match(planRoute, /CUSTOMER_REQUIRED_AI_NOT_CONFIGURED/);
 });
 
-test("uma IA configurada mantém o produto operacional e as demais viram contingência", () => {
-  assert.match(customerSettings, /const aiReady = configuredCount > 0/);
-  assert.match(customerSettings, /const operational = aiReady && projectReady/);
-  assert.match(customerSettings, /3 IAs configuradas · contingência completa/);
-  assert.match(customerSettings, /adicione outra API para ampliar a contingência/);
-  assert.match(customerSettings, /OpenRouter · 3ª tentativa/);
-  assert.match(customerSettings, /A nova chave não foi aceita\. A conexão anterior/);
+test("planner comercial suporta os quatro provedores em ordem de contingência", () => {
+  assert.match(customerStackAgent, /api\.x\.ai\/v1\/chat\/completions/);
+  assert.match(customerStackAgent, /api\.cloudflare\.com\/client\/v4\/accounts/);
+  assert.match(customerStackAgent, /generativelanguage\.googleapis\.com/);
+  assert.match(customerStackAgent, /openrouter\.ai\/api\/v1\/chat\/completions/);
+});
+
+test("painel só fica operacional com Grok Cloudflare e projeto", () => {
+  assert.match(customerSettings, /REQUIRED_PROVIDERS = \["grok", "cloudflare"\]/);
+  assert.match(customerSettings, /const requiredReady = REQUIRED_PROVIDERS\.every/);
+  assert.match(customerSettings, /const operational = requiredReady && projectReady/);
+  assert.match(customerSettings, /Gemini · Contingência opcional/);
+  assert.match(customerSettings, /OpenRouter · Contingência opcional/);
+  assert.match(customerSettings, /A nova credencial não foi aceita\. A conexão anterior/);
+});
+
+test("Cloudflare pede Account ID além do API Token", () => {
+  assert.match(customerSettings, /sl-ai-cloudflare-account/);
+  assert.match(customerSettings, /account_id/);
+  assert.match(credentials, /Informe também o Account ID da Cloudflare/);
 });
 
 test("falha temporária de consulta não apaga conexões já conhecidas", () => {
-  assert.match(customerSettings, /A chave salva foi mantida/);
+  assert.match(customerSettings, /A credencial salva foi mantida/);
   assert.doesNotMatch(customerSettings, /connectionState\[provider\] = false;\s*const status = document\.getElementById/);
 });
 
