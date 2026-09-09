@@ -22,11 +22,41 @@ export const Route = createFileRoute("/api/public/agent/commit")({
           const resilient = await import("@/lib/github-agent-resilient.server");
           const auth = await agent.requireAgentLicense(request);
           const body = (await request.json()) as { run_id?: string };
+          const runId = String(body.run_id || "");
+          const result = await resilient.commitAgentRunResilient(auth, runId);
+
+          // O commit pode ter entrado na main mesmo se uma atualização ampla de metadados
+          // do run falhar por incompatibilidade de coluna. Reforçamos aqui o mínimo
+          // necessário para histórico e rollback: status + SHA aplicado.
+          if (result?.commitSha && runId) {
+            try {
+              const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+              const now = new Date().toISOString();
+              const { error } = await supabaseAdmin
+                .from("github_agent_runs")
+                .update({
+                  status: "merged",
+                  commit_sha: String(result.commitSha),
+                  merge_commit_sha: String(result.commitSha),
+                  merged_at: now,
+                  updated_at: now,
+                  error: null,
+                } as never)
+                .eq("id", runId)
+                .eq("license_id", auth.license.id);
+              if (error) {
+                console.warn("[super-lovable/commit] não foi possível reforçar metadados do histórico", error);
+              }
+            } catch (syncError) {
+              console.warn("[super-lovable/commit] falha não bloqueante ao sincronizar histórico", syncError);
+            }
+          }
+
           return json({
             ok: true,
-            flow_mode: "direct-main-v4-resilient",
+            flow_mode: "direct-main-v5-history-sync",
             creates_pull_requests: false,
-            ...(await resilient.commitAgentRunResilient(auth, String(body.run_id || ""))),
+            ...result,
           });
         } catch (error) {
           if (error instanceof Response) {
