@@ -22,7 +22,7 @@
   const RETRY_DELAYS_MS = [700, 1_500, 3_500, 7_000];
   const RATE_LIMIT_DELAYS_MS = [5_000, 12_000, 25_000, 45_000];
   const TERMINAL_ERROR_CODES = new Set(["INVALID_SESSION", "LICENSE_INACTIVE", "GITHUB_NOT_CONNECTED", "GITHUB_REPOSITORY_NOT_ALLOWED", "GITHUB_PERMISSION_DENIED", "INVALID_GITHUB_TOKEN", "HTTP_401", "HTTP_403"]);
-  const CONTEXT_ERROR_CODES = new Set(["AI_CONTEXT_TOO_LARGE", "AI_PLAN_TRUNCATED", "AI_TRUNCATED_CONTENT_BLOCKED", "CONTEXT_ROUNDS_EXHAUSTED"]);
+  const CONTEXT_ERROR_CODES = new Set(["AI_CONTEXT_TOO_LARGE", "AI_PLAN_TRUNCATED", "AI_TRUNCATED_CONTENT_BLOCKED", "CONTEXT_ROUNDS_EXHAUSTED", "CUSTOMER_AI_STACK_EXHAUSTED"]);
   const REPLAN_ERROR_CODES = new Set(["AI_EDIT_NOT_UNIQUE", "AI_INVALID_EDIT_PATH", "AI_CHANGE_TOO_BROAD", "BASE_BRANCH_MOVED", "STALE_BASE_SHA", "GITHUB_CONFLICT", "HTTP_409", ...CONTEXT_ERROR_CODES]);
 
   let state = {
@@ -498,6 +498,42 @@
     return base + Math.floor(Math.random() * Math.min(700, Math.max(100, base * 0.15)));
   }
 
+  function localFallbackBatches(prompt) {
+    const text = String(prompt || "").trim();
+    const context = text.slice(0, 300);
+    let units = (text.match(/[^.!?;\n]+[.!?;]?/g) || []).map((part) => part.trim()).filter(Boolean);
+    if (units.length < 2) {
+      units = [];
+      let remaining = text;
+      while (remaining.length) {
+        let end = Math.min(1_350, remaining.length);
+        if (end < remaining.length) {
+          const boundary = remaining.lastIndexOf(" ", end);
+          if (boundary >= 850) end = boundary;
+        }
+        units.push(remaining.slice(0, end).trim());
+        remaining = remaining.slice(end).trim();
+      }
+    }
+    const target = Math.min(10, Math.max(2, Math.ceil(text.length / 2_000)));
+    const chunks = [];
+    let current = "";
+    const ideal = Math.max(650, Math.ceil(text.length / target));
+    for (const unit of units) {
+      if (current && current.length + unit.length + 1 > ideal && chunks.length < target - 1) {
+        chunks.push(current);
+        current = "";
+      }
+      current += `${current ? " " : ""}${unit}`;
+    }
+    if (current) chunks.push(current);
+    return chunks.filter(Boolean).slice(0, 10).map((chunk, index, all) => ({
+      id: `local-batch-${index + 1}`,
+      title: `Etapa ${index + 1}`,
+      instruction: `Contexto geral: ${context}\n\nObjetivo desta etapa (${index + 1}/${all.length}): ${chunk}\n\nExecute somente esta etapa, preserve tudo que já foi concluído e não antecipe as próximas etapas.`.slice(0, 3000),
+    }));
+  }
+
   async function planAndCommit(prompt, batchLabel = "", reducedContext = false, deadline = Infinity) {
     let reduced = reducedContext;
     let lastError = null;
@@ -527,6 +563,7 @@
         lastError = error;
         const kind = recoveryKind(error);
         if (kind === "terminal" || attempt >= MAX_AUTOMATIC_ATTEMPTS) throw error;
+        if (batchLabel && error?.code === "CUSTOMER_AI_STACK_EXHAUSTED") throw error;
 
         if (planned && !["context", "replan"].includes(kind)) {
           setStatus(`Confirmando automaticamente a aplicação${batchLabel ? ` de ${batchLabel}` : ""}…`, "warning");
@@ -777,8 +814,29 @@
         await executeSingle(normalized, false);
         return;
       }
-      setStatus("O coordenador não conseguiu dividir o pedido; executando uma recuperação compacta automaticamente…", "warning");
-      await executeSingle(normalized, true);
+      const fallbackBatches = localFallbackBatches(normalized);
+      if (fallbackBatches.length >= 2) {
+        const task = {
+          id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          prompt: normalized,
+          strategy: "local-deterministic-fallback",
+          provider: "local-coordinator",
+          complexityScore: 0,
+          batches: fallbackBatches,
+          completed: [],
+          nextIndex: 0,
+          status: "ready",
+          createdAt: new Date().toISOString(),
+          startedAt: null,
+          deadlineAt: null,
+        };
+        await saveBatchTask(task);
+        setStatus(`Pedido reorganizado localmente em ${fallbackBatches.length} etapas. Continuando automaticamente…`, "warning");
+        await runBatchTask(task);
+        return;
+      }
+      setStatus("Executando uma recuperação compacta automaticamente…", "warning");
+      await executeSingle(normalized.slice(0, 7_600), true);
     }
   }
 
