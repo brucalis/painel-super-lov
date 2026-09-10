@@ -1,7 +1,7 @@
 import type { AgentAiProvider } from "@/lib/github-agent.server";
 
-const MAX_BATCHES = 6;
-const MAX_BATCH_INSTRUCTION_CHARS = 2200;
+const MAX_BATCHES = 10;
+const MAX_BATCH_INSTRUCTION_CHARS = 3000;
 const DECOMPOSER_TIMEOUT_MS = 35_000;
 
 type BatchStep = {
@@ -155,6 +155,54 @@ function explicitStageFallback(prompt: string): BatchStep[] {
         MAX_BATCH_INSTRUCTION_CHARS,
       ),
     }));
+}
+
+function deterministicPromptFallback(prompt: string): BatchStep[] {
+  const explicit = explicitStageFallback(prompt);
+  if (explicit.length >= 2) return explicit;
+
+  const text = String(prompt || "").trim();
+  const context = text.slice(0, 320);
+  let units = (text.match(/[^.!?;\n]+[.!?;]?/g) || [])
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (units.length < 2) {
+    units = [];
+    let remaining = text;
+    while (remaining.length) {
+      let end = Math.min(1_450, remaining.length);
+      if (end < remaining.length) {
+        const boundary = remaining.lastIndexOf(" ", end);
+        if (boundary >= 900) end = boundary;
+      }
+      units.push(remaining.slice(0, end).trim());
+      remaining = remaining.slice(end).trim();
+    }
+  }
+
+  const target = Math.min(MAX_BATCHES, Math.max(2, Math.ceil(text.length / 2_100)));
+  const chunks: string[] = [];
+  let current = "";
+  const idealSize = Math.max(700, Math.ceil(text.length / target));
+  for (const unit of units) {
+    if (current && current.length + unit.length + 1 > idealSize && chunks.length < target - 1) {
+      chunks.push(current);
+      current = "";
+    }
+    current += `${current ? " " : ""}${unit}`;
+  }
+  if (current) chunks.push(current);
+
+  return chunks.filter(Boolean).slice(0, MAX_BATCHES).map((chunk, index, all) => ({
+    id: `batch-${index + 1}`,
+    title: `Etapa ${index + 1}`,
+    instruction: [
+      `Contexto geral: ${context}`,
+      `Objetivo desta etapa (${index + 1}/${all.length}): ${chunk}`,
+      "Execute somente este objetivo agora. Preserve integralmente as etapas anteriores, não antecipe as seguintes e limite a alteração aos arquivos indispensáveis.",
+    ].join("\n\n").slice(0, MAX_BATCH_INSTRUCTION_CHARS),
+  }));
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit) {
@@ -323,9 +371,19 @@ export async function decomposeAgentPrompt(prompt: string, customerAi?: AgentAiP
     };
   }
 
-  const ai = await decomposeWithAi(normalized, customerAi);
   const minimum = minimumBatchCount(normalized, score);
-  const deterministic = explicitStageFallback(normalized);
+  const deterministic = deterministicPromptFallback(normalized);
+  if (deterministic.length >= Math.min(2, minimum)) {
+    return {
+      batched: true,
+      strategy: "coordinated-batches-v1",
+      complexityScore: score,
+      batches: deterministic.slice(0, MAX_BATCHES),
+      provider: "deterministic-structure",
+    };
+  }
+
+  const ai = await decomposeWithAi(normalized, customerAi);
   // Uma decomposição curta demais transforma uma página inteira em uma única chamada pesada.
   const aiBatches = ai && "batches" in ai ? ai.batches : [];
   const batches = aiBatches.length >= minimum ? aiBatches : deterministic;

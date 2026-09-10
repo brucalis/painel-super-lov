@@ -80,7 +80,9 @@ export const Route = createFileRoute("/api/public/agent/plan")({
                   credential.provider === "openrouter" && attempt > 1
                     ? `${prompt}\n\n[RECUPERAÇÃO TÉCNICA] Retorne obrigatoriamente um único objeto JSON válido, sem markdown, comentários ou texto antes/depois do JSON.`
                     : prompt;
-                const result = await customerAgent.planAgentRunCustomerProvider(auth, retryPrompt, credential);
+                const result = await customerAgent.planAgentRunCustomerProvider(auth, retryPrompt, credential, {
+                  reducedContext: Boolean(body.reduced_context),
+                });
                 return json({
                   ok: true,
                   resilient: true,
@@ -132,6 +134,7 @@ export const Route = createFileRoute("/api/public/agent/plan")({
                 error: errorMessage,
                 code: "CUSTOMER_AI_STACK_EXHAUSTED",
                 providerFailures: failures,
+                retryable: true,
               },
               lastError.status >= 400 && lastError.status < 600 ? lastError.status : 503,
             );
@@ -142,6 +145,7 @@ export const Route = createFileRoute("/api/public/agent/plan")({
               error: errorMessage,
               code: "CUSTOMER_AI_STACK_EXHAUSTED",
               providerFailures: failures,
+              retryable: true,
             },
             503,
           );

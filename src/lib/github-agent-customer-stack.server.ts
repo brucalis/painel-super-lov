@@ -7,6 +7,9 @@ const USER_AGENT = "SuperLovable-CustomerAI";
 const MAX_CONTEXT_FILES = 5;
 const MAX_CONTEXT_CHARS = 30_000;
 const FOCUSED_CONTEXT_CHARS = 38_000;
+const REDUCED_CONTEXT_FILES = 3;
+const REDUCED_CONTEXT_CHARS = 12_000;
+const CLOUDFLARE_CODE_MODEL = "@cf/openai/gpt-oss-20b";
 
 type AgentAuth = { license: { id: string } };
 type ContextFile = { path: string; content: string };
@@ -92,16 +95,17 @@ async function readRepositoryFile(token: string, repo: string, branch: string, p
   return file.encoding === "base64" && file.content ? decodeBase64Utf8(file.content) : "";
 }
 
-async function selectedContext(token: string, repo: string, branch: string, prompt: string) {
+async function selectedContext(token: string, repo: string, branch: string, prompt: string, reducedContext = false) {
   const ref = await githubJson<{ object: { sha: string } }>(`${GITHUB_API}/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, token);
   const commit = await githubJson<{ tree: { sha: string } }>(`${GITHUB_API}/repos/${repo}/git/commits/${ref.object.sha}`, token);
   const tree = await githubJson<{ tree?: Array<{ path?: string; type?: string; size?: number }> }>(`${GITHUB_API}/repos/${repo}/git/trees/${commit.tree.sha}?recursive=1`, token);
   const repositoryPaths = (tree.tree || []).filter((item) => item.type === "blob" && safePath(String(item.path || ""))).map((item) => String(item.path || ""));
   const candidates = [...repositoryPaths].sort((a, b) => scorePath(b, prompt) - scorePath(a, prompt)).slice(0, 18);
   const files: ContextFile[] = [];
-  let remaining = MAX_CONTEXT_CHARS;
+  let remaining = reducedContext ? REDUCED_CONTEXT_CHARS : MAX_CONTEXT_CHARS;
+  const maxFiles = reducedContext ? REDUCED_CONTEXT_FILES : MAX_CONTEXT_FILES;
   for (const path of candidates) {
-    if (files.length >= MAX_CONTEXT_FILES || remaining <= 0) break;
+    if (files.length >= maxFiles || remaining <= 0) break;
     try {
       const full = await readRepositoryFile(token, repo, branch, path);
       if (!full) continue;
@@ -160,27 +164,29 @@ function compactProviderPayload(payload: string, maxChars: number) {
 }
 
 function providerTimeoutMs(provider: CustomerProviderCredential["provider"]) {
-  if (provider === "cloudflare") return 50_000;
-  if (provider === "openrouter") return 65_000;
-  if (provider === "gemini") return 30_000;
+  if (provider === "cloudflare") return 38_000;
+  if (provider === "openrouter") return 48_000;
+  if (provider === "gemini") return 35_000;
   return 40_000;
 }
 
-async function resolveGeminiModel(apiKey: string, preferred: string, signal: AbortSignal) {
+async function resolveGeminiModels(apiKey: string, preferred: string, signal: AbortSignal) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`, { signal });
-  if (!response.ok) return preferred || "gemini-2.5-flash";
+  if (!response.ok) return [...new Set([preferred, "gemini-2.5-flash", "gemini-2.5-flash-lite"].filter(Boolean))];
   const data = await response.json() as { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };
   const available = (data.models || [])
     .filter((item) => (item.supportedGenerationMethods || []).includes("generateContent"))
     .map((item) => String(item.name || "").replace(/^models\//, ""))
     .filter(Boolean);
-  if (preferred && available.includes(preferred)) return preferred;
-  return available.find((id) => id === "gemini-2.5-flash")
-    || available.find((id) => id === "gemini-2.5-flash-lite")
-    || available.find((id) => /flash/i.test(id))
-    || available[0]
-    || preferred
-    || "gemini-2.5-flash";
+  return [...new Set([
+    ...(preferred && available.includes(preferred) ? [preferred] : []),
+    available.find((id) => id === "gemini-2.5-flash"),
+    available.find((id) => id === "gemini-2.5-flash-lite"),
+    available.find((id) => /flash/i.test(id)),
+    available[0],
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+  ].filter((id): id is string => Boolean(id)))];
 }
 
 async function callProvider(payload: string, credential: CustomerProviderCredential) {
@@ -193,7 +199,7 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
     let model = credential.model;
     const providerPayload = compactProviderPayload(
       payload,
-      credential.provider === "cloudflare" ? 16_000 : credential.provider === "openrouter" ? 22_000 : 30_000,
+      credential.provider === "cloudflare" ? 12_000 : credential.provider === "openrouter" ? 16_000 : 22_000,
     );
 
     if (credential.provider === "grok") {
@@ -213,11 +219,11 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
       if (!response.ok) raw = text;
     } else if (credential.provider === "cloudflare") {
       if (!credential.accountId) throw new Response("A conexão Cloudflare está sem Account ID. Substitua a credencial.", { status: 422 });
-      model ||= "@cf/meta/llama-3.1-8b-instruct-fp8";
+      model = CLOUDFLARE_CODE_MODEL;
       response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(credential.accountId)}/ai/run/${model}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${credential.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }], max_tokens: 1800, temperature: 0.1 }),
+        body: JSON.stringify({ messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }], max_tokens: 1600, temperature: 0.1, response_format: { type: "json_object" } }),
         signal: controller.signal,
       });
       const text = await response.text();
@@ -233,9 +239,11 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
         body: JSON.stringify({ systemInstruction: { parts: [{ text: systemPrompt }] }, contents: [{ role: "user", parts: [{ text: providerPayload }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 2600, responseMimeType: "application/json" } }),
         signal: controller.signal,
       });
-      response = await invokeGemini(model);
-      if (response.status === 404) {
-        model = await resolveGeminiModel(credential.apiKey, model, controller.signal);
+      const candidates = await resolveGeminiModels(credential.apiKey, model, controller.signal);
+      response = await invokeGemini(candidates[0] || model);
+      model = candidates[0] || model;
+      for (let index = 1; response.status === 404 && index < candidates.length; index += 1) {
+        model = candidates[index];
         response = await invokeGemini(model);
       }
       const text = await response.text();
@@ -336,7 +344,12 @@ async function attemptProviderPlan(
   return { ai, parsed, files };
 }
 
-export async function planAgentRunCustomerProvider(auth: AgentAuth, prompt: string, credential: CustomerProviderCredential) {
+export async function planAgentRunCustomerProvider(
+  auth: AgentAuth,
+  prompt: string,
+  credential: CustomerProviderCredential,
+  options: { reducedContext?: boolean } = {},
+) {
   const { data: connection } = await supabaseAdmin.from("github_license_connections").select("*").eq("license_id", auth.license.id).maybeSingle();
   const row = connection as Record<string, unknown> | null;
   const installationId = Number(row?.installation_id || 0);
@@ -344,7 +357,7 @@ export async function planAgentRunCustomerProvider(auth: AgentAuth, prompt: stri
   const branch = String(row?.branch || "main");
   if (!installationId || !repo) throw new Response("Conecte e selecione o projeto GitHub primeiro.", { status: 422 });
   const token = await createInstallationToken(installationId);
-  const context = await selectedContext(token, repo, branch, prompt);
+  const context = await selectedContext(token, repo, branch, prompt, Boolean(options.reducedContext));
   const basePayload = JSON.stringify({
     request: prompt,
     repository: repo,

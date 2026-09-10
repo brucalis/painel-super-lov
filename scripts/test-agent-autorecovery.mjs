@@ -13,6 +13,7 @@ const credentials = await readFile(new URL("../src/lib/customer-ai-credentials.s
 const customerStackAgent = await readFile(new URL("../src/lib/github-agent-customer-stack.server.ts", import.meta.url), "utf8");
 const planRoute = await readFile(new URL("../src/routes/api/public/agent/plan.ts", import.meta.url), "utf8");
 const credentialsRoute = await readFile(new URL("../src/routes/api/public/agent/ai-credentials.ts", import.meta.url), "utf8");
+const decomposeRoute = await readFile(new URL("../src/routes/api/public/agent/decompose.ts", import.meta.url), "utf8");
 
 test("a retomada não depende de botões ou cliques no DOM", () => {
   assert.doesNotMatch(panel, /Retomar da etapa|Continuar da etapa/);
@@ -71,6 +72,17 @@ test("páginas completas recebem decomposição mínima segura", () => {
   assert.match(batches, /deterministic-full-build/);
   assert.match(batches, /produza entre 3 e 6 lotes/);
   assert.match(panel, /planAndCommit\(batchPrompt, label, true, batchDeadline\)/);
+  assert.match(batches, /deterministicPromptFallback/);
+  assert.match(batches, /deterministic-structure/);
+  assert.match(batches, /MAX_BATCHES = 10/);
+  assert.match(panel, /localFallbackBatches/);
+  assert.match(panel, /slice\(0, 10\)/);
+});
+
+test("decomposição comercial não chama API removida e aceita pedidos longos", () => {
+  assert.doesNotMatch(decomposeRoute, /customerAiProvider/);
+  assert.match(decomposeRoute, /24_000/);
+  assert.match(decomposeRoute, /decomposeAgentPrompt\(prompt\)/);
 });
 
 test("tentativas do agente legado não são multiplicadas entre camadas", () => {
@@ -83,7 +95,7 @@ test("tentativas do agente legado não são multiplicadas entre camadas", () => 
 test("stack comercial usa Cloudflare primeiro e contingencias opcionais", () => {
   assert.match(credentialsRoute, /\["cloudflare", "gemini", "openrouter"\]/);
   assert.match(credentialsRoute, /REQUIRED_AI_PROVIDERS = \["cloudflare"\]/);
-  assert.match(credentials, /llama-3\.1-8b-instruct-fp8/);
+  assert.match(credentials, /@cf\/openai\/gpt-oss-20b/);
   assert.match(credentials, /openrouter\/free/);
   assert.match(planRoute, /!stack\.cloudflare/);
   assert.match(planRoute, /stack\.cloudflare, stack\.gemini, stack\.openrouter/);
@@ -94,6 +106,12 @@ test("planner comercial suporta Cloudflare Gemini e OpenRouter", () => {
   assert.match(customerStackAgent, /api\.cloudflare\.com\/client\/v4\/accounts/);
   assert.match(customerStackAgent, /generativelanguage\.googleapis\.com/);
   assert.match(customerStackAgent, /openrouter\.ai\/api\/v1\/chat\/completions/);
+  assert.match(customerStackAgent, /resolveGeminiModels/);
+  assert.match(customerStackAgent, /response_format: \{ type: "json_object" \}/);
+  assert.match(customerStackAgent, /REDUCED_CONTEXT_CHARS/);
+  assert.match(planRoute, /reducedContext: Boolean\(body\.reduced_context\)/);
+  assert.match(planRoute, /retryable: true/);
+  assert.match(panel, /CUSTOMER_AI_STACK_EXHAUSTED/);
 });
 
 test("painel só exige Cloudflare e projeto", () => {
