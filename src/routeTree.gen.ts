@@ -38,6 +38,7 @@ import { Route as ApiPublicAgentPlanRouteImport } from './routes/api/public/agen
 import { Route as ApiPublicAgentHistoryRouteImport } from './routes/api/public/agent/history'
 import { Route as ApiPublicAgentDecomposeRouteImport } from './routes/api/public/agent/decompose'
 import { Route as ApiPublicAgentCommitRouteImport } from './routes/api/public/agent/commit'
+import { Route as ApiPublicAgentAiCredentialsOpenrouterRouteImport } from './routes/api/public/agent/ai-credentials-openrouter'
 import { Route as ApiPublicAgentAiCredentialsRouteImport } from './routes/api/public/agent/ai-credentials'
 import { Route as ApiPublicAgentGithubRepositoriesRouteImport } from './routes/api/public/agent/github/repositories'
 import { Route as ApiPublicAgentGithubDisconnectRouteImport } from './routes/api/public/agent/github/disconnect'
@@ -197,6 +198,12 @@ const ApiPublicAgentCommitRoute = ApiPublicAgentCommitRouteImport.update({
   path: '/api/public/agent/commit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAgentAiCredentialsOpenrouterRoute =
+  ApiPublicAgentAiCredentialsOpenrouterRouteImport.update({
+    id: '/api/public/agent/ai-credentials-openrouter',
+    path: '/api/public/agent/ai-credentials-openrouter',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicAgentAiCredentialsRoute =
   ApiPublicAgentAiCredentialsRouteImport.update({
     id: '/api/public/agent/ai-credentials',
@@ -247,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
   '/api/public/agent/ai-credentials': typeof ApiPublicAgentAiCredentialsRoute
+  '/api/public/agent/ai-credentials-openrouter': typeof ApiPublicAgentAiCredentialsOpenrouterRoute
   '/api/public/agent/commit': typeof ApiPublicAgentCommitRoute
   '/api/public/agent/decompose': typeof ApiPublicAgentDecomposeRoute
   '/api/public/agent/history': typeof ApiPublicAgentHistoryRoute
@@ -283,6 +291,7 @@ export interface FileRoutesByTo {
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
   '/api/public/agent/ai-credentials': typeof ApiPublicAgentAiCredentialsRoute
+  '/api/public/agent/ai-credentials-openrouter': typeof ApiPublicAgentAiCredentialsOpenrouterRoute
   '/api/public/agent/commit': typeof ApiPublicAgentCommitRoute
   '/api/public/agent/decompose': typeof ApiPublicAgentDecomposeRoute
   '/api/public/agent/history': typeof ApiPublicAgentHistoryRoute
@@ -320,6 +329,7 @@ export interface FileRoutesById {
   '/api/public/validate-license': typeof ApiPublicValidateLicenseRoute
   '/api/public/visual-plan': typeof ApiPublicVisualPlanRoute
   '/api/public/agent/ai-credentials': typeof ApiPublicAgentAiCredentialsRoute
+  '/api/public/agent/ai-credentials-openrouter': typeof ApiPublicAgentAiCredentialsOpenrouterRoute
   '/api/public/agent/commit': typeof ApiPublicAgentCommitRoute
   '/api/public/agent/decompose': typeof ApiPublicAgentDecomposeRoute
   '/api/public/agent/history': typeof ApiPublicAgentHistoryRoute
@@ -358,6 +368,7 @@ export interface FileRouteTypes {
     | '/api/public/validate-license'
     | '/api/public/visual-plan'
     | '/api/public/agent/ai-credentials'
+    | '/api/public/agent/ai-credentials-openrouter'
     | '/api/public/agent/commit'
     | '/api/public/agent/decompose'
     | '/api/public/agent/history'
@@ -394,6 +405,7 @@ export interface FileRouteTypes {
     | '/api/public/validate-license'
     | '/api/public/visual-plan'
     | '/api/public/agent/ai-credentials'
+    | '/api/public/agent/ai-credentials-openrouter'
     | '/api/public/agent/commit'
     | '/api/public/agent/decompose'
     | '/api/public/agent/history'
@@ -430,6 +442,7 @@ export interface FileRouteTypes {
     | '/api/public/validate-license'
     | '/api/public/visual-plan'
     | '/api/public/agent/ai-credentials'
+    | '/api/public/agent/ai-credentials-openrouter'
     | '/api/public/agent/commit'
     | '/api/public/agent/decompose'
     | '/api/public/agent/history'
@@ -467,6 +480,7 @@ export interface RootRouteChildren {
   ApiPublicValidateLicenseRoute: typeof ApiPublicValidateLicenseRoute
   ApiPublicVisualPlanRoute: typeof ApiPublicVisualPlanRoute
   ApiPublicAgentAiCredentialsRoute: typeof ApiPublicAgentAiCredentialsRoute
+  ApiPublicAgentAiCredentialsOpenrouterRoute: typeof ApiPublicAgentAiCredentialsOpenrouterRoute
   ApiPublicAgentCommitRoute: typeof ApiPublicAgentCommitRoute
   ApiPublicAgentDecomposeRoute: typeof ApiPublicAgentDecomposeRoute
   ApiPublicAgentHistoryRoute: typeof ApiPublicAgentHistoryRoute
@@ -690,6 +704,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAgentCommitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/agent/ai-credentials-openrouter': {
+      id: '/api/public/agent/ai-credentials-openrouter'
+      path: '/api/public/agent/ai-credentials-openrouter'
+      fullPath: '/api/public/agent/ai-credentials-openrouter'
+      preLoaderRoute: typeof ApiPublicAgentAiCredentialsOpenrouterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/agent/ai-credentials': {
       id: '/api/public/agent/ai-credentials'
       path: '/api/public/agent/ai-credentials'
@@ -747,6 +768,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicValidateLicenseRoute: ApiPublicValidateLicenseRoute,
   ApiPublicVisualPlanRoute: ApiPublicVisualPlanRoute,
   ApiPublicAgentAiCredentialsRoute: ApiPublicAgentAiCredentialsRoute,
+  ApiPublicAgentAiCredentialsOpenrouterRoute:
+    ApiPublicAgentAiCredentialsOpenrouterRoute,
   ApiPublicAgentCommitRoute: ApiPublicAgentCommitRoute,
   ApiPublicAgentDecomposeRoute: ApiPublicAgentDecomposeRoute,
   ApiPublicAgentHistoryRoute: ApiPublicAgentHistoryRoute,
