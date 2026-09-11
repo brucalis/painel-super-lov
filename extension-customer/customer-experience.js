@@ -8,6 +8,8 @@
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
   const CONTEXT_KEY = "sl_lovable_project_context_v1";
   const MAP_KEY = "sl_lovable_repo_map_v1";
+  const RUNTIME_VERSION_KEY = "sl_runtime_version_v1";
+  const CACHE_REFRESH_KEY = "sl_runtime_cache_refresh_required_v1";
   let syncing = false;
   let pendingManualRepository = "";
   let lastAutomaticBinding = "";
@@ -160,10 +162,44 @@
     }
   }
 
+  async function markRuntimeVersion() {
+    try {
+      const current = chrome.runtime.getManifest().version;
+      const data = await storageGet([RUNTIME_VERSION_KEY]);
+      if (data[RUNTIME_VERSION_KEY] && data[RUNTIME_VERSION_KEY] !== current) {
+        await storageSet({ [CACHE_REFRESH_KEY]: true });
+      }
+      await storageSet({ [RUNTIME_VERSION_KEY]: current });
+    } catch {}
+  }
+
+  async function deepCleanLovableCaches() {
+    if (!chrome.browsingData?.remove) return false;
+    const data = await storageGet([CACHE_REFRESH_KEY]);
+    if (!data[CACHE_REFRESH_KEY]) return false;
+    await new Promise((resolve) => {
+      chrome.browsingData.remove(
+        { origins: ["https://lovable.dev"], since: 0 },
+        { cacheStorage: true, serviceWorkers: true },
+        () => resolve(),
+      );
+    });
+    await new Promise((resolve) => {
+      chrome.browsingData.remove({ since: 0 }, { cache: true }, () => resolve());
+    });
+    await storageSet({ [CACHE_REFRESH_KEY]: false });
+    return true;
+  }
+
   document.addEventListener("change", (event) => {
     const select = event.target?.closest?.("#sl-agent-repository");
     if (!select) return;
     pendingManualRepository = String(select.value || "");
+  }, true);
+
+  document.addEventListener("click", (event) => {
+    if (!event.target?.closest?.("#sl-agent-refresh")) return;
+    void deepCleanLovableCaches();
   }, true);
 
   document.addEventListener("superlovable:github-status", () => {
@@ -176,7 +212,9 @@
   });
 
   globalThis.superLovableSynchronizeProject = synchronizeProject;
+  globalThis.superLovableDeepCleanLovableCaches = deepCleanLovableCaches;
 
+  void markRuntimeVersion();
   setTimeout(() => void synchronizeProject(), 800);
   setInterval(() => void synchronizeProject(), 4000);
 })();
