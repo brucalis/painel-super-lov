@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { createLicense, resendLicenseEmail, resendLicenseWebhook } from "@/lib/licenses.functions";
+import {
+  createLicense,
+  resendLicenseEmail,
+  resendLicenseWebhook,
+  sendPersonalizedLicenseEmail,
+} from "@/lib/licenses.functions";
 import {
   fetchLicenses,
   effectiveStatus,
@@ -35,7 +40,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 
 type Device = {
@@ -62,35 +74,7 @@ export function LicensesTab() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [detail, setDetail] = useState<License | null>(null);
-  const [resendingId, setResendingId] = useState<string | null>(null);
-  const resendAccess = useServerFn(resendLicenseEmail);
-
-  async function handleResendAccess(license: License) {
-    if (!license.customers?.email) {
-      toast.error("Esta licença não possui e-mail de cliente cadastrado.");
-      return;
-    }
-    setResendingId(license.id);
-    try {
-      const result = await resendAccess({ data: { license_id: license.id } });
-      if (result.sent) {
-        toast.success(`Acesso reenviado para ${license.customers.email}.`);
-      } else {
-        const reasons: Record<string, string> = {
-          disabled: "O envio automático de e-mails está desativado nas configurações.",
-          customer_email_missing: "Esta licença não possui e-mail de cliente cadastrado.",
-          sendgrid_not_configured: "O serviço de e-mail ainda não está configurado.",
-          sendgrid_quota_exceeded: "A cota de envios do SendGrid foi atingida.",
-          sendgrid_unavailable: "O serviço de e-mail está temporariamente indisponível.",
-        };
-        toast.error(reasons[result.reason || ""] || `Não foi possível reenviar o acesso (${result.reason || "falha não informada"}).`);
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível reenviar o acesso.");
-    } finally {
-      setResendingId(null);
-    }
-  }
+  const [personalizing, setPersonalizing] = useState<License | null>(null);
 
   async function load() {
     setLoading(true);
@@ -214,7 +198,9 @@ export function LicensesTab() {
                     <TableCell className="font-mono text-xs">{l.license_key}</TableCell>
                     <TableCell>
                       <div className="text-sm">{l.customers?.full_name ?? "—"}</div>
-                      <div className="text-xs text-muted-foreground">{l.customers?.email ?? "sem cliente"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {l.customers?.email ?? "sem cliente"}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">{l.plan_name}</TableCell>
                     <TableCell>
@@ -247,10 +233,10 @@ export function LicensesTab() {
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={!l.customers?.email || resendingId === l.id}
-                          onClick={() => handleResendAccess(l)}
+                          disabled={!l.customers?.email}
+                          onClick={() => setPersonalizing(l)}
                         >
-                          {resendingId === l.id ? "Reenviando…" : "Reenviar acesso"}
+                          Reenviar acesso
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => setDetail(l)}>
                           Gerenciar
@@ -266,7 +252,88 @@ export function LicensesTab() {
       </Card>
 
       <LicenseDetailDialog license={detail} onClose={() => setDetail(null)} onChanged={load} />
+      <PersonalizedEmailDialog license={personalizing} onClose={() => setPersonalizing(null)} />
     </div>
+  );
+}
+
+function PersonalizedEmailDialog({
+  license,
+  onClose,
+}: {
+  license: License | null;
+  onClose: () => void;
+}) {
+  const send = useServerFn(sendPersonalizedLicenseEmail);
+  const [busy, setBusy] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+
+  useEffect(() => {
+    if (!license) return;
+    setSubject("Seu acesso à Superlovable está disponível");
+    setBody(
+      "Olá, {{nome}}!\n\nSeu acesso à Superlovable está disponível. Sua chave é {{licenca}}.\n\nAcesse {{link_acesso}} para instalar a extensão e começar. Se tiver alguma dificuldade, responda a este e-mail para que possamos ajudar.",
+    );
+  }, [license]);
+
+  async function submit() {
+    if (!license) return;
+    setBusy(true);
+    try {
+      const result = await send({ data: { license_id: license.id, subject, body } });
+      if (result.sent) {
+        toast.success(`Mensagem personalizada enviada para ${license.customers?.email}.`);
+        onClose();
+      } else {
+        toast.error(
+          `Não foi possível enviar a mensagem (${result.failed ? "falha no SendGrid" : "envio não concluído"}).`,
+        );
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar a mensagem.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={Boolean(license)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Reenviar acesso com mensagem personalizada</DialogTitle>
+          <DialogDescription>
+            Destinatário: {license?.customers?.full_name || "Cliente"} · {license?.customers?.email}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Assunto</Label>
+            <Input value={subject} onChange={(event) => setSubject(event.target.value)} />
+          </div>
+          <div>
+            <Label>Mensagem</Label>
+            <Textarea
+              className="min-h-56"
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Variáveis: {"{{nome}}"}, {"{{email}}"}, {"{{licenca}}"}, {"{{plano}}"}, {"{{pedido}}"} e{" "}
+            {"{{link_acesso}}"}.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button disabled={busy || !subject.trim() || !body.trim()} onClick={submit}>
+            {busy ? "Enviando…" : "Enviar agora"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -287,7 +354,10 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
   async function submit() {
     setBusy(true);
     try {
-      const periods: Record<string, { plan: string; name: string; days?: number; minutes?: number; lifetime?: boolean }> = {
+      const periods: Record<
+        string,
+        { plan: string; name: string; days?: number; minutes?: number; lifetime?: boolean }
+      > = {
         test: { plan: "test_30m", name: "Teste · 30 minutos", minutes: 30 },
         weekly: { plan: "weekly", name: "Semanal · 7 dias", days: 7 },
         monthly: { plan: "monthly", name: "Mensal · 30 dias", days: 30 },
@@ -312,9 +382,13 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
       });
       await navigator.clipboard?.writeText(created.license.license_key).catch(() => {});
       if (form.email && !created.email.sent) {
-        toast.warning(`Licença criada, mas o e-mail não foi enviado (${created.email.reason || "motivo não informado"}).`);
+        toast.warning(
+          `Licença criada, mas o e-mail não foi enviado (${created.email.reason || "motivo não informado"}).`,
+        );
       } else {
-        toast.success(`Licença criada: ${created.license.license_key}${form.email ? " e enviada por e-mail" : " (copiada)"}.`);
+        toast.success(
+          `Licença criada: ${created.license.license_key}${form.email ? " e enviada por e-mail" : " (copiada)"}.`,
+        );
       }
       setOpen(false);
       onCreated();
@@ -333,13 +407,17 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Gerar nova licença</DialogTitle>
-          <DialogDescription>A chave é criada no formato LVA-XXXX-XXXX-XXXX-XXXX.</DialogDescription>
+          <DialogDescription>
+            A chave é criada no formato LVA-XXXX-XXXX-XXXX-XXXX.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label>Tipo e período da licença</Label>
             <Select value={form.period} onValueChange={(period) => setForm({ ...form, period })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="test">Teste · 30 minutos</SelectItem>
                 <SelectItem value="weekly">Semanal · 7 dias</SelectItem>
@@ -348,10 +426,13 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
                 <SelectItem value="lifetime">Vitalícia</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">Nos planos temporários, a validade começa somente na primeira ativação e não reinicia ao atualizar ou reinstalar a extensão.</p>
+            <p className="text-xs text-muted-foreground">
+              Nos planos temporários, a validade começa somente na primeira ativação e não reinicia
+              ao atualizar ou reinstalar a extensão.
+            </p>
           </div>
           <div className="space-y-2">
-              <Label>Limite de navegadores/dispositivos</Label>
+            <Label>Limite de navegadores/dispositivos</Label>
             <Input
               type="number"
               min={1}
@@ -362,7 +443,11 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
           </div>
           <div className="space-y-2">
             <Label>E-mail do cliente</Label>
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
           </div>
           <div className="space-y-2">
             <Label>Nome do cliente</Label>
@@ -370,15 +455,24 @@ function NewLicenseDialog({ onCreated }: { onCreated: () => void }) {
           </div>
           <div className="space-y-2">
             <Label>Telefone</Label>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
           </div>
           <div className="space-y-2">
             <Label>Pedido / referência</Label>
-            <Input value={form.order_id} onChange={(e) => setForm({ ...form, order_id: e.target.value })} />
+            <Input
+              value={form.order_id}
+              onChange={(e) => setForm({ ...form, order_id: e.target.value })}
+            />
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Observações</Label>
-            <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <Textarea
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
           </div>
         </div>
         <DialogFooter>
@@ -431,10 +525,15 @@ function LicenseDetailDialog({
 
   async function patch(values: Record<string, unknown>, message: string) {
     setBusy(true);
-    const { error } = await supabase.from("licenses").update(values as never).eq("id", activeLicense.id);
+    const { error } = await supabase
+      .from("licenses")
+      .update(values as never)
+      .eq("id", activeLicense.id);
     setBusy(false);
     if (error) return toast.error(error.message);
-    await supabase.from("license_events").insert({ license_id: activeLicense.id, type: "admin.update", message });
+    await supabase
+      .from("license_events")
+      .insert({ license_id: activeLicense.id, type: "admin.update", message });
     toast.success(message);
     onChanged();
     onClose();
@@ -446,7 +545,11 @@ function LicenseDetailDialog({
         ? Date.parse(activeLicense.expires_at)
         : Date.now();
     return patch(
-      { expires_at: new Date(base + days * 86400000).toISOString(), is_lifetime: false, status: "active" },
+      {
+        expires_at: new Date(base + days * 86400000).toISOString(),
+        is_lifetime: false,
+        status: "active",
+      },
       `Prazo estendido em ${days} dias.`,
     );
   }
@@ -471,12 +574,16 @@ function LicenseDetailDialog({
   }
 
   async function handleResendAccess() {
-    if (!activeLicense.customers?.email) return toast.error("Esta licença não possui e-mail de cliente cadastrado.");
+    if (!activeLicense.customers?.email)
+      return toast.error("Esta licença não possui e-mail de cliente cadastrado.");
     setBusy(true);
     try {
       const result = await resendAccess({ data: { license_id: activeLicense.id } });
       if (result.sent) toast.success(`Acesso reenviado para ${activeLicense.customers.email}.`);
-      else toast.error(`Não foi possível reenviar o acesso (${result.reason || "falha não informada"}).`);
+      else
+        toast.error(
+          `Não foi possível reenviar o acesso (${result.reason || "falha não informada"}).`,
+        );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível reenviar o acesso.");
     } finally {
@@ -531,7 +638,12 @@ function LicenseDetailDialog({
               </div>
               <Select
                 value={license.status}
-                onValueChange={(v) => patch({ status: v }, `Situação alterada para ${STATUS_LABEL[v as LicenseStatus]}.`)}
+                onValueChange={(v) =>
+                  patch(
+                    { status: v },
+                    `Situação alterada para ${STATUS_LABEL[v as LicenseStatus]}.`,
+                  )
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -551,7 +663,10 @@ function LicenseDetailDialog({
                   disabled={!expiry || busy}
                   onClick={() =>
                     patch(
-                      { expires_at: new Date(`${expiry}T23:59:59`).toISOString(), is_lifetime: false },
+                      {
+                        expires_at: new Date(`${expiry}T23:59:59`).toISOString(),
+                        is_lifetime: false,
+                      },
                       "Validade atualizada.",
                     )
                   }
@@ -570,7 +685,9 @@ function LicenseDetailDialog({
                   size="sm"
                   variant="secondary"
                   disabled={busy}
-                  onClick={() => patch({ is_lifetime: true, expires_at: null }, "Licença tornada vitalícia.")}
+                  onClick={() =>
+                    patch({ is_lifetime: true, expires_at: null }, "Licença tornada vitalícia.")
+                  }
                 >
                   Vitalícia
                 </Button>
@@ -584,7 +701,8 @@ function LicenseDetailDialog({
                   className="w-24"
                   onBlur={(e) => {
                     const v = Number(e.target.value) || 1;
-                    if (v !== license.device_limit) patch({ device_limit: v }, `Limite ajustado para ${v}.`);
+                    if (v !== license.device_limit)
+                      patch({ device_limit: v }, `Limite ajustado para ${v}.`);
                   }}
                 />
               </div>
@@ -594,19 +712,31 @@ function LicenseDetailDialog({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Navegadores/dispositivos ({devices.filter((d) => d.active).length}/{license.device_limit})</CardTitle>
+            <CardTitle className="text-sm">
+              Navegadores/dispositivos ({devices.filter((d) => d.active).length}/
+              {license.device_limit})
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {!devices.length && <p className="text-sm text-muted-foreground">Nenhum dispositivo ativado.</p>}
+            {!devices.length && (
+              <p className="text-sm text-muted-foreground">Nenhum dispositivo ativado.</p>
+            )}
             {devices.map((d) => (
-              <div key={d.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+              <div
+                key={d.id}
+                className="flex items-center justify-between rounded-md border p-2 text-sm"
+              >
                 <div>
                   <p>{d.device_name ?? d.device_id}</p>
                   <p className="text-xs text-muted-foreground">
                     v{d.extension_version ?? "?"} · visto em {fmt(d.last_seen_at)}
                   </p>
                 </div>
-                <Button size="sm" variant={d.active ? "outline" : "secondary"} onClick={() => toggleDevice(d)}>
+                <Button
+                  size="sm"
+                  variant={d.active ? "outline" : "secondary"}
+                  onClick={() => toggleDevice(d)}
+                >
                   {d.active ? "Desativar" : "Reativar"}
                 </Button>
               </div>
@@ -639,7 +769,11 @@ function LicenseDetailDialog({
           >
             Copiar chave
           </Button>
-          <Button variant="outline" disabled={busy || !license.customers?.email} onClick={handleResendAccess}>
+          <Button
+            variant="outline"
+            disabled={busy || !license.customers?.email}
+            onClick={handleResendAccess}
+          >
             {busy ? "Reenviando…" : "Reenviar acesso"}
           </Button>
           <Button

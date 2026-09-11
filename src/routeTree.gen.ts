@@ -9,45 +9,47 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiPublicVisualPlanRouteImport } from './routes/api/public/visual-plan'
-import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/public/validate-license'
-import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/transcribe'
-import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
-import { Route as ApiPublicOptimizePromptRouteImport } from './routes/api/public/optimize-prompt'
-import { Route as ApiPublicLovableDispatchRouteImport } from './routes/api/public/lovable-dispatch'
-import { Route as ApiPublicLovableCapabilitiesRouteImport } from './routes/api/public/lovable-capabilities'
-import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
-import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
-import { Route as ApiGithubStatusRouteImport } from './routes/api/github/status'
-import { Route as ApiGithubRepositoriesRouteImport } from './routes/api/github/repositories'
-import { Route as ApiGithubDisconnectRouteImport } from './routes/api/github/disconnect'
-import { Route as ApiGithubConnectRouteImport } from './routes/api/github/connect'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ApiGithubCallbackRouteImport } from './routes/api/github/callback'
-import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
-import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
-import { Route as ApiPublicProjectsWatermarkStatusRouteImport } from './routes/api/public/projects/watermark-status'
-import { Route as ApiPublicProjectsRemoveWatermarkRouteImport } from './routes/api/public/projects/remove-watermark'
-import { Route as ApiPublicGithubCallbackRouteImport } from './routes/api/public/github/callback'
-import { Route as ApiPublicAgentVersionRouteImport } from './routes/api/public/agent/version'
-import { Route as ApiPublicAgentStatusRouteImport } from './routes/api/public/agent/status'
-import { Route as ApiPublicAgentRollbackRouteImport } from './routes/api/public/agent/rollback'
-import { Route as ApiPublicAgentPlanRouteImport } from './routes/api/public/agent/plan'
-import { Route as ApiPublicAgentHistoryRouteImport } from './routes/api/public/agent/history'
-import { Route as ApiPublicAgentDecomposeRouteImport } from './routes/api/public/agent/decompose'
-import { Route as ApiPublicAgentCommitRouteImport } from './routes/api/public/agent/commit'
-import { Route as ApiPublicAgentAiCredentialsOpenrouterRouteImport } from './routes/api/public/agent/ai-credentials-openrouter'
+import { Route as ApiGithubConnectRouteImport } from './routes/api/github/connect'
+import { Route as ApiGithubDisconnectRouteImport } from './routes/api/github/disconnect'
+import { Route as ApiGithubRepositoriesRouteImport } from './routes/api/github/repositories'
+import { Route as ApiGithubStatusRouteImport } from './routes/api/github/status'
+import { Route as ApiInternalEmailAutomationRouteImport } from './routes/api/internal/email-automation'
+import { Route as ApiPublicActivateLicenseRouteImport } from './routes/api/public/activate-license'
+import { Route as ApiPublicDeactivateDeviceRouteImport } from './routes/api/public/deactivate-device'
+import { Route as ApiPublicLovableCapabilitiesRouteImport } from './routes/api/public/lovable-capabilities'
+import { Route as ApiPublicLovableDispatchRouteImport } from './routes/api/public/lovable-dispatch'
+import { Route as ApiPublicOptimizePromptRouteImport } from './routes/api/public/optimize-prompt'
+import { Route as ApiPublicRecoverDeviceRouteImport } from './routes/api/public/recover-device'
+import { Route as ApiPublicTranscribeRouteImport } from './routes/api/public/transcribe'
+import { Route as ApiPublicValidateLicenseRouteImport } from './routes/api/public/validate-license'
+import { Route as ApiPublicVisualPlanRouteImport } from './routes/api/public/visual-plan'
 import { Route as ApiPublicAgentAiCredentialsRouteImport } from './routes/api/public/agent/ai-credentials'
-import { Route as ApiPublicAgentGithubRepositoriesRouteImport } from './routes/api/public/agent/github/repositories'
-import { Route as ApiPublicAgentGithubDisconnectRouteImport } from './routes/api/public/agent/github/disconnect'
-import { Route as ApiPublicAgentGithubConnectRouteImport } from './routes/api/public/agent/github/connect'
+import { Route as ApiPublicAgentAiCredentialsOpenrouterRouteImport } from './routes/api/public/agent/ai-credentials-openrouter'
+import { Route as ApiPublicAgentCommitRouteImport } from './routes/api/public/agent/commit'
+import { Route as ApiPublicAgentDecomposeRouteImport } from './routes/api/public/agent/decompose'
+import { Route as ApiPublicAgentHistoryRouteImport } from './routes/api/public/agent/history'
+import { Route as ApiPublicAgentPlanRouteImport } from './routes/api/public/agent/plan'
+import { Route as ApiPublicAgentRollbackRouteImport } from './routes/api/public/agent/rollback'
+import { Route as ApiPublicAgentStatusRouteImport } from './routes/api/public/agent/status'
+import { Route as ApiPublicAgentVersionRouteImport } from './routes/api/public/agent/version'
+import { Route as ApiPublicEmailUnsubscribeRouteImport } from './routes/api/public/email/unsubscribe'
+import { Route as ApiPublicGithubCallbackRouteImport } from './routes/api/public/github/callback'
+import { Route as ApiPublicProjectsRemoveWatermarkRouteImport } from './routes/api/public/projects/remove-watermark'
+import { Route as ApiPublicProjectsWatermarkStatusRouteImport } from './routes/api/public/projects/watermark-status'
+import { Route as ApiPublicWebhooksEnsinaflixRouteImport } from './routes/api/public/webhooks/ensinaflix'
+import { Route as ApiPublicWebhooksSalesRouteImport } from './routes/api/public/webhooks/sales'
 import { Route as ApiPublicAgentGithubCallbackRouteImport } from './routes/api/public/agent/github/callback'
+import { Route as ApiPublicAgentGithubConnectRouteImport } from './routes/api/public/agent/github/connect'
+import { Route as ApiPublicAgentGithubDisconnectRouteImport } from './routes/api/public/agent/github/disconnect'
+import { Route as ApiPublicAgentGithubRepositoriesRouteImport } from './routes/api/public/agent/github/repositories'
 
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -55,53 +57,40 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicVisualPlanRoute = ApiPublicVisualPlanRouteImport.update({
-  id: '/api/public/visual-plan',
-  path: '/api/public/visual-plan',
+const ApiGithubCallbackRoute = ApiGithubCallbackRouteImport.update({
+  id: '/api/github/callback',
+  path: '/api/github/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicValidateLicenseRoute =
-  ApiPublicValidateLicenseRouteImport.update({
-    id: '/api/public/validate-license',
-    path: '/api/public/validate-license',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicTranscribeRoute = ApiPublicTranscribeRouteImport.update({
-  id: '/api/public/transcribe',
-  path: '/api/public/transcribe',
+const ApiGithubConnectRoute = ApiGithubConnectRouteImport.update({
+  id: '/api/github/connect',
+  path: '/api/github/connect',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicRecoverDeviceRoute = ApiPublicRecoverDeviceRouteImport.update({
-  id: '/api/public/recover-device',
-  path: '/api/public/recover-device',
+const ApiGithubDisconnectRoute = ApiGithubDisconnectRouteImport.update({
+  id: '/api/github/disconnect',
+  path: '/api/github/disconnect',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicOptimizePromptRoute = ApiPublicOptimizePromptRouteImport.update({
-  id: '/api/public/optimize-prompt',
-  path: '/api/public/optimize-prompt',
+const ApiGithubRepositoriesRoute = ApiGithubRepositoriesRouteImport.update({
+  id: '/api/github/repositories',
+  path: '/api/github/repositories',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicLovableDispatchRoute =
-  ApiPublicLovableDispatchRouteImport.update({
-    id: '/api/public/lovable-dispatch',
-    path: '/api/public/lovable-dispatch',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicLovableCapabilitiesRoute =
-  ApiPublicLovableCapabilitiesRouteImport.update({
-    id: '/api/public/lovable-capabilities',
-    path: '/api/public/lovable-capabilities',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicDeactivateDeviceRoute =
-  ApiPublicDeactivateDeviceRouteImport.update({
-    id: '/api/public/deactivate-device',
-    path: '/api/public/deactivate-device',
+const ApiGithubStatusRoute = ApiGithubStatusRouteImport.update({
+  id: '/api/github/status',
+  path: '/api/github/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInternalEmailAutomationRoute =
+  ApiInternalEmailAutomationRouteImport.update({
+    id: '/api/internal/email-automation',
+    path: '/api/internal/email-automation',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicActivateLicenseRoute =
@@ -110,40 +99,112 @@ const ApiPublicActivateLicenseRoute =
     path: '/api/public/activate-license',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiGithubStatusRoute = ApiGithubStatusRouteImport.update({
-  id: '/api/github/status',
-  path: '/api/github/status',
+const ApiPublicDeactivateDeviceRoute =
+  ApiPublicDeactivateDeviceRouteImport.update({
+    id: '/api/public/deactivate-device',
+    path: '/api/public/deactivate-device',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLovableCapabilitiesRoute =
+  ApiPublicLovableCapabilitiesRouteImport.update({
+    id: '/api/public/lovable-capabilities',
+    path: '/api/public/lovable-capabilities',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLovableDispatchRoute =
+  ApiPublicLovableDispatchRouteImport.update({
+    id: '/api/public/lovable-dispatch',
+    path: '/api/public/lovable-dispatch',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicOptimizePromptRoute = ApiPublicOptimizePromptRouteImport.update({
+  id: '/api/public/optimize-prompt',
+  path: '/api/public/optimize-prompt',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiGithubRepositoriesRoute = ApiGithubRepositoriesRouteImport.update({
-  id: '/api/github/repositories',
-  path: '/api/github/repositories',
+const ApiPublicRecoverDeviceRoute = ApiPublicRecoverDeviceRouteImport.update({
+  id: '/api/public/recover-device',
+  path: '/api/public/recover-device',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiGithubDisconnectRoute = ApiGithubDisconnectRouteImport.update({
-  id: '/api/github/disconnect',
-  path: '/api/github/disconnect',
+const ApiPublicTranscribeRoute = ApiPublicTranscribeRouteImport.update({
+  id: '/api/public/transcribe',
+  path: '/api/public/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiGithubConnectRoute = ApiGithubConnectRouteImport.update({
-  id: '/api/github/connect',
-  path: '/api/github/connect',
+const ApiPublicValidateLicenseRoute =
+  ApiPublicValidateLicenseRouteImport.update({
+    id: '/api/public/validate-license',
+    path: '/api/public/validate-license',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicVisualPlanRoute = ApiPublicVisualPlanRouteImport.update({
+  id: '/api/public/visual-plan',
+  path: '/api/public/visual-plan',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiGithubCallbackRoute = ApiGithubCallbackRouteImport.update({
-  id: '/api/github/callback',
-  path: '/api/github/callback',
+const ApiPublicAgentAiCredentialsRoute =
+  ApiPublicAgentAiCredentialsRouteImport.update({
+    id: '/api/public/agent/ai-credentials',
+    path: '/api/public/agent/ai-credentials',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAgentAiCredentialsOpenrouterRoute =
+  ApiPublicAgentAiCredentialsOpenrouterRouteImport.update({
+    id: '/api/public/agent/ai-credentials-openrouter',
+    path: '/api/public/agent/ai-credentials-openrouter',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAgentCommitRoute = ApiPublicAgentCommitRouteImport.update({
+  id: '/api/public/agent/commit',
+  path: '/api/public/agent/commit',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
-  id: '/api/public/webhooks/sales',
-  path: '/api/public/webhooks/sales',
+const ApiPublicAgentDecomposeRoute = ApiPublicAgentDecomposeRouteImport.update({
+  id: '/api/public/agent/decompose',
+  path: '/api/public/agent/decompose',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicWebhooksEnsinaflixRoute =
-  ApiPublicWebhooksEnsinaflixRouteImport.update({
-    id: '/api/public/webhooks/ensinaflix',
-    path: '/api/public/webhooks/ensinaflix',
+const ApiPublicAgentHistoryRoute = ApiPublicAgentHistoryRouteImport.update({
+  id: '/api/public/agent/history',
+  path: '/api/public/agent/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAgentPlanRoute = ApiPublicAgentPlanRouteImport.update({
+  id: '/api/public/agent/plan',
+  path: '/api/public/agent/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAgentRollbackRoute = ApiPublicAgentRollbackRouteImport.update({
+  id: '/api/public/agent/rollback',
+  path: '/api/public/agent/rollback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAgentStatusRoute = ApiPublicAgentStatusRouteImport.update({
+  id: '/api/public/agent/status',
+  path: '/api/public/agent/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAgentVersionRoute = ApiPublicAgentVersionRouteImport.update({
+  id: '/api/public/agent/version',
+  path: '/api/public/agent/version',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicEmailUnsubscribeRoute =
+  ApiPublicEmailUnsubscribeRouteImport.update({
+    id: '/api/public/email/unsubscribe',
+    path: '/api/public/email/unsubscribe',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGithubCallbackRoute = ApiPublicGithubCallbackRouteImport.update({
+  id: '/api/public/github/callback',
+  path: '/api/public/github/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicProjectsRemoveWatermarkRoute =
+  ApiPublicProjectsRemoveWatermarkRouteImport.update({
+    id: '/api/public/projects/remove-watermark',
+    path: '/api/public/projects/remove-watermark',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicProjectsWatermarkStatusRoute =
@@ -152,74 +213,21 @@ const ApiPublicProjectsWatermarkStatusRoute =
     path: '/api/public/projects/watermark-status',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicProjectsRemoveWatermarkRoute =
-  ApiPublicProjectsRemoveWatermarkRouteImport.update({
-    id: '/api/public/projects/remove-watermark',
-    path: '/api/public/projects/remove-watermark',
+const ApiPublicWebhooksEnsinaflixRoute =
+  ApiPublicWebhooksEnsinaflixRouteImport.update({
+    id: '/api/public/webhooks/ensinaflix',
+    path: '/api/public/webhooks/ensinaflix',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicGithubCallbackRoute = ApiPublicGithubCallbackRouteImport.update({
-  id: '/api/public/github/callback',
-  path: '/api/public/github/callback',
+const ApiPublicWebhooksSalesRoute = ApiPublicWebhooksSalesRouteImport.update({
+  id: '/api/public/webhooks/sales',
+  path: '/api/public/webhooks/sales',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicAgentVersionRoute = ApiPublicAgentVersionRouteImport.update({
-  id: '/api/public/agent/version',
-  path: '/api/public/agent/version',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicAgentStatusRoute = ApiPublicAgentStatusRouteImport.update({
-  id: '/api/public/agent/status',
-  path: '/api/public/agent/status',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicAgentRollbackRoute = ApiPublicAgentRollbackRouteImport.update({
-  id: '/api/public/agent/rollback',
-  path: '/api/public/agent/rollback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicAgentPlanRoute = ApiPublicAgentPlanRouteImport.update({
-  id: '/api/public/agent/plan',
-  path: '/api/public/agent/plan',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicAgentHistoryRoute = ApiPublicAgentHistoryRouteImport.update({
-  id: '/api/public/agent/history',
-  path: '/api/public/agent/history',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicAgentDecomposeRoute = ApiPublicAgentDecomposeRouteImport.update({
-  id: '/api/public/agent/decompose',
-  path: '/api/public/agent/decompose',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicAgentCommitRoute = ApiPublicAgentCommitRouteImport.update({
-  id: '/api/public/agent/commit',
-  path: '/api/public/agent/commit',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicAgentAiCredentialsOpenrouterRoute =
-  ApiPublicAgentAiCredentialsOpenrouterRouteImport.update({
-    id: '/api/public/agent/ai-credentials-openrouter',
-    path: '/api/public/agent/ai-credentials-openrouter',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicAgentAiCredentialsRoute =
-  ApiPublicAgentAiCredentialsRouteImport.update({
-    id: '/api/public/agent/ai-credentials',
-    path: '/api/public/agent/ai-credentials',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicAgentGithubRepositoriesRoute =
-  ApiPublicAgentGithubRepositoriesRouteImport.update({
-    id: '/api/public/agent/github/repositories',
-    path: '/api/public/agent/github/repositories',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicAgentGithubDisconnectRoute =
-  ApiPublicAgentGithubDisconnectRouteImport.update({
-    id: '/api/public/agent/github/disconnect',
-    path: '/api/public/agent/github/disconnect',
+const ApiPublicAgentGithubCallbackRoute =
+  ApiPublicAgentGithubCallbackRouteImport.update({
+    id: '/api/public/agent/github/callback',
+    path: '/api/public/agent/github/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicAgentGithubConnectRoute =
@@ -228,10 +236,16 @@ const ApiPublicAgentGithubConnectRoute =
     path: '/api/public/agent/github/connect',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicAgentGithubCallbackRoute =
-  ApiPublicAgentGithubCallbackRouteImport.update({
-    id: '/api/public/agent/github/callback',
-    path: '/api/public/agent/github/callback',
+const ApiPublicAgentGithubDisconnectRoute =
+  ApiPublicAgentGithubDisconnectRouteImport.update({
+    id: '/api/public/agent/github/disconnect',
+    path: '/api/public/agent/github/disconnect',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAgentGithubRepositoriesRoute =
+  ApiPublicAgentGithubRepositoriesRouteImport.update({
+    id: '/api/public/agent/github/repositories',
+    path: '/api/public/agent/github/repositories',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -244,6 +258,7 @@ export interface FileRoutesByFullPath {
   '/api/github/disconnect': typeof ApiGithubDisconnectRoute
   '/api/github/repositories': typeof ApiGithubRepositoriesRoute
   '/api/github/status': typeof ApiGithubStatusRoute
+  '/api/internal/email-automation': typeof ApiInternalEmailAutomationRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/lovable-capabilities': typeof ApiPublicLovableCapabilitiesRoute
@@ -262,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/api/public/agent/rollback': typeof ApiPublicAgentRollbackRoute
   '/api/public/agent/status': typeof ApiPublicAgentStatusRoute
   '/api/public/agent/version': typeof ApiPublicAgentVersionRoute
+  '/api/public/email/unsubscribe': typeof ApiPublicEmailUnsubscribeRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
@@ -281,6 +297,7 @@ export interface FileRoutesByTo {
   '/api/github/disconnect': typeof ApiGithubDisconnectRoute
   '/api/github/repositories': typeof ApiGithubRepositoriesRoute
   '/api/github/status': typeof ApiGithubStatusRoute
+  '/api/internal/email-automation': typeof ApiInternalEmailAutomationRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/lovable-capabilities': typeof ApiPublicLovableCapabilitiesRoute
@@ -299,6 +316,7 @@ export interface FileRoutesByTo {
   '/api/public/agent/rollback': typeof ApiPublicAgentRollbackRoute
   '/api/public/agent/status': typeof ApiPublicAgentStatusRoute
   '/api/public/agent/version': typeof ApiPublicAgentVersionRoute
+  '/api/public/email/unsubscribe': typeof ApiPublicEmailUnsubscribeRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
@@ -319,6 +337,7 @@ export interface FileRoutesById {
   '/api/github/disconnect': typeof ApiGithubDisconnectRoute
   '/api/github/repositories': typeof ApiGithubRepositoriesRoute
   '/api/github/status': typeof ApiGithubStatusRoute
+  '/api/internal/email-automation': typeof ApiInternalEmailAutomationRoute
   '/api/public/activate-license': typeof ApiPublicActivateLicenseRoute
   '/api/public/deactivate-device': typeof ApiPublicDeactivateDeviceRoute
   '/api/public/lovable-capabilities': typeof ApiPublicLovableCapabilitiesRoute
@@ -337,6 +356,7 @@ export interface FileRoutesById {
   '/api/public/agent/rollback': typeof ApiPublicAgentRollbackRoute
   '/api/public/agent/status': typeof ApiPublicAgentStatusRoute
   '/api/public/agent/version': typeof ApiPublicAgentVersionRoute
+  '/api/public/email/unsubscribe': typeof ApiPublicEmailUnsubscribeRoute
   '/api/public/github/callback': typeof ApiPublicGithubCallbackRoute
   '/api/public/projects/remove-watermark': typeof ApiPublicProjectsRemoveWatermarkRoute
   '/api/public/projects/watermark-status': typeof ApiPublicProjectsWatermarkStatusRoute
@@ -358,6 +378,7 @@ export interface FileRouteTypes {
     | '/api/github/disconnect'
     | '/api/github/repositories'
     | '/api/github/status'
+    | '/api/internal/email-automation'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/lovable-capabilities'
@@ -376,6 +397,7 @@ export interface FileRouteTypes {
     | '/api/public/agent/rollback'
     | '/api/public/agent/status'
     | '/api/public/agent/version'
+    | '/api/public/email/unsubscribe'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
@@ -395,6 +417,7 @@ export interface FileRouteTypes {
     | '/api/github/disconnect'
     | '/api/github/repositories'
     | '/api/github/status'
+    | '/api/internal/email-automation'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/lovable-capabilities'
@@ -413,6 +436,7 @@ export interface FileRouteTypes {
     | '/api/public/agent/rollback'
     | '/api/public/agent/status'
     | '/api/public/agent/version'
+    | '/api/public/email/unsubscribe'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
@@ -432,6 +456,7 @@ export interface FileRouteTypes {
     | '/api/github/disconnect'
     | '/api/github/repositories'
     | '/api/github/status'
+    | '/api/internal/email-automation'
     | '/api/public/activate-license'
     | '/api/public/deactivate-device'
     | '/api/public/lovable-capabilities'
@@ -450,6 +475,7 @@ export interface FileRouteTypes {
     | '/api/public/agent/rollback'
     | '/api/public/agent/status'
     | '/api/public/agent/version'
+    | '/api/public/email/unsubscribe'
     | '/api/public/github/callback'
     | '/api/public/projects/remove-watermark'
     | '/api/public/projects/watermark-status'
@@ -470,6 +496,7 @@ export interface RootRouteChildren {
   ApiGithubDisconnectRoute: typeof ApiGithubDisconnectRoute
   ApiGithubRepositoriesRoute: typeof ApiGithubRepositoriesRoute
   ApiGithubStatusRoute: typeof ApiGithubStatusRoute
+  ApiInternalEmailAutomationRoute: typeof ApiInternalEmailAutomationRoute
   ApiPublicActivateLicenseRoute: typeof ApiPublicActivateLicenseRoute
   ApiPublicDeactivateDeviceRoute: typeof ApiPublicDeactivateDeviceRoute
   ApiPublicLovableCapabilitiesRoute: typeof ApiPublicLovableCapabilitiesRoute
@@ -488,6 +515,7 @@ export interface RootRouteChildren {
   ApiPublicAgentRollbackRoute: typeof ApiPublicAgentRollbackRoute
   ApiPublicAgentStatusRoute: typeof ApiPublicAgentStatusRoute
   ApiPublicAgentVersionRoute: typeof ApiPublicAgentVersionRoute
+  ApiPublicEmailUnsubscribeRoute: typeof ApiPublicEmailUnsubscribeRoute
   ApiPublicGithubCallbackRoute: typeof ApiPublicGithubCallbackRoute
   ApiPublicProjectsRemoveWatermarkRoute: typeof ApiPublicProjectsRemoveWatermarkRoute
   ApiPublicProjectsWatermarkStatusRoute: typeof ApiPublicProjectsWatermarkStatusRoute
@@ -501,11 +529,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -515,102 +543,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/visual-plan': {
-      id: '/api/public/visual-plan'
-      path: '/api/public/visual-plan'
-      fullPath: '/api/public/visual-plan'
-      preLoaderRoute: typeof ApiPublicVisualPlanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/validate-license': {
-      id: '/api/public/validate-license'
-      path: '/api/public/validate-license'
-      fullPath: '/api/public/validate-license'
-      preLoaderRoute: typeof ApiPublicValidateLicenseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/transcribe': {
-      id: '/api/public/transcribe'
-      path: '/api/public/transcribe'
-      fullPath: '/api/public/transcribe'
-      preLoaderRoute: typeof ApiPublicTranscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/recover-device': {
-      id: '/api/public/recover-device'
-      path: '/api/public/recover-device'
-      fullPath: '/api/public/recover-device'
-      preLoaderRoute: typeof ApiPublicRecoverDeviceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/optimize-prompt': {
-      id: '/api/public/optimize-prompt'
-      path: '/api/public/optimize-prompt'
-      fullPath: '/api/public/optimize-prompt'
-      preLoaderRoute: typeof ApiPublicOptimizePromptRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/lovable-dispatch': {
-      id: '/api/public/lovable-dispatch'
-      path: '/api/public/lovable-dispatch'
-      fullPath: '/api/public/lovable-dispatch'
-      preLoaderRoute: typeof ApiPublicLovableDispatchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/lovable-capabilities': {
-      id: '/api/public/lovable-capabilities'
-      path: '/api/public/lovable-capabilities'
-      fullPath: '/api/public/lovable-capabilities'
-      preLoaderRoute: typeof ApiPublicLovableCapabilitiesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/deactivate-device': {
-      id: '/api/public/deactivate-device'
-      path: '/api/public/deactivate-device'
-      fullPath: '/api/public/deactivate-device'
-      preLoaderRoute: typeof ApiPublicDeactivateDeviceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/activate-license': {
-      id: '/api/public/activate-license'
-      path: '/api/public/activate-license'
-      fullPath: '/api/public/activate-license'
-      preLoaderRoute: typeof ApiPublicActivateLicenseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/github/status': {
-      id: '/api/github/status'
-      path: '/api/github/status'
-      fullPath: '/api/github/status'
-      preLoaderRoute: typeof ApiGithubStatusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/github/repositories': {
-      id: '/api/github/repositories'
-      path: '/api/github/repositories'
-      fullPath: '/api/github/repositories'
-      preLoaderRoute: typeof ApiGithubRepositoriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/github/disconnect': {
-      id: '/api/github/disconnect'
-      path: '/api/github/disconnect'
-      fullPath: '/api/github/disconnect'
-      preLoaderRoute: typeof ApiGithubDisconnectRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/github/connect': {
-      id: '/api/github/connect'
-      path: '/api/github/connect'
-      fullPath: '/api/github/connect'
-      preLoaderRoute: typeof ApiGithubConnectRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/github/callback': {
@@ -620,95 +557,102 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiGithubCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/webhooks/sales': {
-      id: '/api/public/webhooks/sales'
-      path: '/api/public/webhooks/sales'
-      fullPath: '/api/public/webhooks/sales'
-      preLoaderRoute: typeof ApiPublicWebhooksSalesRouteImport
+    '/api/github/connect': {
+      id: '/api/github/connect'
+      path: '/api/github/connect'
+      fullPath: '/api/github/connect'
+      preLoaderRoute: typeof ApiGithubConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/webhooks/ensinaflix': {
-      id: '/api/public/webhooks/ensinaflix'
-      path: '/api/public/webhooks/ensinaflix'
-      fullPath: '/api/public/webhooks/ensinaflix'
-      preLoaderRoute: typeof ApiPublicWebhooksEnsinaflixRouteImport
+    '/api/github/disconnect': {
+      id: '/api/github/disconnect'
+      path: '/api/github/disconnect'
+      fullPath: '/api/github/disconnect'
+      preLoaderRoute: typeof ApiGithubDisconnectRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/projects/watermark-status': {
-      id: '/api/public/projects/watermark-status'
-      path: '/api/public/projects/watermark-status'
-      fullPath: '/api/public/projects/watermark-status'
-      preLoaderRoute: typeof ApiPublicProjectsWatermarkStatusRouteImport
+    '/api/github/repositories': {
+      id: '/api/github/repositories'
+      path: '/api/github/repositories'
+      fullPath: '/api/github/repositories'
+      preLoaderRoute: typeof ApiGithubRepositoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/projects/remove-watermark': {
-      id: '/api/public/projects/remove-watermark'
-      path: '/api/public/projects/remove-watermark'
-      fullPath: '/api/public/projects/remove-watermark'
-      preLoaderRoute: typeof ApiPublicProjectsRemoveWatermarkRouteImport
+    '/api/github/status': {
+      id: '/api/github/status'
+      path: '/api/github/status'
+      fullPath: '/api/github/status'
+      preLoaderRoute: typeof ApiGithubStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/github/callback': {
-      id: '/api/public/github/callback'
-      path: '/api/public/github/callback'
-      fullPath: '/api/public/github/callback'
-      preLoaderRoute: typeof ApiPublicGithubCallbackRouteImport
+    '/api/internal/email-automation': {
+      id: '/api/internal/email-automation'
+      path: '/api/internal/email-automation'
+      fullPath: '/api/internal/email-automation'
+      preLoaderRoute: typeof ApiInternalEmailAutomationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/version': {
-      id: '/api/public/agent/version'
-      path: '/api/public/agent/version'
-      fullPath: '/api/public/agent/version'
-      preLoaderRoute: typeof ApiPublicAgentVersionRouteImport
+    '/api/public/activate-license': {
+      id: '/api/public/activate-license'
+      path: '/api/public/activate-license'
+      fullPath: '/api/public/activate-license'
+      preLoaderRoute: typeof ApiPublicActivateLicenseRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/status': {
-      id: '/api/public/agent/status'
-      path: '/api/public/agent/status'
-      fullPath: '/api/public/agent/status'
-      preLoaderRoute: typeof ApiPublicAgentStatusRouteImport
+    '/api/public/deactivate-device': {
+      id: '/api/public/deactivate-device'
+      path: '/api/public/deactivate-device'
+      fullPath: '/api/public/deactivate-device'
+      preLoaderRoute: typeof ApiPublicDeactivateDeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/rollback': {
-      id: '/api/public/agent/rollback'
-      path: '/api/public/agent/rollback'
-      fullPath: '/api/public/agent/rollback'
-      preLoaderRoute: typeof ApiPublicAgentRollbackRouteImport
+    '/api/public/lovable-capabilities': {
+      id: '/api/public/lovable-capabilities'
+      path: '/api/public/lovable-capabilities'
+      fullPath: '/api/public/lovable-capabilities'
+      preLoaderRoute: typeof ApiPublicLovableCapabilitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/plan': {
-      id: '/api/public/agent/plan'
-      path: '/api/public/agent/plan'
-      fullPath: '/api/public/agent/plan'
-      preLoaderRoute: typeof ApiPublicAgentPlanRouteImport
+    '/api/public/lovable-dispatch': {
+      id: '/api/public/lovable-dispatch'
+      path: '/api/public/lovable-dispatch'
+      fullPath: '/api/public/lovable-dispatch'
+      preLoaderRoute: typeof ApiPublicLovableDispatchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/history': {
-      id: '/api/public/agent/history'
-      path: '/api/public/agent/history'
-      fullPath: '/api/public/agent/history'
-      preLoaderRoute: typeof ApiPublicAgentHistoryRouteImport
+    '/api/public/optimize-prompt': {
+      id: '/api/public/optimize-prompt'
+      path: '/api/public/optimize-prompt'
+      fullPath: '/api/public/optimize-prompt'
+      preLoaderRoute: typeof ApiPublicOptimizePromptRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/decompose': {
-      id: '/api/public/agent/decompose'
-      path: '/api/public/agent/decompose'
-      fullPath: '/api/public/agent/decompose'
-      preLoaderRoute: typeof ApiPublicAgentDecomposeRouteImport
+    '/api/public/recover-device': {
+      id: '/api/public/recover-device'
+      path: '/api/public/recover-device'
+      fullPath: '/api/public/recover-device'
+      preLoaderRoute: typeof ApiPublicRecoverDeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/commit': {
-      id: '/api/public/agent/commit'
-      path: '/api/public/agent/commit'
-      fullPath: '/api/public/agent/commit'
-      preLoaderRoute: typeof ApiPublicAgentCommitRouteImport
+    '/api/public/transcribe': {
+      id: '/api/public/transcribe'
+      path: '/api/public/transcribe'
+      fullPath: '/api/public/transcribe'
+      preLoaderRoute: typeof ApiPublicTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/ai-credentials-openrouter': {
-      id: '/api/public/agent/ai-credentials-openrouter'
-      path: '/api/public/agent/ai-credentials-openrouter'
-      fullPath: '/api/public/agent/ai-credentials-openrouter'
-      preLoaderRoute: typeof ApiPublicAgentAiCredentialsOpenrouterRouteImport
+    '/api/public/validate-license': {
+      id: '/api/public/validate-license'
+      path: '/api/public/validate-license'
+      fullPath: '/api/public/validate-license'
+      preLoaderRoute: typeof ApiPublicValidateLicenseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/visual-plan': {
+      id: '/api/public/visual-plan'
+      path: '/api/public/visual-plan'
+      fullPath: '/api/public/visual-plan'
+      preLoaderRoute: typeof ApiPublicVisualPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/agent/ai-credentials': {
@@ -718,18 +662,109 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAgentAiCredentialsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/github/repositories': {
-      id: '/api/public/agent/github/repositories'
-      path: '/api/public/agent/github/repositories'
-      fullPath: '/api/public/agent/github/repositories'
-      preLoaderRoute: typeof ApiPublicAgentGithubRepositoriesRouteImport
+    '/api/public/agent/ai-credentials-openrouter': {
+      id: '/api/public/agent/ai-credentials-openrouter'
+      path: '/api/public/agent/ai-credentials-openrouter'
+      fullPath: '/api/public/agent/ai-credentials-openrouter'
+      preLoaderRoute: typeof ApiPublicAgentAiCredentialsOpenrouterRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/github/disconnect': {
-      id: '/api/public/agent/github/disconnect'
-      path: '/api/public/agent/github/disconnect'
-      fullPath: '/api/public/agent/github/disconnect'
-      preLoaderRoute: typeof ApiPublicAgentGithubDisconnectRouteImport
+    '/api/public/agent/commit': {
+      id: '/api/public/agent/commit'
+      path: '/api/public/agent/commit'
+      fullPath: '/api/public/agent/commit'
+      preLoaderRoute: typeof ApiPublicAgentCommitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/decompose': {
+      id: '/api/public/agent/decompose'
+      path: '/api/public/agent/decompose'
+      fullPath: '/api/public/agent/decompose'
+      preLoaderRoute: typeof ApiPublicAgentDecomposeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/history': {
+      id: '/api/public/agent/history'
+      path: '/api/public/agent/history'
+      fullPath: '/api/public/agent/history'
+      preLoaderRoute: typeof ApiPublicAgentHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/plan': {
+      id: '/api/public/agent/plan'
+      path: '/api/public/agent/plan'
+      fullPath: '/api/public/agent/plan'
+      preLoaderRoute: typeof ApiPublicAgentPlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/rollback': {
+      id: '/api/public/agent/rollback'
+      path: '/api/public/agent/rollback'
+      fullPath: '/api/public/agent/rollback'
+      preLoaderRoute: typeof ApiPublicAgentRollbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/status': {
+      id: '/api/public/agent/status'
+      path: '/api/public/agent/status'
+      fullPath: '/api/public/agent/status'
+      preLoaderRoute: typeof ApiPublicAgentStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/version': {
+      id: '/api/public/agent/version'
+      path: '/api/public/agent/version'
+      fullPath: '/api/public/agent/version'
+      preLoaderRoute: typeof ApiPublicAgentVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/email/unsubscribe': {
+      id: '/api/public/email/unsubscribe'
+      path: '/api/public/email/unsubscribe'
+      fullPath: '/api/public/email/unsubscribe'
+      preLoaderRoute: typeof ApiPublicEmailUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/github/callback': {
+      id: '/api/public/github/callback'
+      path: '/api/public/github/callback'
+      fullPath: '/api/public/github/callback'
+      preLoaderRoute: typeof ApiPublicGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/projects/remove-watermark': {
+      id: '/api/public/projects/remove-watermark'
+      path: '/api/public/projects/remove-watermark'
+      fullPath: '/api/public/projects/remove-watermark'
+      preLoaderRoute: typeof ApiPublicProjectsRemoveWatermarkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/projects/watermark-status': {
+      id: '/api/public/projects/watermark-status'
+      path: '/api/public/projects/watermark-status'
+      fullPath: '/api/public/projects/watermark-status'
+      preLoaderRoute: typeof ApiPublicProjectsWatermarkStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/ensinaflix': {
+      id: '/api/public/webhooks/ensinaflix'
+      path: '/api/public/webhooks/ensinaflix'
+      fullPath: '/api/public/webhooks/ensinaflix'
+      preLoaderRoute: typeof ApiPublicWebhooksEnsinaflixRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/sales': {
+      id: '/api/public/webhooks/sales'
+      path: '/api/public/webhooks/sales'
+      fullPath: '/api/public/webhooks/sales'
+      preLoaderRoute: typeof ApiPublicWebhooksSalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/github/callback': {
+      id: '/api/public/agent/github/callback'
+      path: '/api/public/agent/github/callback'
+      fullPath: '/api/public/agent/github/callback'
+      preLoaderRoute: typeof ApiPublicAgentGithubCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/agent/github/connect': {
@@ -739,11 +774,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAgentGithubConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/agent/github/callback': {
-      id: '/api/public/agent/github/callback'
-      path: '/api/public/agent/github/callback'
-      fullPath: '/api/public/agent/github/callback'
-      preLoaderRoute: typeof ApiPublicAgentGithubCallbackRouteImport
+    '/api/public/agent/github/disconnect': {
+      id: '/api/public/agent/github/disconnect'
+      path: '/api/public/agent/github/disconnect'
+      fullPath: '/api/public/agent/github/disconnect'
+      preLoaderRoute: typeof ApiPublicAgentGithubDisconnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/github/repositories': {
+      id: '/api/public/agent/github/repositories'
+      path: '/api/public/agent/github/repositories'
+      fullPath: '/api/public/agent/github/repositories'
+      preLoaderRoute: typeof ApiPublicAgentGithubRepositoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -758,6 +800,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGithubDisconnectRoute: ApiGithubDisconnectRoute,
   ApiGithubRepositoriesRoute: ApiGithubRepositoriesRoute,
   ApiGithubStatusRoute: ApiGithubStatusRoute,
+  ApiInternalEmailAutomationRoute: ApiInternalEmailAutomationRoute,
   ApiPublicActivateLicenseRoute: ApiPublicActivateLicenseRoute,
   ApiPublicDeactivateDeviceRoute: ApiPublicDeactivateDeviceRoute,
   ApiPublicLovableCapabilitiesRoute: ApiPublicLovableCapabilitiesRoute,
@@ -777,6 +820,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicAgentRollbackRoute: ApiPublicAgentRollbackRoute,
   ApiPublicAgentStatusRoute: ApiPublicAgentStatusRoute,
   ApiPublicAgentVersionRoute: ApiPublicAgentVersionRoute,
+  ApiPublicEmailUnsubscribeRoute: ApiPublicEmailUnsubscribeRoute,
   ApiPublicGithubCallbackRoute: ApiPublicGithubCallbackRoute,
   ApiPublicProjectsRemoveWatermarkRoute: ApiPublicProjectsRemoveWatermarkRoute,
   ApiPublicProjectsWatermarkStatusRoute: ApiPublicProjectsWatermarkStatusRoute,

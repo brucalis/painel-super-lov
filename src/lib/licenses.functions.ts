@@ -163,19 +163,41 @@ export const getSendGridSettings = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .handler(async () => {
     const { getSetting } = await import("./license.server");
-    const [storedKey, fromEmail, fromName, replyTo, enabled, subjectTemplate, bodyTemplate, downloadUrl] = await Promise.all([
-      getSetting("sendgrid_api_key"), getSetting("sendgrid_from_email"),
-      getSetting("sendgrid_from_name"), getSetting("sendgrid_reply_to"), getSetting("sendgrid_enabled"),
-      getSetting("sendgrid_subject_template"), getSetting("sendgrid_body_template"), getSetting("sendgrid_download_url"),
+    const [
+      storedKey,
+      fromEmail,
+      fromName,
+      replyTo,
+      enabled,
+      subjectTemplate,
+      bodyTemplate,
+      downloadUrl,
+    ] = await Promise.all([
+      getSetting("sendgrid_api_key"),
+      getSetting("sendgrid_from_email"),
+      getSetting("sendgrid_from_name"),
+      getSetting("sendgrid_reply_to"),
+      getSetting("sendgrid_enabled"),
+      getSetting("sendgrid_subject_template"),
+      getSetting("sendgrid_body_template"),
+      getSetting("sendgrid_download_url"),
     ]);
     const envConfigured = !!process.env.SENDGRID_API_KEY;
     return {
       configured: envConfigured || !!storedKey,
-      key_hint: envConfigured ? "configurada no ambiente" : storedKey ? `${storedKey.slice(0, 5)}••••${storedKey.slice(-4)}` : null,
-      from_email: fromEmail || "", from_name: fromName || "Superlovable", reply_to: replyTo || "",
+      key_hint: envConfigured
+        ? "configurada no ambiente"
+        : storedKey
+          ? `${storedKey.slice(0, 5)}••••${storedKey.slice(-4)}`
+          : null,
+      from_email: fromEmail || "",
+      from_name: fromName || "Superlovable",
+      reply_to: replyTo || "",
       enabled: enabled === "true",
       subject_template: subjectTemplate || "Bem-vindo(a) à Superlovable — sua licença está pronta",
-      body_template: bodyTemplate || "Olá, {{nome}}!\n\nSeja muito bem-vindo(a) à Superlovable. Seu pagamento foi confirmado e seu acesso já está liberado.\n\nProduto: {{produto}}\nPlano: {{plano}}\nLicença: {{licenca}}\nValidade: {{validade}}\n\nBaixe a extensão e consulte as instruções aqui:\n{{link_download}}\n\nCada licença pode ser utilizada em um navegador/dispositivo por vez. Se tiver qualquer dúvida, responda a este e-mail e nossa equipe ajudará você.",
+      body_template:
+        bodyTemplate ||
+        "Olá, {{nome}}!\n\nSeja muito bem-vindo(a) à Superlovable. Seu pagamento foi confirmado e seu acesso já está liberado.\n\nProduto: {{produto}}\nPlano: {{plano}}\nLicença: {{licenca}}\nValidade: {{validade}}\n\nBaixe a extensão e consulte as instruções aqui:\n{{link_download}}\n\nCada licença pode ser utilizada em um navegador/dispositivo por vez. Se tiver qualquer dúvida, responda a este e-mail e nossa equipe ajudará você.",
       download_url: downloadUrl || "https://painel-super-lov.lovable.app/",
     };
   });
@@ -186,6 +208,87 @@ export const resendLicenseEmail = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { sendLicenseEmail } = await import("./license.server");
     return sendLicenseEmail(data.license_id);
+  });
+
+const campaignSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  subject: z.string().trim().min(2).max(180),
+  body: z.string().trim().min(2).max(12_000),
+  audienceStatus: z.enum([
+    "all",
+    "awaiting_activation",
+    "activated",
+    "active",
+    "expired",
+    "pending",
+    "canceled",
+    "refunded",
+    "revoked",
+  ]),
+  audiencePlan: z.string().trim().max(120).nullable().optional(),
+});
+
+export const getEmailCampaignDashboard = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .handler(async () => {
+    const { campaignDashboard } = await import("./email-campaigns.server");
+    return campaignDashboard();
+  });
+
+export const createEmailCampaign = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((data: unknown) => campaignSchema.parse(data))
+  .handler(async ({ data }) => {
+    const { createCampaign, processEmailQueue } = await import("./email-campaigns.server");
+    const created = await createCampaign(data);
+    const processing = await processEmailQueue(30);
+    return { ...created, processing };
+  });
+
+export const sendPersonalizedLicenseEmail = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        license_id: z.string().uuid(),
+        subject: z.string().trim().min(2).max(180),
+        body: z.string().trim().min(2).max(12_000),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { queuePersonalizedEmail } = await import("./email-campaigns.server");
+    return queuePersonalizedEmail(data.license_id, data.subject, data.body);
+  });
+
+export const updateEmailAutomation = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        enabled: z.boolean(),
+        steps: z
+          .array(
+            z.object({
+              hours: z.union([z.literal(3), z.literal(6), z.literal(12), z.literal(24)]),
+              subject: z.string().trim().min(2).max(180),
+              body: z.string().trim().min(2).max(12_000),
+            }),
+          )
+          .length(4),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { saveAutomationSettings } = await import("./email-campaigns.server");
+    return saveAutomationSettings(data);
+  });
+
+export const runEmailCampaignQueue = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .handler(async () => {
+    const { processEmailQueue } = await import("./email-campaigns.server");
+    return processEmailQueue(30);
   });
 
 export const sendSendGridTest = createServerFn({ method: "POST" })
@@ -201,7 +304,8 @@ export const reprocessEnsinaflixWebhook = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ event_id: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { normalizeEnsinaflixWebhook, processEnsinaflixEvent } = await import("./ensinaflix.server");
+    const { normalizeEnsinaflixWebhook, processEnsinaflixEvent } =
+      await import("./ensinaflix.server");
     const { data: event, error } = await supabaseAdmin
       .from("webhook_events")
       .select("id, provider, payload, is_test")
@@ -215,33 +319,50 @@ export const reprocessEnsinaflixWebhook = createServerFn({ method: "POST" })
       throw new Error("Eventos de teste não geram licenças.");
     }
 
-    await supabaseAdmin.from("webhook_events").update({
-      processing_status: "processing",
-      processing_error: null,
-      processed_at: null,
-    }).eq("id", event.id);
+    await supabaseAdmin
+      .from("webhook_events")
+      .update({
+        processing_status: "processing",
+        processing_error: null,
+        processed_at: null,
+      })
+      .eq("id", event.id);
 
     try {
       const result = await processEnsinaflixEvent(normalized, { retryEmail: true });
       const status = result.processed
         ? "processed"
-        : result.reason === "EVENT_IGNORED" ? "ignored" : "failed";
-      await supabaseAdmin.from("webhook_events").update({
-        processing_status: status,
-        processing_error: result.reason ?? null,
+        : result.reason === "EVENT_IGNORED"
+          ? "ignored"
+          : "failed";
+      await supabaseAdmin
+        .from("webhook_events")
+        .update({
+          processing_status: status,
+          processing_error: result.reason ?? null,
+          license_id: result.licenseId ?? null,
+          http_status: result.processed ? 200 : 422,
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", event.id);
+      return {
+        ok: result.processed,
+        status,
+        reason: result.reason ?? null,
         license_id: result.licenseId ?? null,
-        http_status: result.processed ? 200 : 422,
-        processed_at: new Date().toISOString(),
-      }).eq("id", event.id);
-      return { ok: result.processed, status, reason: result.reason ?? null, license_id: result.licenseId ?? null };
+      };
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Falha desconhecida no reprocessamento.";
-      await supabaseAdmin.from("webhook_events").update({
-        processing_status: "failed",
-        processing_error: message,
-        http_status: 500,
-        processed_at: new Date().toISOString(),
-      }).eq("id", event.id);
+      const message =
+        caught instanceof Error ? caught.message : "Falha desconhecida no reprocessamento.";
+      await supabaseAdmin
+        .from("webhook_events")
+        .update({
+          processing_status: "failed",
+          processing_error: message,
+          http_status: 500,
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", event.id);
       throw caught;
     }
   });

@@ -7,6 +7,7 @@ import { LicensesTab } from "@/components/admin/licenses-tab";
 import { CustomersTab } from "@/components/admin/customers-tab";
 import { WebhooksTab } from "@/components/admin/webhooks-tab";
 import { EnsinaflixTab } from "@/components/admin/ensinaflix-tab";
+import { EmailCampaignsTab } from "@/components/admin/email-campaigns-tab";
 import { ADMIN_EXTENSION_RELEASE } from "@/lib/extension-release";
 
 export const Route = createFileRoute("/admin")({
@@ -22,7 +23,8 @@ export const Route = createFileRoute("/admin")({
       { property: "og:title", content: "Painel de licenças SUPER LOVABLE" },
       {
         property: "og:description",
-        content: "Gere chaves, ajuste prazos, acompanhe dispositivos e integre sua plataforma de vendas.",
+        content:
+          "Gere chaves, ajuste prazos, acompanhe dispositivos e integre sua plataforma de vendas.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -55,7 +57,11 @@ function AdminPage() {
   }, [navigate]);
 
   if (state === "loading") {
-    return <main className="grid min-h-screen place-items-center text-muted-foreground">Carregando painel…</main>;
+    return (
+      <main className="grid min-h-screen place-items-center text-muted-foreground">
+        Carregando painel…
+      </main>
+    );
   }
 
   if (state === "denied") {
@@ -119,20 +125,20 @@ function AdminPage() {
           <div>
             <h2 className="font-medium">Extensão do administrador</h2>
             <p className="text-sm text-muted-foreground">
-              Versão {ADMIN_EXTENSION_RELEASE.version} · atualizada em {ADMIN_EXTENSION_RELEASE.updatedAt}. Chaves com nível
-              administrador liberam servidor de licenças e endpoints; chaves comuns não veem esses
-              campos.
+              Versão {ADMIN_EXTENSION_RELEASE.version} · atualizada em{" "}
+              {ADMIN_EXTENSION_RELEASE.updatedAt}. Chaves com nível administrador liberam servidor
+              de licenças e endpoints; chaves comuns não veem esses campos.
             </p>
           </div>
           <Button onClick={downloadAdminExtension}>Baixar extensão do administrador</Button>
         </div>
       </section>
 
-
       <Tabs defaultValue="licenses">
         <TabsList className="mb-6">
           <TabsTrigger value="licenses">Licenças</TabsTrigger>
           <TabsTrigger value="customers">Clientes</TabsTrigger>
+          <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
           <TabsTrigger value="ensinaflix">Ensinaflix</TabsTrigger>
         </TabsList>
@@ -141,6 +147,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="customers">
           <CustomersTab />
+        </TabsContent>
+        <TabsContent value="campaigns">
+          <EmailCampaignsTab />
         </TabsContent>
         <TabsContent value="webhooks">
           <WebhooksTab />
