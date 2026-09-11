@@ -1,10 +1,18 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "10.09.S1",
-  technicalVersion: "33.0.23",
-  updatedAt: "10/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=10.09.S1",
-  downloadName: "superlovable-10.09.S1.zip",
+  version: "11.09.S1",
+  technicalVersion: "33.0.24",
+  updatedAt: "11/09/2026 (horário de Brasília)",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=11.09.S1",
+  downloadName: "superlovable-11.09.S1.zip",
   changelog: [
+    {
+      version: "11.09.S1",
+      date: "11/09/2026",
+      changes: [
+        "Fluxo das inteligências mais rápido e previsível durante contingências.",
+        "Diagnóstico de conexão e recuperação automática mais consistentes.",
+      ],
+    },
     {
       version: "10.09.S1",
       date: "10/09/2026",

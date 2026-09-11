@@ -6,7 +6,7 @@
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
   const CUSTOMER_EDITION = globalThis.SUPER_LOVABLE_EDITION?.mode === "customer";
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
-  const MAX_AUTOMATIC_ATTEMPTS = 2;
+  const MAX_AUTOMATIC_ATTEMPTS = 1;
   const MAX_BATCH_REPARTITIONS = 2;
   const REQUEST_TIMEOUT_MS = 90_000;
   const STATUS_TIMEOUT_MS = 20_000;
@@ -22,7 +22,7 @@
   const RETRY_DELAYS_MS = [700, 1_500, 3_500, 7_000];
   const RATE_LIMIT_DELAYS_MS = [5_000, 12_000, 25_000, 45_000];
   const TERMINAL_ERROR_CODES = new Set(["INVALID_SESSION", "LICENSE_INACTIVE", "GITHUB_NOT_CONNECTED", "GITHUB_REPOSITORY_NOT_ALLOWED", "GITHUB_PERMISSION_DENIED", "INVALID_GITHUB_TOKEN", "HTTP_401", "HTTP_403"]);
-  const CONTEXT_ERROR_CODES = new Set(["AI_CONTEXT_TOO_LARGE", "AI_PLAN_TRUNCATED", "AI_TRUNCATED_CONTENT_BLOCKED", "CONTEXT_ROUNDS_EXHAUSTED", "CUSTOMER_AI_STACK_EXHAUSTED"]);
+  const CONTEXT_ERROR_CODES = new Set(["AI_CONTEXT_TOO_LARGE", "AI_PLAN_TRUNCATED", "AI_TRUNCATED_CONTENT_BLOCKED", "CONTEXT_ROUNDS_EXHAUSTED"]);
   const REPLAN_ERROR_CODES = new Set(["AI_EDIT_NOT_UNIQUE", "AI_INVALID_EDIT_PATH", "AI_CHANGE_TOO_BROAD", "BASE_BRANCH_MOVED", "STALE_BASE_SHA", "GITHUB_CONFLICT", "HTTP_409", ...CONTEXT_ERROR_CODES]);
 
   let state = {
@@ -88,6 +88,8 @@
       error.status = response.status;
       error.retryAfter = Number(response.headers.get("retry-after") || 0);
       error.retryable = Boolean(data.retryable) || [408, 409, 425, 429].includes(response.status) || response.status >= 500;
+      error.providerFailures = Array.isArray(data.providerFailures) ? data.providerFailures : [];
+      error.traceId = String(data.traceId || "");
       throw error;
     }
     return data;
@@ -138,7 +140,7 @@
     clearInterval(state.progressTimer);
     const stages = [
       ["context", "Conectando ao repositório…"],
-      ["ai", "Gemini em uso; contingências automáticas se necessário…"],
+      ["ai", "Cloudflare em uso; Gemini e OpenRouter entram automaticamente se necessário…"],
       ["plan", "Organizando um lote pequeno de alterações…"],
     ];
     let index = 0;
@@ -173,9 +175,10 @@
     try {
       const data = await request("/status");
       const connection = data.connection || {};
-      const groqReady = Boolean(data.ai?.groq?.configured);
+      const cloudflareReady = Boolean(data.ai?.cloudflare?.configured);
       const geminiReady = Boolean(data.ai?.gemini?.configured);
-      const configured = data.configured && (CUSTOMER_EDITION ? (groqReady && geminiReady) : (data.ai?.gemini || data.ai?.groq));
+      const openrouterReady = Boolean(data.ai?.openrouter?.configured);
+      const configured = data.configured && (CUSTOMER_EDITION ? cloudflareReady : (data.ai?.gemini || data.ai?.groq));
       const connect = document.getElementById("sl-agent-connect");
       const disconnect = document.getElementById("sl-agent-disconnect");
       const switchProject = document.getElementById("sl-agent-switch-project");
@@ -183,15 +186,16 @@
       state.ready = configured && connection.status === "ready" && Boolean(connection.repository_full_name);
       broadcastConnectionStatus({
         ready: state.ready,
-        groq: groqReady,
+        cloudflare: cloudflareReady,
         gemini: geminiReady,
+        openrouter: openrouterReady,
         github: Boolean(connection.installation_id),
         project: Boolean(connection.repository_full_name),
         repository: connection.repository_full_name || "",
       });
 
       if (!configured) {
-        setStatus(CUSTOMER_EDITION ? "Conecte as duas inteligências acima para liberar o chat." : "Servidor em configuração. Cadastre as chaves de IA e da GitHub App no painel.", "warning");
+        setStatus(CUSTOMER_EDITION ? "Conecte a Cloudflare para liberar o chat. Gemini e OpenRouter são contingências opcionais." : "Servidor em configuração. Cadastre as chaves de IA e da GitHub App no painel.", "warning");
         if (connect) connect.style.display = "none";
         if (disconnect) disconnect.style.display = "none";
         if (switchProject) switchProject.style.display = "none";
@@ -483,6 +487,12 @@
     const code = String(error?.code || "");
     const message = String(error?.message || error || "");
     if (TERMINAL_ERROR_CODES.has(code)) return "terminal";
+    if (code === "CUSTOMER_AI_STACK_EXHAUSTED") {
+      const failures = Array.isArray(error?.providerFailures) ? error.providerFailures : [];
+      if (failures.length && failures.every((item) => [401, 403].includes(Number(item?.status)))) return "terminal";
+      if (failures.length && failures.every((item) => Number(item?.status) === 429)) return "rate-limit";
+      return error?.retryable ? "context" : "logical";
+    }
     if (CONTEXT_ERROR_CODES.has(code) || /context|token limit|truncad|json incompleto/i.test(message)) return "context";
     if (REPLAN_ERROR_CODES.has(code) || /branch.*mudou|conflito|trecho.*único/i.test(message)) return "replan";
     if (error?.retryable || Number(error?.status) >= 500 || /timeout|temporar|network|fetch|rate limit|429|indisponível/i.test(message)) {
@@ -563,8 +573,6 @@
         lastError = error;
         const kind = recoveryKind(error);
         if (kind === "terminal" || attempt >= MAX_AUTOMATIC_ATTEMPTS) throw error;
-        if (batchLabel && error?.code === "CUSTOMER_AI_STACK_EXHAUSTED") throw error;
-
         if (planned && !["context", "replan"].includes(kind)) {
           setStatus(`Confirmando automaticamente a aplicação${batchLabel ? ` de ${batchLabel}` : ""}…`, "warning");
         } else {

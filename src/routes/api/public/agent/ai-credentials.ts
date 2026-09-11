@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const CREDENTIAL_API_VERSION = "ai-credentials-v7-cloudflare-primary";
+const CREDENTIAL_API_VERSION = "ai-credentials-v8-cloudflare-primary";
 const SUPPORTED_AI_PROVIDERS = ["cloudflare", "gemini", "openrouter"] as const;
 const REQUIRED_AI_PROVIDERS = ["cloudflare"] as const;
 type Provider = (typeof SUPPORTED_AI_PROVIDERS)[number];

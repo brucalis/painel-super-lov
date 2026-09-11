@@ -5,8 +5,9 @@ const CUSTOMER_EDITION = "customer-s1";
 const FALLBACK_PREFIX = "customer_ai_credentials";
 const CUSTOMER_PROVIDERS = ["grok", "cloudflare", "gemini", "openrouter"] as const;
 
-export const CUSTOMER_AI_CREDENTIALS_VERSION = "customer-ai-credentials-v4-cloudflare-required";
+export const CUSTOMER_AI_CREDENTIALS_VERSION = "customer-ai-credentials-v8-cloudflare-primary";
 export type CustomerProvider = (typeof CUSTOMER_PROVIDERS)[number];
+const ACTIVE_CUSTOMER_PROVIDERS: CustomerProvider[] = ["cloudflare", "gemini", "openrouter"];
 export type CustomerProviderCredential = {
   provider: CustomerProvider;
   apiKey: string;
@@ -155,9 +156,9 @@ export async function customerCredentialStatus(licenseId: string) {
   };
   return {
     grok: status("grok"), cloudflare: status("cloudflare"), gemini: status("gemini"), openrouter: status("openrouter"),
-    configured: rows.some((row) => CUSTOMER_PROVIDERS.includes(row.provider)),
+    configured: rows.some((row) => ACTIVE_CUSTOMER_PROVIDERS.includes(row.provider)),
     requiredConfigured: rows.some((row) => row.provider === "cloudflare"),
-    configuredCount: CUSTOMER_PROVIDERS.filter((provider) => rows.some((row) => row.provider === provider)).length,
+    configuredCount: ACTIVE_CUSTOMER_PROVIDERS.filter((provider) => rows.some((row) => row.provider === provider)).length,
   };
 }
 

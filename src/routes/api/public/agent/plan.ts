@@ -44,7 +44,11 @@ export const Route = createFileRoute("/api/public/agent/plan")({
           const providers = [stack.cloudflare, stack.gemini, stack.openrouter].filter(
             (credential): credential is NonNullable<typeof credential> => Boolean(credential),
           );
-          const failures: Array<{ provider: string; status: number; message: string }> = [];
+          const traceId = crypto.randomUUID();
+          const prepared = await customerAgent.prepareCustomerPlan(auth, prompt, {
+            reducedContext: Boolean(body.reduced_context),
+          });
+          const failures: Array<{ provider: string; status: number; message: string; durationMs: number }> = [];
           let lastError: unknown = null;
 
           const readFailure = async (error: unknown) => {
@@ -64,58 +68,30 @@ export const Route = createFileRoute("/api/public/agent/plan")({
             return { status, message: safeMessage };
           };
 
-          const shouldRetryOpenRouterJson = (status: number, message: string) =>
-            status === 500 || status === 502
-              ? /JSON|property name|unexpected token|position \d+|plano de código válido/i.test(message)
-              : false;
-
           for (const credential of providers) {
-            let providerError: unknown = null;
-            let providerFailure: { status: number; message: string } | null = null;
-            const maxAttempts = credential.provider === "openrouter" ? 2 : 1;
-
-            for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-              try {
-                const retryPrompt =
-                  credential.provider === "openrouter" && attempt > 1
-                    ? `${prompt}\n\n[RECUPERAÇÃO TÉCNICA] Retorne obrigatoriamente um único objeto JSON válido, sem markdown, comentários ou texto antes/depois do JSON.`
-                    : prompt;
-                const result = await customerAgent.planAgentRunCustomerProvider(auth, retryPrompt, credential, {
-                  reducedContext: Boolean(body.reduced_context),
-                });
-                return json({
-                  ok: true,
-                  resilient: true,
-                  providerUsed: credential.provider,
-                  providerAttempt: attempt,
-                  ...result,
-                });
-              } catch (error) {
-                providerError = error;
-                providerFailure = await readFailure(error);
-                const retryMalformedJson =
-                  credential.provider === "openrouter" &&
-                  attempt < maxAttempts &&
-                  shouldRetryOpenRouterJson(providerFailure.status, providerFailure.message);
-
-                if (retryMalformedJson) {
-                  console.warn("[github-agent/customer-stack] OpenRouter retornou JSON malformado; repetindo uma vez", {
-                    status: providerFailure.status,
-                    message: providerFailure.message,
-                  });
-                  continue;
-                }
-                break;
-              }
+            const startedAt = Date.now();
+            try {
+              const result = await customerAgent.planPreparedCustomerProvider(auth, prompt, credential, prepared);
+              return json({
+                ok: true,
+                resilient: true,
+                traceId,
+                providerUsed: credential.provider,
+                providerAttempt: 1,
+                ...result,
+              });
+            } catch (error) {
+              lastError = error;
+              const failure = await readFailure(error);
+              failures.push({ provider: credential.provider, ...failure, durationMs: Date.now() - startedAt });
             }
-
-            lastError = providerError;
-            const failure = providerFailure || { status: 503, message: "indisponível nesta tentativa" };
-            failures.push({ provider: credential.provider, ...failure });
+            const failure = failures[failures.length - 1];
             console.warn("[github-agent/customer-stack] provedor falhou; tentando próximo", {
+              traceId,
               provider: credential.provider,
               status: failure.status,
               message: failure.message,
+              durationMs: failure.durationMs,
             });
           }
 
@@ -133,8 +109,9 @@ export const Route = createFileRoute("/api/public/agent/plan")({
                 ok: false,
                 error: errorMessage,
                 code: "CUSTOMER_AI_STACK_EXHAUSTED",
+                traceId,
                 providerFailures: failures,
-                retryable: true,
+                retryable: failures.some((item) => item.status === 408 || item.status === 429 || item.status >= 500),
               },
               lastError.status >= 400 && lastError.status < 600 ? lastError.status : 503,
             );
@@ -144,8 +121,9 @@ export const Route = createFileRoute("/api/public/agent/plan")({
               ok: false,
               error: errorMessage,
               code: "CUSTOMER_AI_STACK_EXHAUSTED",
+              traceId,
               providerFailures: failures,
-              retryable: true,
+              retryable: failures.some((item) => item.status === 408 || item.status === 429 || item.status >= 500),
             },
             503,
           );

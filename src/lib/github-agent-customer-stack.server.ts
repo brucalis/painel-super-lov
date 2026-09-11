@@ -6,7 +6,6 @@ const GITHUB_API = "https://api.github.com";
 const USER_AGENT = "SuperLovable-CustomerAI";
 const MAX_CONTEXT_FILES = 5;
 const MAX_CONTEXT_CHARS = 30_000;
-const FOCUSED_CONTEXT_CHARS = 38_000;
 const REDUCED_CONTEXT_FILES = 3;
 const REDUCED_CONTEXT_CHARS = 12_000;
 const CLOUDFLARE_CODE_MODEL = "@cf/openai/gpt-oss-20b";
@@ -118,23 +117,6 @@ async function selectedContext(token: string, repo: string, branch: string, prom
   return { baseSha: ref.object.sha, repositoryPaths, candidates, files };
 }
 
-async function focusedContext(token: string, repo: string, branch: string, prompt: string, paths: string[]) {
-  const files: ContextFile[] = [];
-  let remaining = FOCUSED_CONTEXT_CHARS;
-  for (const path of paths.slice(0, 3)) {
-    if (remaining <= 0) break;
-    try {
-      const full = await readRepositoryFile(token, repo, branch, path);
-      if (!full) continue;
-      const allowance = Math.min(remaining, 16_000);
-      const content = promptAwareExcerpt(full, prompt, allowance);
-      remaining -= content.length;
-      files.push({ path, content });
-    } catch {}
-  }
-  return files;
-}
-
 const systemPrompt = `Você é o agente de programação da Super Lovable. Retorne SOMENTE JSON válido, sem markdown e sem explicações fora do JSON. Formato: {"summary":"resumo em português","commit_message":"mensagem curta em português","edits":[{"path":"arquivo existente","search":"trecho EXATO e único do conteúdo atual","replace":"novo trecho"}],"new_files":[{"path":"novo arquivo","content":"conteúdo completo"}]}. Use exclusivamente caminhos listados em available_files. Para arquivos existentes, faça alterações cirúrgicas e nunca devolva o arquivo inteiro. Preserve tudo que não foi solicitado. Não edite .env, workflows, lockfiles, binários, arquivos gerados ou segredos. No máximo 8 edits e 4 arquivos no total. Se o contexto não mostrar exatamente o trecho necessário, faça uma alteração menor e segura em um arquivo carregado. O campo search deve copiar literalmente um trecho único presente em files.`;
 
 function providerLabel(provider: CustomerProviderCredential["provider"]) {
@@ -164,9 +146,9 @@ function compactProviderPayload(payload: string, maxChars: number) {
 }
 
 function providerTimeoutMs(provider: CustomerProviderCredential["provider"]) {
-  if (provider === "cloudflare") return 38_000;
-  if (provider === "openrouter") return 48_000;
-  if (provider === "gemini") return 35_000;
+  if (provider === "cloudflare") return 30_000;
+  if (provider === "openrouter") return 35_000;
+  if (provider === "gemini") return 32_000;
   return 40_000;
 }
 
@@ -324,10 +306,6 @@ async function materializePlan(parsed: Record<string, unknown>, token: string, r
   return [...files, ...newFiles].slice(0, 8);
 }
 
-function canRetryWithFocusedContext(error: unknown) {
-  return error instanceof Response && (error.status === 422 || error.status === 502);
-}
-
 async function attemptProviderPlan(
   payload: string,
   credential: CustomerProviderCredential,
@@ -344,12 +322,20 @@ async function attemptProviderPlan(
   return { ai, parsed, files };
 }
 
-export async function planAgentRunCustomerProvider(
+export type PreparedCustomerPlan = {
+  token: string;
+  repo: string;
+  branch: string;
+  baseSha: string;
+  repositoryPaths: string[];
+  payload: string;
+};
+
+export async function prepareCustomerPlan(
   auth: AgentAuth,
   prompt: string,
-  credential: CustomerProviderCredential,
   options: { reducedContext?: boolean } = {},
-) {
+): Promise<PreparedCustomerPlan> {
   const { data: connection } = await supabaseAdmin.from("github_license_connections").select("*").eq("license_id", auth.license.id).maybeSingle();
   const row = connection as Record<string, unknown> | null;
   const installationId = Number(row?.installation_id || 0);
@@ -366,31 +352,38 @@ export async function planAgentRunCustomerProvider(
     files: context.files,
   });
 
-  let attempt;
-  try {
-    attempt = await attemptProviderPlan(basePayload, credential, token, repo, branch, context.repositoryPaths);
-  } catch (error) {
-    if (!canRetryWithFocusedContext(error)) throw error;
-    const focusedFiles = await focusedContext(token, repo, branch, prompt, context.candidates);
-    if (!focusedFiles.length) throw error;
-    const retryPayload = JSON.stringify({
-      request: prompt,
-      repository: repo,
-      branch,
-      instruction: "RECUPERAÇÃO DE CONTEXTO: produza agora uma alteração menor e segura. Copie search literalmente dos trechos carregados. Não invente caminhos nem solicite mais contexto.",
-      available_files: context.repositoryPaths.slice(0, 1200),
-      files: focusedFiles,
-    });
-    attempt = await attemptProviderPlan(retryPayload, credential, token, repo, branch, context.repositoryPaths);
-  }
+  return {
+    token,
+    repo,
+    branch,
+    baseSha: context.baseSha,
+    repositoryPaths: context.repositoryPaths,
+    payload: basePayload,
+  };
+}
+
+export async function planPreparedCustomerProvider(
+  auth: AgentAuth,
+  prompt: string,
+  credential: CustomerProviderCredential,
+  prepared: PreparedCustomerPlan,
+) {
+  const attempt = await attemptProviderPlan(
+    prepared.payload,
+    credential,
+    prepared.token,
+    prepared.repo,
+    prepared.branch,
+    prepared.repositoryPaths,
+  );
 
   const label = providerLabel(credential.provider);
   const summary = String(attempt.parsed.summary || `Alteração preparada por ${label}.`).slice(0, 2000);
   const commitMessage = String(attempt.parsed.commit_message || "aplicar alteração pela Super Lovable").slice(0, 120);
   const { data, error } = await supabaseAdmin.from("github_agent_runs").insert({
     license_id: auth.license.id,
-    repository_full_name: repo,
-    branch,
+    repository_full_name: prepared.repo,
+    branch: prepared.branch,
     prompt,
     provider: attempt.ai.provider,
     model: attempt.ai.model,
@@ -398,7 +391,7 @@ export async function planAgentRunCustomerProvider(
     summary,
     commit_message: commitMessage,
     proposed_files: attempt.files as never,
-    base_sha: context.baseSha,
+    base_sha: prepared.baseSha,
   } as never).select("id").single();
   if (error || !data) throw new Response(`Não foi possível salvar o plano gerado por ${label}.`, { status: 500 });
   return {
@@ -412,4 +405,14 @@ export async function planAgentRunCustomerProvider(
     recoveryCount: 0,
     fallback: credential.provider !== "cloudflare",
   };
+}
+
+export async function planAgentRunCustomerProvider(
+  auth: AgentAuth,
+  prompt: string,
+  credential: CustomerProviderCredential,
+  options: { reducedContext?: boolean } = {},
+) {
+  const prepared = await prepareCustomerPlan(auth, prompt, options);
+  return planPreparedCustomerProvider(auth, prompt, credential, prepared);
 }

@@ -35,7 +35,7 @@ test("commit perdido é reconciliado antes de criar outro plano", () => {
 });
 
 test("falhas complexas são classificadas, repetidas e subdivididas", () => {
-  assert.match(panel, /MAX_AUTOMATIC_ATTEMPTS = 2/);
+  assert.match(panel, /MAX_AUTOMATIC_ATTEMPTS = 1/);
   assert.match(panel, /function recoveryKind/);
   assert.match(panel, /RATE_LIMIT_DELAYS_MS/);
   assert.match(panel, /repartitionFailedBatch/);
@@ -109,9 +109,13 @@ test("planner comercial suporta Cloudflare Gemini e OpenRouter", () => {
   assert.match(customerStackAgent, /resolveGeminiModels/);
   assert.match(customerStackAgent, /response_format: \{ type: "json_object" \}/);
   assert.match(customerStackAgent, /REDUCED_CONTEXT_CHARS/);
+  assert.match(customerStackAgent, /prepareCustomerPlan/);
+  assert.match(customerStackAgent, /planPreparedCustomerProvider/);
   assert.match(planRoute, /reducedContext: Boolean\(body\.reduced_context\)/);
-  assert.match(planRoute, /retryable: true/);
+  assert.match(planRoute, /retryable: failures\.some/);
+  assert.match(planRoute, /traceId/);
   assert.match(panel, /CUSTOMER_AI_STACK_EXHAUSTED/);
+  assert.match(panel, /error\.providerFailures/);
 });
 
 test("painel só exige Cloudflare e projeto", () => {
