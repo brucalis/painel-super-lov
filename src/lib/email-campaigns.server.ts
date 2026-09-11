@@ -22,8 +22,10 @@ type CampaignInput = {
   name: string;
   subject: string;
   body: string;
-  audienceStatus: AudienceStatus;
+  audienceStatuses: AudienceStatus[];
   audiencePlan?: string | null;
+  bodyFormat: "text" | "html";
+  scheduledFor?: string | null;
 };
 type AutomationStep = { hours: number; subject: string; body: string };
 type AutomationSettings = { enabled: boolean; steps: AutomationStep[] };
@@ -50,6 +52,7 @@ type QueueDelivery = {
   purpose: string;
   subject: string;
   body: string;
+  body_format?: "text" | "html";
   step_key?: string | null;
   attempts?: number;
 };
@@ -185,6 +188,7 @@ async function sendCustomEmail(
   subjectTemplate: string,
   bodyTemplate: string,
   purpose: string,
+  bodyFormat: "text" | "html" = "text",
 ) {
   const [enabled, storedKey, fromEmail, fromName, replyTo] = await Promise.all([
     getSetting("sendgrid_enabled"),
@@ -199,7 +203,16 @@ async function sendCustomEmail(
   if (!email) return { sent: false, reason: "customer_email_missing" };
   if (!apiKey || !fromEmail) return { sent: false, reason: "sendgrid_not_configured" };
   const subject = render(subjectTemplate, license).slice(0, 180);
-  const text = render(bodyTemplate, license);
+  const renderedBody = render(bodyTemplate, license);
+  const text =
+    bodyFormat === "html"
+      ? renderedBody
+          .replace(/<style[\s\S]*?<\/style>/gi, " ")
+          .replace(/<script[\s\S]*?<\/script>/gi, " ")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+      : renderedBody;
   const unsubscribeUrl =
     purpose === "campaign"
       ? `${ACCESS_URL}api/public/email/unsubscribe?token=${encodeURIComponent(unsubscribeToken(email))}`
@@ -207,7 +220,11 @@ async function sendCustomEmail(
   const unsubscribeFooter = unsubscribeUrl
     ? `<br><a href="${escapeHtml(unsubscribeUrl)}" style="color:#777">Não quero receber futuras ofertas</a>`
     : "";
-  const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f6f4fa;font-family:Arial,sans-serif;color:#24202b"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" style="max-width:620px;background:#fff;border:1px solid #e6def2;border-radius:16px;overflow:hidden"><tr><td style="height:6px;background:linear-gradient(90deg,#6f2dbd,#f97316)"></td></tr><tr><td style="padding:30px"><div style="font-weight:800;color:#6f2dbd;font-size:13px;letter-spacing:.8px">SUPERLOVABLE</div><h1 style="font-size:24px;line-height:1.3;margin:12px 0 20px">${escapeHtml(subject)}</h1><div style="font-size:15px;line-height:1.7;white-space:pre-wrap">${escapeHtml(text)}</div><a href="${ACCESS_URL}" style="display:inline-block;margin-top:24px;padding:13px 20px;border-radius:9px;background:#6f2dbd;color:#fff;text-decoration:none;font-weight:700">Acessar a Superlovable</a></td></tr><tr><td style="padding:16px 30px;background:#fafafa;color:#777;font-size:12px">Você recebeu esta mensagem por possuir um acesso à Superlovable.${unsubscribeFooter}</td></tr></table></td></tr></table></body></html>`;
+  const content =
+    bodyFormat === "html"
+      ? renderedBody
+      : `<div style="font-size:15px;line-height:1.7;white-space:pre-wrap">${escapeHtml(text)}</div>`;
+  const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f6f4fa;font-family:Arial,sans-serif;color:#24202b"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" style="max-width:620px;background:#fff;border:1px solid #e6def2;border-radius:16px;overflow:hidden"><tr><td style="height:6px;background:linear-gradient(90deg,#6f2dbd,#f97316)"></td></tr><tr><td style="padding:30px"><div style="font-weight:800;color:#6f2dbd;font-size:13px;letter-spacing:.8px">SUPERLOVABLE</div><h1 style="font-size:24px;line-height:1.3;margin:12px 0 20px">${escapeHtml(subject)}</h1>${content}<a href="${ACCESS_URL}" style="display:inline-block;margin-top:24px;padding:13px 20px;border-radius:9px;background:#6f2dbd;color:#fff;text-decoration:none;font-weight:700">Acessar a Superlovable</a></td></tr><tr><td style="padding:16px 30px;background:#fafafa;color:#777;font-size:12px">Você recebeu esta mensagem por possuir um acesso à Superlovable.${unsubscribeFooter}</td></tr></table></td></tr></table></body></html>`;
   try {
     const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
@@ -273,7 +290,11 @@ function matchesAudience(
   return license.status === status;
 }
 
-async function audience(status: AudienceStatus, plan?: string | null, excludeSuppressed = false) {
+async function audience(
+  statuses: AudienceStatus[],
+  plan?: string | null,
+  excludeSuppressed = false,
+) {
   const { data, error } = await db()
     .from("licenses")
     .select("*, customers(id,email,full_name), license_devices(first_seen_at)")
@@ -296,7 +317,7 @@ async function audience(status: AudienceStatus, plan?: string | null, excludeSup
     if (
       email &&
       !suppressed.has(email) &&
-      matchesAudience(license, status, plan) &&
+      statuses.some((status) => matchesAudience(license, status, plan)) &&
       !unique.has(email)
     )
       unique.set(email, license);
@@ -305,17 +326,26 @@ async function audience(status: AudienceStatus, plan?: string | null, excludeSup
 }
 
 export async function createCampaign(input: CampaignInput) {
-  const recipients = await audience(input.audienceStatus, input.audiencePlan, true);
+  const statuses = input.audienceStatuses.includes("all")
+    ? ["all" as const]
+    : input.audienceStatuses;
+  const recipients = await audience(statuses, input.audiencePlan, true);
   if (!recipients.length) throw new Error("Nenhum cliente corresponde aos filtros selecionados.");
+  const scheduledFor = input.scheduledFor ? new Date(input.scheduledFor) : new Date();
+  if (Number.isNaN(scheduledFor.getTime())) throw new Error("Data de agendamento inválida.");
+  const isScheduled = scheduledFor.getTime() > Date.now() + 60_000;
   const { data: campaign, error } = await db()
     .from("email_campaigns")
     .insert({
       name: input.name,
       subject: input.subject,
       body: input.body,
-      audience_status: input.audienceStatus,
+      audience_status: statuses.join(","),
+      audience_statuses: statuses,
       audience_plan: input.audiencePlan === "all" ? null : input.audiencePlan || null,
-      status: "queued",
+      body_format: input.bodyFormat,
+      scheduled_for: scheduledFor.toISOString(),
+      status: isScheduled ? "scheduled" : "queued",
       recipients_total: recipients.length,
     })
     .select("*")
@@ -331,15 +361,16 @@ export async function createCampaign(input: CampaignInput) {
     dedupe_key: `campaign:${campaign.id}:${license.customers?.email?.toLowerCase()}`,
     subject: input.subject,
     body: input.body,
+    body_format: input.bodyFormat,
     status: "queued",
-    scheduled_for: new Date().toISOString(),
+    scheduled_for: scheduledFor.toISOString(),
   }));
   const { error: deliveryError } = await db().from("email_campaign_deliveries").insert(deliveries);
   if (deliveryError) {
     await db().from("email_campaigns").update({ status: "failed" }).eq("id", campaign.id);
     throw new Error(deliveryError.message);
   }
-  return { campaign, recipients: recipients.length };
+  return { campaign, recipients: recipients.length, scheduled: isScheduled };
 }
 
 export async function queuePersonalizedEmail(licenseId: string, subject: string, body: string) {
@@ -406,7 +437,7 @@ export async function queuePersonalizedEmail(licenseId: string, subject: string,
 async function seedActivationReminders() {
   const settings = await getAutomationSettings();
   if (!settings.enabled) return 0;
-  const candidates = await audience("awaiting_activation");
+  const candidates = await audience(["awaiting_activation"]);
   let queued = 0;
   for (const license of candidates) {
     const ageHours = (Date.now() - Date.parse(license.created_at)) / 3_600_000;
@@ -520,6 +551,7 @@ export async function processEmailQueue(limit = 30) {
       delivery.subject,
       delivery.body,
       delivery.purpose,
+      delivery.body_format || "text",
     );
     if (result.sent) {
       await db()
@@ -578,7 +610,7 @@ export async function campaignDashboard() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(80),
-    audience("all"),
+    audience(["all"]),
   ]);
   const counts = {
     all: licenses.length,

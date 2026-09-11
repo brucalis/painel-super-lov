@@ -214,18 +214,24 @@ const campaignSchema = z.object({
   name: z.string().trim().min(2).max(120),
   subject: z.string().trim().min(2).max(180),
   body: z.string().trim().min(2).max(12_000),
-  audienceStatus: z.enum([
-    "all",
-    "awaiting_activation",
-    "activated",
-    "active",
-    "expired",
-    "pending",
-    "canceled",
-    "refunded",
-    "revoked",
-  ]),
+  audienceStatuses: z
+    .array(
+      z.enum([
+        "all",
+        "awaiting_activation",
+        "activated",
+        "active",
+        "expired",
+        "pending",
+        "canceled",
+        "refunded",
+        "revoked",
+      ]),
+    )
+    .min(1),
   audiencePlan: z.string().trim().max(120).nullable().optional(),
+  bodyFormat: z.enum(["text", "html"]),
+  scheduledFor: z.string().datetime().nullable().optional(),
 });
 
 export const getEmailCampaignDashboard = createServerFn({ method: "POST" })

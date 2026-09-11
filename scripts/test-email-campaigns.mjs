@@ -14,6 +14,10 @@ const migration = readFileSync(
   new URL("../supabase/migrations/20260911200000_email_campaigns.sql", import.meta.url),
   "utf8",
 );
+const schedulingMigration = readFileSync(
+  new URL("../supabase/migrations/20260911213000_email_campaign_scheduling.sql", import.meta.url),
+  "utf8",
+);
 const panel = readFileSync(
   new URL("../src/components/admin/email-campaigns-tab.tsx", import.meta.url),
   "utf8",
@@ -43,10 +47,14 @@ test("rota automática exige segredo e agenda execução periódica", () => {
   assert.match(migration, /email_campaign_scheduler_status/);
 });
 
-test("painel oferece filtros, modelos e histórico", () => {
+test("painel oferece configuração limpa, múltiplos públicos e progresso", () => {
   assert.match(panel, /Aguardando ativação/);
   assert.match(panel, /Tipo de licença/);
-  assert.match(panel, /Campanhas recentes/);
-  assert.match(panel, /Últimos envios/);
-  assert.match(panel, /Somente se não ativou/);
+  assert.match(panel, /HTML personalizado/);
+  assert.match(panel, /Agendar campanha/);
+  assert.match(panel, /Progress value/);
+  assert.match(panel, /audienceStatuses/);
+  assert.match(schedulingMigration, /scheduled_for/);
+  assert.match(schedulingMigration, /audience_statuses/);
+  assert.match(schedulingMigration, /body_format/);
 });
