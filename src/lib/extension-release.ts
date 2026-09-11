@@ -1,10 +1,20 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "11.09.S1",
-  technicalVersion: "33.0.24",
+  version: "11.09.S2",
+  technicalVersion: "33.0.25",
   updatedAt: "11/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=11.09.S1",
-  downloadName: "superlovable-11.09.S1.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=11.09.S2",
+  downloadName: "superlovable-11.09.S2.zip",
   changelog: [
+    {
+      version: "11.09.S2",
+      date: "11/09/2026",
+      changes: [
+        "Projeto Lovable aberto passa a ser identificado automaticamente e associado ao repositório quando o vínculo pode ser detectado.",
+        "Depois da primeira associação manual, a Super Lovable memoriza o projeto e reduz a necessidade de selecionar repositório novamente.",
+        "Onboarding do GitHub ficou progressivo e a atualização da extensão ganhou limpeza segura de cache sem remover login ou licença.",
+        "Cloudflare, Gemini e OpenRouter continuam usando exclusivamente as credenciais informadas pelo próprio usuário.",
+      ],
+    },
     {
       version: "11.09.S1",
       date: "11/09/2026",
