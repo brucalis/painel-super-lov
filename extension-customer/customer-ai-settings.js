@@ -2,27 +2,22 @@
   if (globalThis.SUPER_LOVABLE_EDITION?.mode !== "customer") return;
 
   const API = "https://painel-super-lov.lovable.app/api/public/agent";
-  const PANEL_OPEN_KEY = "sl_connection_panel_open_v5";
+  const PANEL_OPEN_KEY = "sl_connection_panel_open_v6";
   const BATCH_TASK_KEY = "sl_agent_batch_task_v1";
   const CONTEXT_RECOVERY_KEY = "sl_context_recovery_v2";
   const WATCHDOG_RECOVERY_KEY = "sl_watchdog_recovery_v2";
-  const AI_PROVIDERS = ["cloudflare", "gemini", "openrouter"];
-  const REQUIRED_PROVIDERS = ["cloudflare"];
-  const providerLabel = {
-    cloudflare: "Cloudflare",
-    gemini: "Gemini",
-    openrouter: "OpenRouter",
-  };
+  const AI_PROVIDERS = ["mistral", "gemini", "cloudflare"];
+  const providerLabel = { mistral: "Mistral", gemini: "Gemini", cloudflare: "Cloudflare" };
   const providerLinks = {
-    cloudflare: "https://dash.cloudflare.com/",
+    mistral: "https://admin.mistral.ai/organization/api-keys",
     gemini: "https://aistudio.google.com/app/apikey",
-    openrouter: "https://openrouter.ai/keys",
+    cloudflare: "https://dash.cloudflare.com/",
   };
 
   const connectionState = {
-    cloudflare: false,
+    mistral: false,
     gemini: false,
-    openrouter: false,
+    cloudflare: false,
     github: false,
     project: false,
     repository: "",
@@ -37,15 +32,9 @@
   let lastExecutionActivityAt = Date.now();
   let lastExecutionSnapshot = "";
 
-  function isContextInvalidated(value) {
-    return /Extension context invalidated/i.test(String(value?.message || value || ""));
-  }
-  function localNumber(key) {
-    try { return Number(localStorage.getItem(key) || 0); } catch { return 0; }
-  }
-  function setLocalNumber(key, value) {
-    try { localStorage.setItem(key, String(value)); } catch {}
-  }
+  function isContextInvalidated(value) { return /Extension context invalidated/i.test(String(value?.message || value || "")); }
+  function localNumber(key) { try { return Number(localStorage.getItem(key) || 0); } catch { return 0; } }
+  function setLocalNumber(key, value) { try { localStorage.setItem(key, String(value)); } catch {} }
   function showRecoveryMessage(message) {
     const agent = document.getElementById("sl-github-agent");
     const progress = document.getElementById("sl-agent-progress");
@@ -97,12 +86,8 @@
       } catch (error) { reject(error); }
     });
   }
-  async function safeStorageGet(keys) {
-    try { return await storageGet(keys); } catch (error) { recoverInvalidatedContext(error); throw error; }
-  }
-  async function safeStorageSet(values) {
-    try { await storageSet(values); } catch (error) { recoverInvalidatedContext(error); throw error; }
-  }
+  async function safeStorageGet(keys) { try { return await storageGet(keys); } catch (error) { recoverInvalidatedContext(error); throw error; } }
+  async function safeStorageSet(values) { try { await storageSet(values); } catch (error) { recoverInvalidatedContext(error); throw error; } }
 
   const request = async (path = "", options = {}) => {
     const session = await safeStorageGet(["ql_session_id"]);
@@ -118,9 +103,7 @@
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
       const raw = data.error || "Não foi possível concluir a configuração.";
-      if (/Provedor inválido/i.test(raw)) {
-        throw new Error("O backend do painel ainda está em uma versão anterior. Publique a atualização do Painel Super Lovable e tente novamente.");
-      }
+      if (/Provedor inválido/i.test(raw)) throw new Error("O backend do painel ainda está em uma versão anterior. Publique a atualização do Painel Super Lovable e tente novamente.");
       throw new Error(raw);
     }
     return data;
@@ -132,15 +115,9 @@
     details.open = open;
     queueMicrotask(() => { suppressPanelToggle = false; });
   }
-  async function persistPanelPreference(open) {
-    panelPreferredOpen = open;
-    try { await safeStorageSet({ [PANEL_OPEN_KEY]: open }); } catch {}
-  }
+  async function persistPanelPreference(open) { panelPreferredOpen = open; try { await safeStorageSet({ [PANEL_OPEN_KEY]: open }); } catch {} }
   async function loadPanelPreference() {
-    try {
-      const stored = await safeStorageGet([PANEL_OPEN_KEY]);
-      if (typeof stored[PANEL_OPEN_KEY] === "boolean") panelPreferredOpen = stored[PANEL_OPEN_KEY];
-    } catch {}
+    try { const stored = await safeStorageGet([PANEL_OPEN_KEY]); if (typeof stored[PANEL_OPEN_KEY] === "boolean") panelPreferredOpen = stored[PANEL_OPEN_KEY]; } catch {}
     renderOverallStatus();
   }
   function setStatusText(element, kind, text) {
@@ -171,23 +148,21 @@
     const list = document.getElementById("sl-connection-checklist");
     if (!summary || !details) return;
 
-    const requiredReady = REQUIRED_PROVIDERS.every((provider) => connectionState[provider]);
-    const optionalCount = ["gemini", "openrouter"].filter((provider) => connectionState[provider]).length;
+    const aiCount = AI_PROVIDERS.filter((provider) => connectionState[provider]).length;
+    const aiReady = aiCount > 0;
     const projectReady = connectionState.github && connectionState.project;
-    const operational = requiredReady && projectReady;
-    const fullRedundancy = optionalCount === 2;
+    const operational = aiReady && projectReady;
+    const fullRedundancy = aiCount === AI_PROVIDERS.length;
     const becameOperational = operational && !connectionState.ready;
     connectionState.ready = operational;
 
-    const stateKey = `${operational}:${requiredReady}:${optionalCount}:${projectReady}`;
+    const stateKey = `${operational}:${aiCount}:${projectReady}`;
     if (summary.dataset.state !== stateKey) {
       summary.dataset.state = stateKey;
       summary.dataset.kind = operational ? "success" : "warning";
-      let helper = "Conecte a Cloudflare para habilitar a ferramenta";
-      if (requiredReady && !projectReady) helper = "Cloudflare pronta · conclua a conexão do projeto";
-      if (operational) helper = fullRedundancy
-        ? "Cloudflare ativa · Gemini + OpenRouter em contingência"
-        : `Cloudflare ativa · ${optionalCount}/2 contingências opcionais`;
+      let helper = "Conecte pelo menos uma IA; recomendamos as três para máxima continuidade";
+      if (aiReady && !projectReady) helper = `${aiCount}/3 IAs prontas · conclua a conexão do projeto`;
+      if (operational) helper = fullRedundancy ? "Mistral + Gemini + Cloudflare disponíveis" : `${aiCount}/3 IAs conectadas · contingência parcial`;
       summary.innerHTML = `
         <span class="sl-connection-dot"></span>
         <span><strong>Status:</strong> ${operational ? "Conectado" : "Configuração necessária"}</span>
@@ -196,14 +171,14 @@
     }
 
     if (list) {
-      const checklistState = [connectionState.cloudflare, connectionState.gemini, connectionState.openrouter, projectReady].map(Boolean).join(":");
+      const checklistState = [connectionState.mistral, connectionState.gemini, connectionState.cloudflare, projectReady].map(Boolean).join(":");
       if (list.dataset.state !== checklistState) {
         list.dataset.state = checklistState;
         const item = (done, text) => `<span class="${done ? "is-ready" : ""}"><b>${done ? "✓" : "○"}</b>${text}</span>`;
         list.innerHTML =
-          item(connectionState.cloudflare, "Cloudflare · obrigatória") +
-          item(connectionState.gemini, "Gemini · contingência") +
-          item(connectionState.openrouter, "OpenRouter · contingência") +
+          item(connectionState.mistral, "Mistral · código rápido") +
+          item(connectionState.gemini, "Gemini · contexto complexo") +
+          item(connectionState.cloudflare, "Cloudflare · contingência") +
           item(projectReady, "Projeto");
       }
     }
@@ -283,9 +258,7 @@
   }
 
   function providerForm(provider, title, description, placeholder) {
-    const accountField = provider === "cloudflare"
-      ? `<input id="sl-ai-cloudflare-account" type="text" autocomplete="off" spellcheck="false" placeholder="Account ID da Cloudflare">`
-      : "";
+    const accountField = provider === "cloudflare" ? `<input id="sl-ai-cloudflare-account" type="text" autocomplete="off" spellcheck="false" placeholder="Account ID da Cloudflare">` : "";
     return `<form id="sl-ai-${provider}-form" class="sl-setup-block">
       <div class="sl-setup-heading">
         <div><strong>${title}</strong><small>${description}</small></div>
@@ -361,11 +334,7 @@
     if (agent.hidden !== shouldHide) agent.hidden = shouldHide;
     renderProjectStatus();
   }
-  function scheduleSyncAgentLayout() {
-    if (syncScheduled) return;
-    syncScheduled = true;
-    setTimeout(syncAgentLayout, 120);
-  }
+  function scheduleSyncAgentLayout() { if (syncScheduled) return; syncScheduled = true; setTimeout(syncAgentLayout, 120); }
   function updateExecutionActivity() {
     const status = document.getElementById("sl-agent-status");
     const progress = document.getElementById("sl-agent-progress");
@@ -402,11 +371,11 @@
     details.innerHTML = `
       <summary id="sl-connection-summary" data-kind="warning"></summary>
       <div class="sl-connection-content">
-        <p class="sl-connection-intro"><strong>Cloudflare é a IA principal obrigatória.</strong> Gemini é a segunda tentativa e OpenRouter é a última contingência; ambos são opcionais.</p>
+        <p class="sl-connection-intro"><strong>Roteamento inteligente de IA.</strong> Tarefas simples priorizam Mistral; tarefas complexas priorizam Gemini; Cloudflare entra como contingência econômica. Basta uma IA para funcionar, mas recomendamos conectar as três.</p>
         <div id="sl-connection-checklist" class="sl-connection-checklist"></div>
-        ${providerForm("cloudflare", "Cloudflare · Principal", "Primeira IA usada para planejar suas alterações.", "Cole aqui seu API Token Workers AI")}
-        ${providerForm("gemini", "Gemini · 2ª tentativa opcional", "Assume automaticamente se a Cloudflare não conseguir concluir.", "Cole aqui a chave Gemini")}
-        ${providerForm("openrouter", "OpenRouter · Última contingência", "Última alternativa, usando o roteador gratuito quando disponível.", "Cole aqui a chave OpenRouter")}
+        ${providerForm("mistral", "Mistral · Código rápido", "Prioridade para alterações simples e médias, usando Codestral quando disponível.", "Cole aqui sua chave Mistral")}
+        ${providerForm("gemini", "Gemini · Contexto complexo", "Prioridade automática para tarefas grandes e multiarquivo.", "Cole aqui a chave Gemini")}
+        ${providerForm("cloudflare", "Cloudflare · Contingência", "Terceira opção automática para preservar continuidade quando as demais atingirem limite.", "Cole aqui seu API Token Workers AI")}
         <div id="sl-project-connection" class="sl-project-connection"></div>
       </div>`;
     host.appendChild(details);
