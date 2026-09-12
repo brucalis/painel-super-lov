@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const CREDENTIAL_API_VERSION = "ai-credentials-v8-cloudflare-primary";
-const SUPPORTED_AI_PROVIDERS = ["cloudflare", "gemini", "openrouter"] as const;
-const REQUIRED_AI_PROVIDERS = ["cloudflare"] as const;
+const CREDENTIAL_API_VERSION = "ai-credentials-v9-mistral-gemini-cloudflare";
+const SUPPORTED_AI_PROVIDERS = ["mistral", "gemini", "cloudflare"] as const;
+const REQUIRED_AI_PROVIDERS: readonly string[] = [];
 type Provider = (typeof SUPPORTED_AI_PROVIDERS)[number];
 
 type CredentialBody = {
@@ -24,9 +24,9 @@ function normalizeProvider(value: unknown): Provider | "" {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "");
-  if (normalized.includes("openrouter")) return "openrouter";
-  if (normalized.includes("cloudflare")) return "cloudflare";
+  if (normalized.includes("mistral") || normalized.includes("codestral")) return "mistral";
   if (normalized.includes("gemini")) return "gemini";
+  if (normalized.includes("cloudflare")) return "cloudflare";
   return "";
 }
 
@@ -65,7 +65,7 @@ export const Route = createFileRoute("/api/public/agent/ai-credentials")({
           const provider = normalizeProvider(body.provider ?? body.ai_provider ?? body.providerId ?? body.type);
           const apiKey = String(body.api_key ?? body.apiKey ?? body.key ?? "").trim();
           const accountId = String(body.account_id ?? body.accountId ?? "").trim();
-          if (!provider) return json({ ok: false, error: "Provedor inválido (rota v7).", supportedProviders: [...SUPPORTED_AI_PROVIDERS] }, 400);
+          if (!provider) return json({ ok: false, error: "Provedor inválido (rota v9).", supportedProviders: [...SUPPORTED_AI_PROVIDERS] }, 400);
           return json({
             ok: true,
             ...(await credentials.saveCustomerAiKey(auth.license.id, provider, apiKey, { accountId })),
@@ -84,7 +84,7 @@ export const Route = createFileRoute("/api/public/agent/ai-credentials")({
           const auth = await agent.requireAgentLicense(request);
           if (!credentials.isCustomerEdition(request)) return json({ ok: false, error: "Recurso exclusivo da edição do cliente." }, 404);
           const provider = normalizeProvider(new URL(request.url).searchParams.get("provider"));
-          if (!provider) return json({ ok: false, error: "Provedor inválido (rota v7)." }, 400);
+          if (!provider) return json({ ok: false, error: "Provedor inválido (rota v9)." }, 400);
           await credentials.deleteCustomerAiKey(auth.license.id, provider);
           return json({ ok: true, provider, configured: false, credentialApiVersion: CREDENTIAL_API_VERSION });
         } catch (error) {
