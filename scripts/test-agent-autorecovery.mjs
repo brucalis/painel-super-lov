@@ -14,6 +14,7 @@ const customerStackAgent = await readFile(new URL("../src/lib/github-agent-custo
 const planRoute = await readFile(new URL("../src/routes/api/public/agent/plan.ts", import.meta.url), "utf8");
 const credentialsRoute = await readFile(new URL("../src/routes/api/public/agent/ai-credentials.ts", import.meta.url), "utf8");
 const decomposeRoute = await readFile(new URL("../src/routes/api/public/agent/decompose.ts", import.meta.url), "utf8");
+const versionRoute = await readFile(new URL("../src/routes/api/public/agent/version.ts", import.meta.url), "utf8");
 
 test("a retomada não depende de botões ou cliques no DOM", () => {
   assert.doesNotMatch(panel, /Retomar da etapa|Continuar da etapa/);
@@ -92,39 +93,58 @@ test("tentativas do agente legado não são multiplicadas entre camadas", () => 
   assert.match(resilient, /MAX_PLAN_ATTEMPTS = 1/);
 });
 
-test("stack comercial usa Cloudflare primeiro e contingencias opcionais", () => {
-  assert.match(credentialsRoute, /\["cloudflare", "gemini", "openrouter"\]/);
-  assert.match(credentialsRoute, /REQUIRED_AI_PROVIDERS = \["cloudflare"\]/);
+test("stack comercial usa apenas Mistral Gemini e Cloudflare", () => {
+  assert.match(credentialsRoute, /\["mistral", "gemini", "cloudflare"\]/);
+  assert.match(credentialsRoute, /REQUIRED_AI_PROVIDERS: readonly string\[\] = \[\]/);
+  assert.match(credentials, /codestral-2508/);
   assert.match(credentials, /@cf\/openai\/gpt-oss-20b/);
-  assert.match(credentials, /openrouter\/free/);
-  assert.match(planRoute, /!stack\.cloudflare/);
-  assert.match(planRoute, /stack\.cloudflare, stack\.gemini, stack\.openrouter/);
+  assert.doesNotMatch(credentialsRoute, /openrouter/);
+  assert.doesNotMatch(credentials, /openrouter\/free/);
   assert.match(planRoute, /CUSTOMER_REQUIRED_AI_NOT_CONFIGURED/);
 });
 
-test("planner comercial suporta Cloudflare Gemini e OpenRouter", () => {
-  assert.match(customerStackAgent, /api\.cloudflare\.com\/client\/v4\/accounts/);
+test("roteamento inteligente prioriza Mistral no simples e Gemini no complexo", () => {
+  assert.match(planRoute, /complexity === "complex"/);
+  assert.match(planRoute, /\[stack\.gemini, stack\.mistral, stack\.cloudflare\]/);
+  assert.match(planRoute, /\[stack\.mistral, stack\.gemini, stack\.cloudflare\]/);
+  assert.match(versionRoute, /simple: \["mistral", "gemini", "cloudflare"\]/);
+  assert.match(versionRoute, /complex: \["gemini", "mistral", "cloudflare"\]/);
+});
+
+test("planner comercial suporta Mistral Gemini e Cloudflare sem OpenRouter", () => {
+  assert.match(customerStackAgent, /api\.mistral\.ai\/v1\/chat\/completions/);
   assert.match(customerStackAgent, /generativelanguage\.googleapis\.com/);
-  assert.match(customerStackAgent, /openrouter\.ai\/api\/v1\/chat\/completions/);
+  assert.match(customerStackAgent, /api\.cloudflare\.com\/client\/v4\/accounts/);
+  assert.doesNotMatch(customerStackAgent, /openrouter\.ai/);
   assert.match(customerStackAgent, /resolveGeminiModels/);
   assert.match(customerStackAgent, /response_format: \{ type: "json_object" \}/);
-  assert.match(customerStackAgent, /REDUCED_CONTEXT_CHARS/);
   assert.match(customerStackAgent, /prepareCustomerPlan/);
   assert.match(customerStackAgent, /planPreparedCustomerProvider/);
-  assert.match(planRoute, /reducedContext: Boolean\(body\.reduced_context\)/);
   assert.match(planRoute, /retryable: failures\.some/);
   assert.match(planRoute, /traceId/);
   assert.match(panel, /CUSTOMER_AI_STACK_EXHAUSTED/);
   assert.match(panel, /error\.providerFailures/);
 });
 
-test("painel só exige Cloudflare e projeto", () => {
-  assert.match(customerSettings, /REQUIRED_PROVIDERS = \["cloudflare"\]/);
-  assert.doesNotMatch(customerSettings, /providerForm\("grok"/);
-  assert.match(customerSettings, /const requiredReady = REQUIRED_PROVIDERS\.every/);
-  assert.match(customerSettings, /const operational = requiredReady && projectReady/);
-  assert.match(customerSettings, /Gemini · 2ª tentativa opcional/);
-  assert.match(customerSettings, /OpenRouter · Última contingência/);
+test("economizador reduz contexto antes de chamar IA", () => {
+  assert.match(customerStackAgent, /classifyCustomerTask/);
+  assert.match(customerStackAgent, /return \{ chars: 8_000, files: 2 \}/);
+  assert.match(customerStackAgent, /return \{ chars: 16_000, files: 4 \}/);
+  assert.match(customerStackAgent, /MAX_CONTEXT_CHARS = 24_000/);
+  assert.match(customerStackAgent, /promptAwareExcerpt/);
+  assert.match(customerStackAgent, /scorePath/);
+  assert.match(customerStackAgent, /compactProviderPayload/);
+  assert.match(customerStackAgent, /menor alteração possível para reduzir tokens, latência e risco/);
+});
+
+test("painel funciona com pelo menos uma IA e recomenda as três", () => {
+  assert.match(customerSettings, /AI_PROVIDERS = \["mistral", "gemini", "cloudflare"\]/);
+  assert.match(customerSettings, /const aiReady = aiCount > 0/);
+  assert.match(customerSettings, /const operational = aiReady && projectReady/);
+  assert.match(customerSettings, /Mistral · Código rápido/);
+  assert.match(customerSettings, /Gemini · Contexto complexo/);
+  assert.match(customerSettings, /Cloudflare · Contingência/);
+  assert.doesNotMatch(customerSettings, /OpenRouter ·/);
   assert.match(customerSettings, /A nova credencial não foi aceita\. A conexão anterior/);
 });
 
