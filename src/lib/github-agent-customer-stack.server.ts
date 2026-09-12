@@ -5,15 +5,16 @@ import type { CustomerProviderCredential } from "@/lib/customer-ai-credentials.s
 const GITHUB_API = "https://api.github.com";
 const USER_AGENT = "SuperLovable-CustomerAI";
 const MAX_CONTEXT_FILES = 5;
-const MAX_CONTEXT_CHARS = 30_000;
+const MAX_CONTEXT_CHARS = 24_000;
 const REDUCED_CONTEXT_FILES = 3;
-const REDUCED_CONTEXT_CHARS = 12_000;
+const REDUCED_CONTEXT_CHARS = 10_000;
 const CLOUDFLARE_CODE_MODEL = "@cf/openai/gpt-oss-20b";
 
 type AgentAuth = { license: { id: string } };
 type ContextFile = { path: string; content: string };
 type ProposedFile = { path: string; content: string };
 type ProposedEdit = { path: string; search: string; replace: string };
+export type CustomerTaskComplexity = "simple" | "medium" | "complex";
 
 const githubHeaders = (token: string) => ({
   Accept: "application/vnd.github+json",
@@ -28,22 +29,17 @@ async function githubJson<T>(url: string, token: string, init?: RequestInit): Pr
   if (!response.ok) throw new Error(`GitHub respondeu ${response.status}: ${raw.slice(0, 320)}`);
   return raw ? (JSON.parse(raw) as T) : ({} as T);
 }
-
-function contentPath(path: string) {
-  return path.split("/").map(encodeURIComponent).join("/");
-}
+function contentPath(path: string) { return path.split("/").map(encodeURIComponent).join("/"); }
 function decodeBase64Utf8(value: string) {
   const binary = atob(value.replace(/\n/g, ""));
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   return new TextDecoder().decode(bytes);
 }
 function safePath(path: string) {
-  return Boolean(
-    path && !path.startsWith("/") && !path.includes("..") &&
+  return Boolean(path && !path.startsWith("/") && !path.includes("..") &&
     !/(^|\/)(\.env(?:\.|$)|\.git|\.github\/workflows|node_modules|dist|\.output)(\/|$)/i.test(path) &&
     !/(?:^|\/)(?:package-lock|pnpm-lock|yarn\.lock)$/i.test(path) &&
-    !/\.(?:png|jpe?g|gif|webp|ico|woff2?|ttf|otf|zip|pdf|mp4|mp3)$/i.test(path),
-  );
+    !/\.(?:png|jpe?g|gif|webp|ico|woff2?|ttf|otf|zip|pdf|mp4|mp3)$/i.test(path));
 }
 function promptWords(prompt: string) {
   return prompt.toLowerCase().split(/[^a-z0-9á-ú_-]+/).filter((word) => word.length >= 4);
@@ -57,6 +53,22 @@ function scorePath(path: string, prompt: string) {
   if (/^src\/(routes|pages)\/index\.(tsx|ts|jsx|js)$/.test(lower)) score += 24;
   if (/^src\/(app|main)\.(tsx|ts|jsx|js)$/.test(lower)) score += 18;
   return score;
+}
+
+export function classifyCustomerTask(prompt: string): CustomerTaskComplexity {
+  const text = String(prompt || "").toLowerCase();
+  const complexSignals = /(reformul|redesign|refator|arquitet|integra|várias seções|varias secoes|múltipl|multipl|responsiv.*página|pagina inteira|site inteiro|fluxo completo|autentica|banco de dados)/i;
+  const simpleSignals = /(troque|mude|altere|remova|adicione|corrija).{0,80}(texto|cor|título|titulo|link|botão|botao|badge|menu|label|placeholder|classe)/i;
+  if (text.length > 1800 || complexSignals.test(text)) return "complex";
+  if (text.length < 500 && simpleSignals.test(text)) return "simple";
+  return "medium";
+}
+
+function contextBudget(complexity: CustomerTaskComplexity, reduced: boolean) {
+  if (reduced) return { chars: REDUCED_CONTEXT_CHARS, files: REDUCED_CONTEXT_FILES };
+  if (complexity === "simple") return { chars: 8_000, files: 2 };
+  if (complexity === "medium") return { chars: 16_000, files: 4 };
+  return { chars: MAX_CONTEXT_CHARS, files: MAX_CONTEXT_FILES };
 }
 
 function promptAwareExcerpt(full: string, prompt: string, allowance: number) {
@@ -75,10 +87,7 @@ function promptAwareExcerpt(full: string, prompt: string, allowance: number) {
       const end = Math.min(lower.length, start + allowance);
       const window = lower.slice(start, end);
       const score = words.reduce((total, candidate) => total + (window.includes(candidate) ? candidate.length : 0), 0);
-      if (score > bestScore) {
-        bestScore = score;
-        bestIndex = index;
-      }
+      if (score > bestScore) { bestScore = score; bestIndex = index; }
       occurrences += 1;
       from = index + word.length;
     }
@@ -95,32 +104,33 @@ async function readRepositoryFile(token: string, repo: string, branch: string, p
 }
 
 async function selectedContext(token: string, repo: string, branch: string, prompt: string, reducedContext = false) {
+  const complexity = classifyCustomerTask(prompt);
+  const budget = contextBudget(complexity, reducedContext);
   const ref = await githubJson<{ object: { sha: string } }>(`${GITHUB_API}/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, token);
   const commit = await githubJson<{ tree: { sha: string } }>(`${GITHUB_API}/repos/${repo}/git/commits/${ref.object.sha}`, token);
   const tree = await githubJson<{ tree?: Array<{ path?: string; type?: string; size?: number }> }>(`${GITHUB_API}/repos/${repo}/git/trees/${commit.tree.sha}?recursive=1`, token);
   const repositoryPaths = (tree.tree || []).filter((item) => item.type === "blob" && safePath(String(item.path || ""))).map((item) => String(item.path || ""));
-  const candidates = [...repositoryPaths].sort((a, b) => scorePath(b, prompt) - scorePath(a, prompt)).slice(0, 18);
+  const candidates = [...repositoryPaths].sort((a, b) => scorePath(b, prompt) - scorePath(a, prompt)).slice(0, complexity === "simple" ? 8 : 18);
   const files: ContextFile[] = [];
-  let remaining = reducedContext ? REDUCED_CONTEXT_CHARS : MAX_CONTEXT_CHARS;
-  const maxFiles = reducedContext ? REDUCED_CONTEXT_FILES : MAX_CONTEXT_FILES;
+  let remaining = budget.chars;
   for (const path of candidates) {
-    if (files.length >= maxFiles || remaining <= 0) break;
+    if (files.length >= budget.files || remaining <= 0) break;
     try {
       const full = await readRepositoryFile(token, repo, branch, path);
       if (!full) continue;
-      const allowance = Math.min(remaining, 7_000);
+      const allowance = Math.min(remaining, complexity === "simple" ? 4_000 : 7_000);
       const content = promptAwareExcerpt(full, prompt, allowance);
       remaining -= content.length;
       files.push({ path, content });
     } catch {}
   }
-  return { baseSha: ref.object.sha, repositoryPaths, candidates, files };
+  return { baseSha: ref.object.sha, repositoryPaths, candidates, files, complexity };
 }
 
-const systemPrompt = `Você é o agente de programação da Super Lovable. Retorne SOMENTE JSON válido, sem markdown e sem explicações fora do JSON. Formato: {"summary":"resumo em português","commit_message":"mensagem curta em português","edits":[{"path":"arquivo existente","search":"trecho EXATO e único do conteúdo atual","replace":"novo trecho"}],"new_files":[{"path":"novo arquivo","content":"conteúdo completo"}]}. Use exclusivamente caminhos listados em available_files. Para arquivos existentes, faça alterações cirúrgicas e nunca devolva o arquivo inteiro. Preserve tudo que não foi solicitado. Não edite .env, workflows, lockfiles, binários, arquivos gerados ou segredos. No máximo 8 edits e 4 arquivos no total. Se o contexto não mostrar exatamente o trecho necessário, faça uma alteração menor e segura em um arquivo carregado. O campo search deve copiar literalmente um trecho único presente em files.`;
+const systemPrompt = `Você é o agente de programação da Super Lovable. Retorne SOMENTE JSON válido, sem markdown e sem explicações fora do JSON. Formato: {"summary":"resumo em português","commit_message":"mensagem curta em português","edits":[{"path":"arquivo existente","search":"trecho EXATO e único do conteúdo atual","replace":"novo trecho"}],"new_files":[{"path":"novo arquivo","content":"conteúdo completo"}]}. Use exclusivamente caminhos listados em available_files. Para arquivos existentes, faça alterações cirúrgicas e nunca devolva o arquivo inteiro. Preserve tudo que não foi solicitado. Não edite .env, workflows, lockfiles, binários, arquivos gerados ou segredos. No máximo 8 edits e 4 arquivos no total. O campo search deve copiar literalmente um trecho único presente em files. Priorize a menor alteração possível para reduzir tokens, latência e risco.`;
 
 function providerLabel(provider: CustomerProviderCredential["provider"]) {
-  return provider === "grok" ? "Grok" : provider === "cloudflare" ? "Cloudflare" : provider === "gemini" ? "Gemini" : "OpenRouter";
+  return provider === "mistral" ? "Mistral" : provider === "gemini" ? "Gemini" : "Cloudflare";
 }
 function extractJson(raw: string, provider: string) {
   const cleaned = String(raw || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
@@ -130,45 +140,29 @@ function extractJson(raw: string, provider: string) {
     throw new Response(`${provider} não retornou um plano de código válido.`, { status: 502 });
   }
 }
-
 function compactProviderPayload(payload: string, maxChars: number) {
   if (payload.length <= maxChars) return payload;
   try {
     const parsed = JSON.parse(payload) as Record<string, unknown> & { files?: ContextFile[]; available_files?: string[] };
     const files = (parsed.files || []).map((file) => ({
       path: file.path,
-      content: String(file.content || "").slice(0, Math.max(1800, Math.floor(maxChars / Math.max(1, (parsed.files || []).length + 1)))),
+      content: String(file.content || "").slice(0, Math.max(1600, Math.floor(maxChars / Math.max(1, (parsed.files || []).length + 1)))),
     }));
-    return JSON.stringify({ ...parsed, available_files: (parsed.available_files || []).slice(0, 420), files }).slice(0, maxChars);
-  } catch {
-    return payload.slice(0, maxChars);
-  }
+    return JSON.stringify({ ...parsed, available_files: (parsed.available_files || []).slice(0, 320), files }).slice(0, maxChars);
+  } catch { return payload.slice(0, maxChars); }
 }
-
 function providerTimeoutMs(provider: CustomerProviderCredential["provider"]) {
-  if (provider === "cloudflare") return 30_000;
-  if (provider === "openrouter") return 35_000;
-  if (provider === "gemini") return 32_000;
-  return 40_000;
+  if (provider === "mistral") return 32_000;
+  if (provider === "gemini") return 36_000;
+  return 30_000;
 }
 
 async function resolveGeminiModels(apiKey: string, preferred: string, signal: AbortSignal) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`, { signal });
   if (!response.ok) return [...new Set([preferred, "gemini-2.5-flash", "gemini-2.5-flash-lite"].filter(Boolean))];
   const data = await response.json() as { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };
-  const available = (data.models || [])
-    .filter((item) => (item.supportedGenerationMethods || []).includes("generateContent"))
-    .map((item) => String(item.name || "").replace(/^models\//, ""))
-    .filter(Boolean);
-  return [...new Set([
-    ...(preferred && available.includes(preferred) ? [preferred] : []),
-    available.find((id) => id === "gemini-2.5-flash"),
-    available.find((id) => id === "gemini-2.5-flash-lite"),
-    available.find((id) => /flash/i.test(id)),
-    available[0],
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-  ].filter((id): id is string => Boolean(id)))];
+  const available = (data.models || []).filter((item) => (item.supportedGenerationMethods || []).includes("generateContent")).map((item) => String(item.name || "").replace(/^models\//, "")).filter(Boolean);
+  return [...new Set([...(preferred && available.includes(preferred) ? [preferred] : []), available.find((id) => id === "gemini-2.5-flash"), available.find((id) => id === "gemini-2.5-flash-lite"), available.find((id) => /flash/i.test(id)), available[0], "gemini-2.5-flash", "gemini-2.5-flash-lite"].filter((id): id is string => Boolean(id)))];
 }
 
 async function callProvider(payload: string, credential: CustomerProviderCredential) {
@@ -179,14 +173,11 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
     let response: Response;
     let raw = "";
     let model = credential.model;
-    const providerPayload = compactProviderPayload(
-      payload,
-      credential.provider === "cloudflare" ? 12_000 : credential.provider === "openrouter" ? 16_000 : 22_000,
-    );
+    const providerPayload = compactProviderPayload(payload, credential.provider === "cloudflare" ? 10_000 : credential.provider === "mistral" ? 18_000 : 22_000);
 
-    if (credential.provider === "grok") {
-      model ||= "grok-4.6";
-      response = await fetch("https://api.x.ai/v1/chat/completions", {
+    if (credential.provider === "mistral") {
+      model ||= "codestral-2508";
+      response = await fetch("https://api.mistral.ai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${credential.apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, temperature: 0.1, max_tokens: 2200, response_format: { type: "json_object" }, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }] }),
@@ -197,21 +188,6 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
         const data = JSON.parse(text) as { model?: string; choices?: Array<{ message?: { content?: string } }> };
         model = String(data.model || model);
         raw = String(data.choices?.[0]?.message?.content || "");
-      }
-      if (!response.ok) raw = text;
-    } else if (credential.provider === "cloudflare") {
-      if (!credential.accountId) throw new Response("A conexão Cloudflare está sem Account ID. Substitua a credencial.", { status: 422 });
-      model = CLOUDFLARE_CODE_MODEL;
-      response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(credential.accountId)}/ai/run/${model}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${credential.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }], max_tokens: 1600, temperature: 0.1, response_format: { type: "json_object" } }),
-        signal: controller.signal,
-      });
-      const text = await response.text();
-      if (response.ok) {
-        const data = JSON.parse(text) as { result?: { response?: string } };
-        raw = String(data.result?.response || "");
       } else raw = text;
     } else if (credential.provider === "gemini") {
       model ||= "gemini-2.5-flash";
@@ -224,35 +200,29 @@ async function callProvider(payload: string, credential: CustomerProviderCredent
       const candidates = await resolveGeminiModels(credential.apiKey, model, controller.signal);
       response = await invokeGemini(candidates[0] || model);
       model = candidates[0] || model;
-      for (let index = 1; response.status === 404 && index < candidates.length; index += 1) {
-        model = candidates[index];
-        response = await invokeGemini(model);
-      }
+      for (let index = 1; response.status === 404 && index < candidates.length; index += 1) { model = candidates[index]; response = await invokeGemini(model); }
       const text = await response.text();
       if (response.ok) {
         const data = JSON.parse(text) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
         raw = String(data.candidates?.[0]?.content?.parts?.[0]?.text || "");
       } else raw = text;
     } else {
-      model ||= "openrouter/free";
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      if (!credential.accountId) throw new Response("A conexão Cloudflare está sem Account ID. Substitua a credencial.", { status: 422 });
+      model = CLOUDFLARE_CODE_MODEL;
+      response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(credential.accountId)}/ai/run/${model}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${credential.apiKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://painel-super-lov.lovable.app", "X-Title": "Super Lovable" },
-        body: JSON.stringify({ model, temperature: 0.1, max_tokens: 2200, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }] }),
+        headers: { Authorization: `Bearer ${credential.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [{ role: "system", content: systemPrompt }, { role: "user", content: providerPayload }], max_tokens: 1500, temperature: 0.1, response_format: { type: "json_object" } }),
         signal: controller.signal,
       });
       const text = await response.text();
-      if (response.ok) {
-        const data = JSON.parse(text) as { model?: string; choices?: Array<{ message?: { content?: string } }> };
-        model = String(data.model || model);
-        raw = String(data.choices?.[0]?.message?.content || "");
-      } else raw = text;
+      if (response.ok) { const data = JSON.parse(text) as { result?: { response?: string } }; raw = String(data.result?.response || ""); } else raw = text;
     }
 
     if (response.status === 401 || response.status === 403) throw new Response(`A credencial ${label} salva não foi aceita. Ela foi mantida; substitua a API quando puder.`, { status: 401 });
     if (response.status === 429) throw new Response(`${label} atingiu o limite temporário. A credencial continua salva e a próxima IA será tentada.`, { status: 429 });
     if (!response.ok) throw new Response(`${label} indisponível no momento (${response.status}).`, { status: response.status >= 500 ? 503 : 502 });
-    return { provider: credential.provider, model, raw };
+    return { provider: credential.provider, model, raw, approximateInputTokens: Math.ceil(providerPayload.length / 4) };
   } catch (error) {
     if (error instanceof Response) throw error;
     if (controller.signal.aborted) throw new Response(`${label} demorou além do limite desta tentativa. A credencial continua conectada.`, { status: 504 });
@@ -295,8 +265,7 @@ async function materializePlan(parsed: Record<string, unknown>, token: string, r
   for (const [path, pathEdits] of byPath) {
     let content = await readRepositoryFile(token, repo, branch, path);
     for (const edit of pathEdits) {
-      const first = content.indexOf(edit.search);
-      const last = content.lastIndexOf(edit.search);
+      const first = content.indexOf(edit.search); const last = content.lastIndexOf(edit.search);
       if (first < 0 || first !== last) throw new Response(`${provider} não encontrou um trecho único em ${path}.`, { status: 422 });
       content = `${content.slice(0, first)}${edit.replace}${content.slice(first + edit.search.length)}`;
     }
@@ -306,14 +275,7 @@ async function materializePlan(parsed: Record<string, unknown>, token: string, r
   return [...files, ...newFiles].slice(0, 8);
 }
 
-async function attemptProviderPlan(
-  payload: string,
-  credential: CustomerProviderCredential,
-  token: string,
-  repo: string,
-  branch: string,
-  repositoryPaths: string[],
-) {
+async function attemptProviderPlan(payload: string, credential: CustomerProviderCredential, token: string, repo: string, branch: string, repositoryPaths: string[]) {
   const label = providerLabel(credential.provider);
   const ai = await callProvider(payload, credential);
   const parsed = extractJson(ai.raw, label);
@@ -323,19 +285,10 @@ async function attemptProviderPlan(
 }
 
 export type PreparedCustomerPlan = {
-  token: string;
-  repo: string;
-  branch: string;
-  baseSha: string;
-  repositoryPaths: string[];
-  payload: string;
+  token: string; repo: string; branch: string; baseSha: string; repositoryPaths: string[]; payload: string; complexity: CustomerTaskComplexity;
 };
 
-export async function prepareCustomerPlan(
-  auth: AgentAuth,
-  prompt: string,
-  options: { reducedContext?: boolean } = {},
-): Promise<PreparedCustomerPlan> {
+export async function prepareCustomerPlan(auth: AgentAuth, prompt: string, options: { reducedContext?: boolean } = {}): Promise<PreparedCustomerPlan> {
   const { data: connection } = await supabaseAdmin.from("github_license_connections").select("*").eq("license_id", auth.license.id).maybeSingle();
   const row = connection as Record<string, unknown> | null;
   const installationId = Number(row?.installation_id || 0);
@@ -344,75 +297,29 @@ export async function prepareCustomerPlan(
   if (!installationId || !repo) throw new Response("Conecte e selecione o projeto GitHub primeiro.", { status: 422 });
   const token = await createInstallationToken(installationId);
   const context = await selectedContext(token, repo, branch, prompt, Boolean(options.reducedContext));
-  const basePayload = JSON.stringify({
-    request: prompt,
-    repository: repo,
-    branch,
-    available_files: context.repositoryPaths.slice(0, 1200),
-    files: context.files,
-  });
-
-  return {
-    token,
-    repo,
-    branch,
-    baseSha: context.baseSha,
-    repositoryPaths: context.repositoryPaths,
-    payload: basePayload,
-  };
+  const basePayload = JSON.stringify({ request: prompt, complexity: context.complexity, repository: repo, branch, available_files: context.repositoryPaths.slice(0, context.complexity === "simple" ? 250 : 700), files: context.files });
+  return { token, repo, branch, baseSha: context.baseSha, repositoryPaths: context.repositoryPaths, payload: basePayload, complexity: context.complexity };
 }
 
-export async function planPreparedCustomerProvider(
-  auth: AgentAuth,
-  prompt: string,
-  credential: CustomerProviderCredential,
-  prepared: PreparedCustomerPlan,
-) {
-  const attempt = await attemptProviderPlan(
-    prepared.payload,
-    credential,
-    prepared.token,
-    prepared.repo,
-    prepared.branch,
-    prepared.repositoryPaths,
-  );
-
+export async function planPreparedCustomerProvider(auth: AgentAuth, prompt: string, credential: CustomerProviderCredential, prepared: PreparedCustomerPlan) {
+  const attempt = await attemptProviderPlan(prepared.payload, credential, prepared.token, prepared.repo, prepared.branch, prepared.repositoryPaths);
   const label = providerLabel(credential.provider);
   const summary = String(attempt.parsed.summary || `Alteração preparada por ${label}.`).slice(0, 2000);
   const commitMessage = String(attempt.parsed.commit_message || "aplicar alteração pela Super Lovable").slice(0, 120);
   const { data, error } = await supabaseAdmin.from("github_agent_runs").insert({
-    license_id: auth.license.id,
-    repository_full_name: prepared.repo,
-    branch: prepared.branch,
-    prompt,
-    provider: attempt.ai.provider,
-    model: attempt.ai.model,
-    status: "planned",
-    summary,
-    commit_message: commitMessage,
-    proposed_files: attempt.files as never,
-    base_sha: prepared.baseSha,
+    license_id: auth.license.id, repository_full_name: prepared.repo, branch: prepared.branch, prompt,
+    provider: attempt.ai.provider, model: attempt.ai.model, status: "planned", summary, commit_message: commitMessage,
+    proposed_files: attempt.files as never, base_sha: prepared.baseSha,
   } as never).select("id").single();
   if (error || !data) throw new Response(`Não foi possível salvar o plano gerado por ${label}.`, { status: 500 });
   return {
-    runId: String((data as { id: string }).id),
-    summary,
-    commitMessage,
-    files: attempt.files.map((file) => file.path),
-    provider: attempt.ai.provider,
-    model: attempt.ai.model,
-    automaticRecoveries: [],
-    recoveryCount: 0,
-    fallback: credential.provider !== "cloudflare",
+    runId: String((data as { id: string }).id), summary, commitMessage, files: attempt.files.map((file) => file.path),
+    provider: attempt.ai.provider, model: attempt.ai.model, complexity: prepared.complexity,
+    approximateInputTokens: attempt.ai.approximateInputTokens, automaticRecoveries: [], recoveryCount: 0,
   };
 }
 
-export async function planAgentRunCustomerProvider(
-  auth: AgentAuth,
-  prompt: string,
-  credential: CustomerProviderCredential,
-  options: { reducedContext?: boolean } = {},
-) {
+export async function planAgentRunCustomerProvider(auth: AgentAuth, prompt: string, credential: CustomerProviderCredential, options: { reducedContext?: boolean } = {}) {
   const prepared = await prepareCustomerPlan(auth, prompt, options);
   return planPreparedCustomerProvider(auth, prompt, credential, prepared);
 }
