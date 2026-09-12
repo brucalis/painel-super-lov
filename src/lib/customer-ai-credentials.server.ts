@@ -3,11 +3,11 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const CUSTOMER_EDITION = "customer-s1";
 const FALLBACK_PREFIX = "customer_ai_credentials";
-const CUSTOMER_PROVIDERS = ["grok", "cloudflare", "gemini", "openrouter"] as const;
+const CUSTOMER_PROVIDERS = ["mistral", "gemini", "cloudflare"] as const;
 
-export const CUSTOMER_AI_CREDENTIALS_VERSION = "customer-ai-credentials-v8-cloudflare-primary";
+export const CUSTOMER_AI_CREDENTIALS_VERSION = "customer-ai-credentials-v9-mistral-gemini-cloudflare";
 export type CustomerProvider = (typeof CUSTOMER_PROVIDERS)[number];
-const ACTIVE_CUSTOMER_PROVIDERS: CustomerProvider[] = ["cloudflare", "gemini", "openrouter"];
+const ACTIVE_CUSTOMER_PROVIDERS: CustomerProvider[] = ["mistral", "gemini", "cloudflare"];
 export type CustomerProviderCredential = {
   provider: CustomerProvider;
   apiKey: string;
@@ -51,14 +51,13 @@ export function isCustomerEdition(request: Request) {
 const hint = (value: string) => `••••••••${value.slice(-4)}`;
 const fallbackKey = (licenseId: string, provider: CustomerProvider) => `${FALLBACK_PREFIX}:${licenseId}:${provider}`;
 function providerLabel(provider: CustomerProvider) {
-  return provider === "grok" ? "Grok" : provider === "cloudflare" ? "Cloudflare" : provider === "gemini" ? "Gemini" : "OpenRouter";
+  return provider === "mistral" ? "Mistral" : provider === "gemini" ? "Gemini" : "Cloudflare";
 }
 function normalizeCustomerProvider(value: unknown): CustomerProvider | "" {
   const normalized = String(value ?? "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "");
-  if (normalized.includes("openrouter")) return "openrouter";
-  if (normalized.includes("cloudflare")) return "cloudflare";
+  if (normalized.includes("mistral") || normalized.includes("codestral")) return "mistral";
   if (normalized.includes("gemini")) return "gemini";
-  if (normalized.includes("grok") || normalized.includes("xai")) return "grok";
+  if (normalized.includes("cloudflare")) return "cloudflare";
   return "";
 }
 function storageError() {
@@ -119,20 +118,11 @@ async function validate(provider: CustomerProvider, apiKey: string, accountId = 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
-    if (provider === "grok") {
-      const response = await checkedResponse(await fetch("https://api.x.ai/v1/models", { headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal }), provider);
+    if (provider === "mistral") {
+      const response = await checkedResponse(await fetch("https://api.mistral.ai/v1/models", { headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal }), provider);
       const data = await response.json() as { data?: Array<{ id?: string }> };
       const models = (data.data || []).map((item) => String(item.id || "")).filter(Boolean);
-      return models.find((id) => /grok-4\.6/i.test(id)) || models.find((id) => /grok/i.test(id)) || "grok-4.6";
-    }
-    if (provider === "cloudflare") {
-      if (!accountId) throw new Response("Informe também o Account ID da Cloudflare.", { status: 422 });
-      const model = "@cf/openai/gpt-oss-20b";
-      const response = await checkedResponse(await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`, {
-        method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "Responda apenas OK." }), signal: controller.signal,
-      }), provider);
-      await response.json().catch(() => ({}));
-      return model;
+      return models.find((id) => id === "codestral-2508") || models.find((id) => /codestral/i.test(id)) || "codestral-2508";
     }
     if (provider === "gemini") {
       const response = await checkedResponse(await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`, { signal: controller.signal }), provider);
@@ -140,8 +130,13 @@ async function validate(provider: CustomerProvider, apiKey: string, accountId = 
       const models = new Set((data.models || []).map((item) => String(item.name || "").replace(/^models\//, "")));
       return ["gemini-2.5-flash", "gemini-2.5-flash-lite"].find((id) => models.has(id)) || "gemini-2.5-flash";
     }
-    await checkedResponse(await fetch("https://openrouter.ai/api/v1/models", { headers: { Authorization: `Bearer ${apiKey}` }, signal: controller.signal }), provider);
-    return "openrouter/free";
+    if (!accountId) throw new Response("Informe também o Account ID da Cloudflare.", { status: 422 });
+    const model = "@cf/openai/gpt-oss-20b";
+    const response = await checkedResponse(await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`, {
+      method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "Responda apenas OK." }), signal: controller.signal,
+    }), provider);
+    await response.json().catch(() => ({}));
+    return model;
   } catch (error) {
     if (error instanceof Response) throw error;
     throw new Response(`Não foi possível conectar ao ${providerLabel(provider)} para validar a credencial.`, { status: 503 });
@@ -154,11 +149,12 @@ export async function customerCredentialStatus(licenseId: string) {
     const row = rows.find((item) => item.provider === provider);
     return row ? { configured: true, keyHint: row.key_hint, model: row.model, validatedAt: row.validated_at } : { configured: false, keyHint: null, model: null, validatedAt: null };
   };
+  const configuredCount = ACTIVE_CUSTOMER_PROVIDERS.filter((provider) => rows.some((row) => row.provider === provider)).length;
   return {
-    grok: status("grok"), cloudflare: status("cloudflare"), gemini: status("gemini"), openrouter: status("openrouter"),
-    configured: rows.some((row) => ACTIVE_CUSTOMER_PROVIDERS.includes(row.provider)),
-    requiredConfigured: rows.some((row) => row.provider === "cloudflare"),
-    configuredCount: ACTIVE_CUSTOMER_PROVIDERS.filter((provider) => rows.some((row) => row.provider === provider)).length,
+    mistral: status("mistral"), gemini: status("gemini"), cloudflare: status("cloudflare"),
+    configured: configuredCount > 0,
+    requiredConfigured: configuredCount > 0,
+    configuredCount,
   };
 }
 
@@ -166,7 +162,7 @@ export async function saveCustomerAiKey(licenseId: string, providerValue: string
   const provider = normalizeCustomerProvider(providerValue);
   const apiKey = String(rawKey || "").trim();
   const accountId = String(options.accountId || "").trim();
-  if (!provider) throw new Response("Provedor inválido (credenciais v4).", { status: 400 });
+  if (!provider) throw new Response("Provedor inválido (credenciais v9).", { status: 400 });
   if (apiKey.length < 20) throw new Response("Informe uma chave de API válida.", { status: 422 });
   if (provider === "cloudflare" && accountId.length < 8) throw new Response("Informe o Account ID da Cloudflare.", { status: 422 });
   const model = await validate(provider, apiKey, accountId);
@@ -183,7 +179,7 @@ export async function saveCustomerAiKey(licenseId: string, providerValue: string
 
 export async function deleteCustomerAiKey(licenseId: string, providerValue: string) {
   const provider = normalizeCustomerProvider(providerValue);
-  if (!provider) throw new Response("Provedor inválido (credenciais v4).", { status: 400 });
+  if (!provider) throw new Response("Provedor inválido (credenciais v9).", { status: 400 });
   const { error: primaryError } = await db().from("github_license_ai_credentials").delete().eq("license_id", licenseId).eq("provider", provider);
   let fallbackError: unknown = null;
   try { await deleteFallbackRow(licenseId, provider); } catch (error) { fallbackError = error; }
