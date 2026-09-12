@@ -30,6 +30,12 @@ export const Route = createFileRoute("/api/public/agent/status")({
           const actualMistral = customerAi?.mistral || { configured: false };
           const actualGemini = customerAi?.gemini || { configured: false };
           const actualCloudflare = customerAi?.cloudflare || { configured: false };
+          // Compatibilidade transitória com versões do painel do agente que ainda usam
+          // o campo cloudflare.configured como sinal genérico de "há alguma IA pronta".
+          // providerStatus sempre preserva o estado real de cada provedor.
+          const agentCompatibilityCloudflare = customerEdition
+            ? { ...actualCloudflare, configured: customerOperational }
+            : { configured: false };
           return json({
             ok: true,
             flow_mode: "direct-main-v7-smart-ai-routing",
@@ -44,7 +50,7 @@ export const Route = createFileRoute("/api/public/agent/status")({
               configuredCount: Number(customerAi?.configuredCount || 0),
               mistral: customerEdition ? actualMistral : { configured: false },
               gemini: customerEdition ? actualGemini : Boolean(process.env.GEMINI_API_KEY),
-              cloudflare: customerEdition ? actualCloudflare : { configured: false },
+              cloudflare: agentCompatibilityCloudflare,
               groq: customerEdition ? { configured: false } : Boolean(process.env.GROQ_API_KEY),
               providerStatus: customerEdition
                 ? { mistral: actualMistral, gemini: actualGemini, cloudflare: actualCloudflare }
