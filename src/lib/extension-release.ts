@@ -1,10 +1,18 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "11.09.S3",
-  technicalVersion: "33.0.26",
-  updatedAt: "11/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=11.09.S3",
-  downloadName: "superlovable-11.09.S3.zip",
+  version: "11.09.S4",
+  technicalVersion: "33.0.27",
+  updatedAt: "12/09/2026 (horário de Brasília)",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=11.09.S4",
+  downloadName: "superlovable-11.09.S4.zip",
   changelog: [
+    {
+      version: "11.09.S4",
+      date: "12/09/2026",
+      changes: [
+        "Corrigido o link para criação da chave da API Mistral para console.mistral.ai/api-keys.",
+        "Mantido o stack inteligente Mistral + Gemini + Cloudflare e a otimização de contexto da versão S3.",
+      ],
+    },
     {
       version: "11.09.S3",
       date: "11/09/2026",
