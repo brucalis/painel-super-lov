@@ -1,10 +1,20 @@
 export const CUSTOMER_EXTENSION_RELEASE = {
-  version: "11.09.S2",
-  technicalVersion: "33.0.25",
+  version: "11.09.S3",
+  technicalVersion: "33.0.26",
   updatedAt: "11/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=11.09.S2",
-  downloadName: "superlovable-11.09.S2.zip",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable.zip?v=11.09.S3",
+  downloadName: "superlovable-11.09.S3.zip",
   changelog: [
+    {
+      version: "11.09.S3",
+      date: "11/09/2026",
+      changes: [
+        "Mistral entra no stack comercial e OpenRouter é removido da edição do cliente.",
+        "Roteamento inteligente: tarefas simples e médias priorizam Mistral; tarefas complexas priorizam Gemini; Cloudflare atua como contingência.",
+        "Contexto enviado às IAs passa a ser reduzido conforme a complexidade do pedido para economizar tokens, saldo e tempo de resposta.",
+        "A ferramenta funciona com pelo menos uma IA conectada, mas recomenda Mistral + Gemini + Cloudflare para máxima continuidade.",
+      ],
+    },
     {
       version: "11.09.S2",
       date: "11/09/2026",
