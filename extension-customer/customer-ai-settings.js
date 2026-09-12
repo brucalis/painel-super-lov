@@ -9,7 +9,7 @@
   const AI_PROVIDERS = ["mistral", "gemini", "cloudflare"];
   const providerLabel = { mistral: "Mistral", gemini: "Gemini", cloudflare: "Cloudflare" };
   const providerLinks = {
-    mistral: "https://admin.mistral.ai/organization/api-keys",
+    mistral: "https://console.mistral.ai/api-keys",
     gemini: "https://aistudio.google.com/app/apikey",
     cloudflare: "https://dash.cloudflare.com/",
   };
