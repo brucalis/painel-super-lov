@@ -29,19 +29,24 @@ export const Route = createFileRoute("/api/public/agent/plan")({
           }
 
           const stack = await credentials.customerProviderStack(request, auth.license.id);
-          if (!stack.cloudflare) {
+          if (!stack.mistral && !stack.gemini && !stack.cloudflare) {
             return json(
               {
                 ok: false,
-                error: "Conecte a Cloudflare para usar a Super Lovable. Gemini e OpenRouter são contingências opcionais.",
+                error: "Conecte pelo menos uma IA para usar a Super Lovable. Para melhor continuidade, recomendamos Mistral + Gemini + Cloudflare.",
                 code: "CUSTOMER_REQUIRED_AI_NOT_CONFIGURED",
-                requiredProviders: ["cloudflare"],
+                requiredProviders: [],
+                recommendedProviders: ["mistral", "gemini", "cloudflare"],
               },
               428,
             );
           }
 
-          const providers = [stack.cloudflare, stack.gemini, stack.openrouter].filter(
+          const complexity = customerAgent.classifyCustomerTask(prompt);
+          const preferredOrder = complexity === "complex"
+            ? [stack.gemini, stack.mistral, stack.cloudflare]
+            : [stack.mistral, stack.gemini, stack.cloudflare];
+          const providers = preferredOrder.filter(
             (credential): credential is NonNullable<typeof credential> => Boolean(credential),
           );
           const traceId = crypto.randomUUID();
@@ -76,6 +81,8 @@ export const Route = createFileRoute("/api/public/agent/plan")({
                 ok: true,
                 resilient: true,
                 traceId,
+                complexity,
+                routingOrder: providers.map((item) => item.provider),
                 providerUsed: credential.provider,
                 providerAttempt: 1,
                 ...result,
@@ -88,6 +95,7 @@ export const Route = createFileRoute("/api/public/agent/plan")({
             const failure = failures[failures.length - 1];
             console.warn("[github-agent/customer-stack] provedor falhou; tentando próximo", {
               traceId,
+              complexity,
               provider: credential.provider,
               status: failure.status,
               message: failure.message,
@@ -103,29 +111,19 @@ export const Route = createFileRoute("/api/public/agent/plan")({
             ? `Nenhuma das IAs configuradas conseguiu concluir o planejamento. Diagnóstico: ${summary}`
             : "Nenhuma das IAs configuradas conseguiu concluir o planejamento agora. Suas credenciais continuam salvas para a próxima tentativa.";
 
-          if (lastError instanceof Response) {
-            return json(
-              {
-                ok: false,
-                error: errorMessage,
-                code: "CUSTOMER_AI_STACK_EXHAUSTED",
-                traceId,
-                providerFailures: failures,
-                retryable: failures.some((item) => item.status === 408 || item.status === 429 || item.status >= 500),
-              },
-              lastError.status >= 400 && lastError.status < 600 ? lastError.status : 503,
-            );
-          }
+          const status = lastError instanceof Response && lastError.status >= 400 && lastError.status < 600 ? lastError.status : 503;
           return json(
             {
               ok: false,
               error: errorMessage,
               code: "CUSTOMER_AI_STACK_EXHAUSTED",
               traceId,
+              complexity,
+              routingOrder: providers.map((item) => item.provider),
               providerFailures: failures,
               retryable: failures.some((item) => item.status === 408 || item.status === 429 || item.status >= 500),
             },
-            503,
+            status,
           );
         } catch (error) {
           if (error instanceof Response) return json({ ok: false, error: await error.text() }, error.status);
