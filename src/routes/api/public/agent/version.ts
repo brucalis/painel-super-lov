@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const FLOW_MODE = "direct-main-v6-shared-context";
-const CREDENTIAL_API_VERSION = "ai-credentials-v8-cloudflare-primary";
-const SUPPORTED_AI_PROVIDERS = ["cloudflare", "gemini", "openrouter"] as const;
-const REQUIRED_AI_PROVIDERS = ["cloudflare"] as const;
+const FLOW_MODE = "direct-main-v7-smart-ai-routing";
+const CREDENTIAL_API_VERSION = "ai-credentials-v9-mistral-gemini-cloudflare";
+const SUPPORTED_AI_PROVIDERS = ["mistral", "gemini", "cloudflare"] as const;
+const REQUIRED_AI_PROVIDERS: readonly string[] = [];
 
 export const Route = createFileRoute("/api/public/agent/version")({
   server: {
@@ -24,6 +24,11 @@ export const Route = createFileRoute("/api/public/agent/version")({
           supported_ai_providers: [...SUPPORTED_AI_PROVIDERS],
           required_ai_providers: [...REQUIRED_AI_PROVIDERS],
           ai_fallback_order: [...SUPPORTED_AI_PROVIDERS],
+          smart_routing: {
+            simple: ["mistral", "gemini", "cloudflare"],
+            medium: ["mistral", "gemini", "cloudflare"],
+            complex: ["gemini", "mistral", "cloudflare"],
+          },
         });
       },
     },
