@@ -27,13 +27,13 @@ export const Route = createFileRoute("/api/public/agent/status")({
             advisory: true,
           };
           const customerOperational = Boolean(customerAi?.requiredConfigured);
-          const actualCloudflare = customerAi?.cloudflare || { configured: false };
+          const actualMistral = customerAi?.mistral || { configured: false };
           const actualGemini = customerAi?.gemini || { configured: false };
-          const actualOpenRouter = customerAi?.openrouter || { configured: false };
+          const actualCloudflare = customerAi?.cloudflare || { configured: false };
           return json({
             ok: true,
-            flow_mode: "direct-main-v6-shared-context",
-            edition: customerEdition ? "11.09.S1" : "32.0.44",
+            flow_mode: "direct-main-v7-smart-ai-routing",
+            edition: customerEdition ? "11.09.S3" : "32.0.44",
             configured: Boolean(
               process.env.GITHUB_APP_ID && process.env.GITHUB_CLIENT_ID &&
               process.env.GITHUB_CLIENT_SECRET && process.env.GITHUB_PRIVATE_KEY &&
@@ -42,12 +42,12 @@ export const Route = createFileRoute("/api/public/agent/status")({
             ai: {
               customerConfigured: customerOperational,
               configuredCount: Number(customerAi?.configuredCount || 0),
+              mistral: customerEdition ? actualMistral : { configured: false },
+              gemini: customerEdition ? actualGemini : Boolean(process.env.GEMINI_API_KEY),
               cloudflare: customerEdition ? actualCloudflare : { configured: false },
               groq: customerEdition ? { configured: false } : Boolean(process.env.GROQ_API_KEY),
-              gemini: customerEdition ? actualGemini : Boolean(process.env.GEMINI_API_KEY),
-              openrouter: customerEdition ? actualOpenRouter : { configured: false },
               providerStatus: customerEdition
-                ? { cloudflare: actualCloudflare, gemini: actualGemini, openrouter: actualOpenRouter }
+                ? { mistral: actualMistral, gemini: actualGemini, cloudflare: actualCloudflare }
                 : null,
             },
             runner,
