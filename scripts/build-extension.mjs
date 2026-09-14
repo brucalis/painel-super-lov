@@ -12,7 +12,7 @@ const adminBuildDir = path.join(buildRoot, "admin");
 const customerBuildDir = path.join(buildRoot, "customer");
 const publicDir = path.join(root, "public");
 const adminZip = path.join(publicDir, "super-lovable-admin-v32.0.44.zip");
-const customerZip = path.join(publicDir, "super-lovable-12.09.S5.zip");
+const customerZip = path.join(publicDir, "super-lovable-1.0-stable.zip");
 const stableCustomerZip = path.join(publicDir, "super-lovable.zip");
 
 const requiredScripts = [
@@ -69,9 +69,9 @@ await cp(overlayDir, customerBuildDir, { recursive: true });
 const customerManifestPath = path.join(customerBuildDir, "manifest.json");
 const customerManifest = JSON.parse(await readFile(customerManifestPath, "utf8"));
 customerManifest.name = "Superlovable";
-customerManifest.version = "33.0.28";
-customerManifest.version_name = "12.09.S5";
-customerManifest.description = "Superlovable — Mistral, Gemini e Cloudflare com roteamento inteligente, contexto otimizado e conexão Mistral reforçada.";
+customerManifest.version = "33.0.29";
+customerManifest.version_name = "1.0 Stable";
+customerManifest.description = "Superlovable 1.0 Stable — Mistral, Gemini e Cloudflare com execução protegida, recuperação segura e contexto otimizado.";
 customerManifest.permissions = Array.from(new Set([...(customerManifest.permissions || []), "browsingData"]));
 customerManifest.content_scripts = [
   ...(customerManifest.content_scripts || []),
