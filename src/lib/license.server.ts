@@ -1,6 +1,7 @@
 // Núcleo do servidor de licenças. Só roda no servidor.
 import { createHmac, randomBytes, createHash, timingSafeEqual } from "crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendTransactionalEmail } from "./email-provider.server";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem I, O, 0, 1
 
@@ -373,7 +374,7 @@ export async function getSetting(key: string): Promise<string | null> {
   return data?.value ?? null;
 }
 
-/** Envia a chave diretamente pelo SendGrid configurado no painel. */
+/** Envia a licença pelo provedor transacional SMTP central. */
 export async function sendLicenseEmail(
   licenseId: string,
   context: {
@@ -392,26 +393,21 @@ export async function sendLicenseEmail(
     paid_at?: string | null;
   } = {},
 ): Promise<{ sent: boolean; reason?: string }> {
-  const [{ data: license }, enabled, storedKey, fromEmail, fromName, replyTo, subjectTemplate, bodyTemplate, downloadUrl] = await Promise.all([
+  const [{ data: license }, enabled, replyTo, subjectTemplate, bodyTemplate, downloadUrl] = await Promise.all([
     supabaseAdmin
       .from("licenses")
       .select("*, customers(email, full_name)")
       .eq("id", licenseId)
       .maybeSingle(),
-    getSetting("sendgrid_enabled"),
-    getSetting("sendgrid_api_key"),
-    getSetting("sendgrid_from_email"),
-    getSetting("sendgrid_from_name"),
-    getSetting("sendgrid_reply_to"),
-    getSetting("sendgrid_subject_template"),
-    getSetting("sendgrid_body_template"),
-    getSetting("sendgrid_download_url"),
+    getSetting("email_enabled"),
+    getSetting("email_reply_to"),
+    getSetting("email_subject_template"),
+    getSetting("email_body_template"),
+    getSetting("email_download_url"),
   ]);
-  if (enabled !== "true") return { sent: false, reason: "disabled" };
-  const apiKey = process.env.SENDGRID_API_KEY || storedKey || "";
+  if (enabled === "false") return { sent: false, reason: "disabled" };
   const customer = license?.customers as { email?: string; full_name?: string | null } | null;
   if (!license || !customer?.email) return { sent: false, reason: "customer_email_missing" };
-  if (!apiKey || !fromEmail) return { sent: false, reason: "sendgrid_not_configured" };
 
   const validity = license.is_lifetime
     ? "Acesso vitalício"
@@ -473,68 +469,25 @@ export async function sendLicenseEmail(
     orderId,
     downloadLink,
   });
-  const payload: Record<string, unknown> = {
-    personalizations: [{
-      to: [{ email: customer.email, name: safeName }],
-      subject,
-      headers: { "X-Entity-Ref-ID": `superlovable-license-${license.id}` },
-      custom_args: { message_type: "license_delivery", order_id: String(orderId) },
-    }],
-    from: { email: fromEmail, name: fromName || "Superlovable" },
-    content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
-    categories: ["transactional", "license-delivery"],
-    tracking_settings: {
-      click_tracking: { enable: false, enable_text: false },
-      open_tracking: { enable: false },
-      subscription_tracking: { enable: false },
-    },
-  };
-  if (replyTo) payload.reply_to = { email: replyTo };
-  let response: Response;
-  try {
-    response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch (error) {
-    await logEvent(licenseId, "email.failed", "SendGrid indisponível; a licença foi gerada normalmente.", {
-      detail: error instanceof Error ? error.message : "network_error",
-    });
-    return { sent: false, reason: "sendgrid_unavailable" };
+  const result = await sendTransactionalEmail({ to: customer.email, toName: safeName, subject, text, html, replyTo, type: "license_delivery" });
+  if (!result.sent) {
+    await logEvent(licenseId, "email.failed", "Falha ao enviar e-mail da licença pela Brevo SMTP.", { provider: result.provider, reason: result.reason, detail: result.detail, smtp_code: result.smtpCode });
+    return { sent: false, reason: result.reason };
   }
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 300);
-    if (/maximum credits exceeded/i.test(detail)) {
-      await logEvent(licenseId, "email.failed", "Cota de envios do SendGrid atingida; a licença foi gerada normalmente.", {
-        status: response.status,
-        detail,
-      });
-      return { sent: false, reason: "sendgrid_quota_exceeded" };
-    }
-    await logEvent(licenseId, "email.failed", "Falha ao enviar e-mail da licença.", { status: response.status, detail });
-    return { sent: false, reason: `sendgrid_${response.status}` };
-  }
-  await logEvent(licenseId, "email.sent", `Chave enviada para ${customer.email}.`);
+  await logEvent(licenseId, "email.sent", `Chave enviada para ${customer.email}.`, { provider: result.provider, status: "sent" });
   return { sent: true };
 }
 
 /** Envia um e-mail de demonstração sem criar pedido, cliente ou licença. */
-export async function sendSendGridTestEmail(
+export async function sendSmtpTestEmail(
   toEmail: string,
 ): Promise<{ sent: boolean; reason?: string; detail?: string }> {
-  const [storedKey, fromEmail, fromName, replyTo, subjectTemplate, bodyTemplate, downloadUrl] = await Promise.all([
-    getSetting("sendgrid_api_key"),
-    getSetting("sendgrid_from_email"),
-    getSetting("sendgrid_from_name"),
-    getSetting("sendgrid_reply_to"),
-    getSetting("sendgrid_subject_template"),
-    getSetting("sendgrid_body_template"),
-    getSetting("sendgrid_download_url"),
+  const [replyTo, subjectTemplate, bodyTemplate, downloadUrl] = await Promise.all([
+    getSetting("email_reply_to"),
+    getSetting("email_subject_template"),
+    getSetting("email_body_template"),
+    getSetting("email_download_url"),
   ]);
-  const apiKey = process.env.SENDGRID_API_KEY || storedKey || "";
-  if (!apiKey || !fromEmail)
-    return { sent: false, reason: "sendgrid_not_configured", detail: "Configure a API Key e o remetente verificado." };
 
   const downloadLink = downloadUrl || "https://painel-super-lov.lovable.app/";
   const variables: Record<string, string> = {
@@ -546,7 +499,7 @@ export async function sendSendGridTestEmail(
     licenca: "LVA-TEST-TEST-TEST-TEST",
     validade: "E-mail de teste — nenhuma licença foi criada",
     link_download: downloadLink,
-    pedido: "TESTE-SENDGRID",
+    pedido: "TESTE-SMTP",
     oferta: "Teste de envio",
     valor: "R$ 0,00",
     metodo_pagamento: "Teste administrativo",
@@ -565,7 +518,7 @@ export async function sendSendGridTestEmail(
 
   const render = (template: string) => template.replace(/\{\{\s*([a-z0-9_.]+)\s*\}\}/gi, (_, key) => variables[key] ?? "");
   const subject = `[TESTE] ${render(subjectTemplate || "Bem-vindo(a) à Superlovable — sua licença está pronta")}`;
-  const text = render(bodyTemplate || "Olá, {{nome}}!\n\nEste é um teste da integração da Superlovable com o SendGrid. Se você recebeu esta mensagem, a API, o remetente e o layout estão funcionando corretamente.");
+  const text = render(bodyTemplate || "Olá, {{nome}}!\n\nEste é um teste da integração SMTP da Superlovable com a Brevo. Se você recebeu esta mensagem, a conexão TLS, a autenticação, o remetente e o layout estão funcionando corretamente.");
   const html = buildLicenseEmailHtml({
     name: variables.nome,
     message: text,
@@ -576,38 +529,7 @@ export async function sendSendGridTestEmail(
     orderId: variables.pedido,
     downloadLink,
   });
-  const payload: Record<string, unknown> = {
-    personalizations: [{ to: [{ email: toEmail, name: "Cliente de teste" }], subject }],
-    from: { email: fromEmail, name: fromName || "Superlovable" },
-    content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
-  };
-  if (replyTo) payload.reply_to = { email: replyTo };
-
-  try {
-    const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      const detail = (await response.text()).slice(0, 500);
-      if (/maximum credits exceeded/i.test(detail)) {
-        return {
-          sent: false,
-          reason: "sendgrid_quota_exceeded",
-          detail: "A cota de envios da conta SendGrid foi atingida. Aguarde a renovação da cota ou aumente o limite no SendGrid; nenhuma compra ou configuração do painel causou este bloqueio.",
-        };
-      }
-      return { sent: false, reason: `sendgrid_${response.status}`, detail: detail || `HTTP ${response.status}` };
-    }
-    return { sent: true };
-  } catch (error) {
-    return {
-      sent: false,
-      reason: "sendgrid_unavailable",
-      detail: error instanceof Error ? error.message : "Não foi possível acessar o SendGrid.",
-    };
-  }
+  return sendTransactionalEmail({ to: toEmail, toName: "Cliente de teste", subject, text, html, replyTo, type: "admin_test" });
 }
 
 function escapeHtml(value: string): string {

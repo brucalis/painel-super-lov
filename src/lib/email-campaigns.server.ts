@@ -1,6 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getSetting, logEvent } from "@/lib/license.server";
+import { sendTransactionalEmail } from "@/lib/email-provider.server";
 
 // As tabelas são adicionadas pela migration deste módulo e ainda não fazem parte do arquivo de tipos gerado.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,18 +191,13 @@ async function sendCustomEmail(
   purpose: string,
   bodyFormat: "text" | "html" = "text",
 ) {
-  const [enabled, storedKey, fromEmail, fromName, replyTo] = await Promise.all([
-    getSetting("sendgrid_enabled"),
-    getSetting("sendgrid_api_key"),
-    getSetting("sendgrid_from_email"),
-    getSetting("sendgrid_from_name"),
-    getSetting("sendgrid_reply_to"),
+  const [enabled, replyTo] = await Promise.all([
+    getSetting("email_enabled"),
+    getSetting("email_reply_to"),
   ]);
-  if (enabled !== "true") return { sent: false, reason: "disabled" };
-  const apiKey = process.env.SENDGRID_API_KEY || storedKey || "";
+  if (enabled === "false") return { sent: false, reason: "disabled" };
   const email = String(license.customers?.email || "").trim();
   if (!email) return { sent: false, reason: "customer_email_missing" };
-  if (!apiKey || !fromEmail) return { sent: false, reason: "sendgrid_not_configured" };
   const subject = render(subjectTemplate, license).slice(0, 180);
   const renderedBody = render(bodyTemplate, license);
   const text =
@@ -225,44 +221,15 @@ async function sendCustomEmail(
       ? renderedBody
       : `<div style="font-size:15px;line-height:1.7;white-space:pre-wrap">${escapeHtml(text)}</div>`;
   const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f6f4fa;font-family:Arial,sans-serif;color:#24202b"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" style="max-width:620px;background:#fff;border:1px solid #e6def2;border-radius:16px;overflow:hidden"><tr><td style="height:6px;background:linear-gradient(90deg,#6f2dbd,#f97316)"></td></tr><tr><td style="padding:30px"><div style="font-weight:800;color:#6f2dbd;font-size:13px;letter-spacing:.8px">SUPERLOVABLE</div><h1 style="font-size:24px;line-height:1.3;margin:12px 0 20px">${escapeHtml(subject)}</h1>${content}<a href="${ACCESS_URL}" style="display:inline-block;margin-top:24px;padding:13px 20px;border-radius:9px;background:#6f2dbd;color:#fff;text-decoration:none;font-weight:700">Acessar a Superlovable</a></td></tr><tr><td style="padding:16px 30px;background:#fafafa;color:#777;font-size:12px">Você recebeu esta mensagem por possuir um acesso à Superlovable.${unsubscribeFooter}</td></tr></table></td></tr></table></body></html>`;
-  try {
-    const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        personalizations: [
-          {
-            to: [{ email, name: license.customers?.full_name || "Cliente" }],
-            subject,
-            custom_args: { message_type: purpose, license_id: String(license.id) },
-          },
-        ],
-        from: { email: fromEmail, name: fromName || "Superlovable" },
-        ...(replyTo ? { reply_to: { email: replyTo } } : {}),
-        content: [
-          {
-            type: "text/plain",
-            value: `${text}${unsubscribeUrl ? `\n\nNão quero receber futuras ofertas: ${unsubscribeUrl}` : ""}`,
-          },
-          { type: "text/html", value: html },
-        ],
-        categories: [purpose === "activation_reminder" ? "activation-reminder" : "campaign"],
-      }),
-    });
-    if (!response.ok)
-      return {
-        sent: false,
-        reason: `sendgrid_${response.status}`,
-        detail: (await response.text()).slice(0, 300),
-      };
-    return { sent: true };
-  } catch (error) {
-    return {
-      sent: false,
-      reason: "sendgrid_unavailable",
-      detail: error instanceof Error ? error.message : "network_error",
-    };
-  }
+  return sendTransactionalEmail({
+    to: email,
+    toName: license.customers?.full_name || "Cliente",
+    subject,
+    text: `${text}${unsubscribeUrl ? `\n\nNão quero receber futuras ofertas: ${unsubscribeUrl}` : ""}`,
+    html,
+    replyTo,
+    type: purpose,
+  });
 }
 
 function matchesAudience(
@@ -428,7 +395,7 @@ export async function queuePersonalizedEmail(licenseId: string, subject: string,
     await logEvent(
       licenseId,
       "email.individual.sent",
-      `Mensagem personalizada aceita pelo SendGrid para ${license.customers.email}.`,
+      `Mensagem personalizada enviada pela Brevo SMTP para ${license.customers.email}.`,
       { delivery_id: delivery.id },
     );
   return { processed: 1, sent: result.sent ? 1 : 0, failed: result.sent ? 0 : 1, skipped: 0 };
@@ -566,7 +533,7 @@ export async function processEmailQueue(limit = 30) {
       await logEvent(
         license.id,
         `email.${delivery.purpose}.sent`,
-        `E-mail aceito pelo SendGrid para ${license.customers?.email}.`,
+        `E-mail enviado pela Brevo SMTP para ${license.customers?.email}.`,
         { delivery_id: delivery.id, step: delivery.step_key || null },
       );
       sent += 1;

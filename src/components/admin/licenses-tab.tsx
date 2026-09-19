@@ -287,7 +287,7 @@ function PersonalizedEmailDialog({
         onClose();
       } else {
         toast.error(
-          `Não foi possível enviar a mensagem (${result.failed ? "falha no SendGrid" : "envio não concluído"}).`,
+          `Não foi possível enviar a mensagem (${result.failed ? "falha no SMTP/Brevo" : "envio não concluído"}).`,
         );
       }
     } catch (error) {

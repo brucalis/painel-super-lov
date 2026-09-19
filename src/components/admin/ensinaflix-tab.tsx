@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { getEnsinaflixSecretStatus, rotateEnsinaflixSecret, getSendGridSettings, saveSendGridSettings, sendSendGridTest } from "@/lib/licenses.functions";
+import { getEnsinaflixSecretStatus, rotateEnsinaflixSecret, getEmailSettings, saveEmailSettings, sendEmailTest, testSmtpConnection } from "@/lib/licenses.functions";
 import { fmt } from "@/lib/licenses-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,12 +53,28 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "Falhou",
 };
 
+function smtpErrorMessage(result: { reason?: string; detail?: string; smtpCode?: number; egressIp?: string }) {
+  const labels: Record<string, string> = {
+    not_configured: "Senha SMTP não configurada no ambiente do servidor.",
+    connection_error: "Não foi possível conectar ao servidor SMTP.",
+    tls_error: "Falha ao estabelecer a conexão segura TLS/STARTTLS.",
+    authentication_error: "A Brevo recusou a autenticação SMTP.",
+    recipient_rejected: "O servidor SMTP rejeitou o destinatário.",
+    smtp_server_error: "O servidor SMTP retornou um erro.",
+  };
+  const unauthorizedIp = result.smtpCode === 525
+    ? ` IP de saída para autorizar na Brevo: ${result.egressIp || "não informado pelo runtime"}.`
+    : "";
+  return `${labels[result.reason || ""] || "Falha no envio SMTP."}${unauthorizedIp}${result.detail ? ` Detalhe: ${result.detail}` : ""}`;
+}
+
 export function EnsinaflixTab() {
   const rotate = useServerFn(rotateEnsinaflixSecret);
   const status = useServerFn(getEnsinaflixSecretStatus);
-  const getEmailSettings = useServerFn(getSendGridSettings);
-  const saveEmailSettings = useServerFn(saveSendGridSettings);
-  const sendEmailTest = useServerFn(sendSendGridTest);
+  const getEmailConfig = useServerFn(getEmailSettings);
+  const saveEmailConfig = useServerFn(saveEmailSettings);
+  const sendTest = useServerFn(sendEmailTest);
+  const testConnection = useServerFn(testSmtpConnection);
   const [secret, setSecret] = useState<{ configured: boolean; hint: string | null; full: string | null; source: string | null }>({
     configured: false,
     hint: null,
@@ -78,11 +94,11 @@ export function EnsinaflixTab() {
     device_limit: "1",
   });
   const [emailForm, setEmailForm] = useState({
-    api_key: "", from_email: "", from_name: "Superlovable", reply_to: "", enabled: false,
+    reply_to: "", enabled: true,
     subject_template: "Bem-vindo(a) à Superlovable — sua licença está pronta",
     body_template: "", download_url: "https://painel-super-lov.lovable.app/",
   });
-  const [emailConfigured, setEmailConfigured] = useState<string | null>(null);
+  const [emailRuntime, setEmailRuntime] = useState({ configured: false, host: "smtp-relay.brevo.com", port: 587, encryption: "TLS / STARTTLS", username: "ba17b3001@smtp-brevo.com", fromEmail: "atendimento@ensinaflix.com", fromName: "Ensinaflix", password: "••••••••••••" });
   const [testEmail, setTestEmail] = useState("");
   const [testSending, setTestSending] = useState(false);
 
@@ -107,10 +123,10 @@ export function EnsinaflixTab() {
     // e-mail que o administrador ainda está editando.
     if (!silent) {
       setSecret(await status({}));
-      const email = await getEmailSettings({});
-      setEmailConfigured(email.key_hint);
+      const email = await getEmailConfig({});
+      setEmailRuntime(email);
       setEmailForm((current) => ({
-        ...current, from_email: email.from_email, from_name: email.from_name, reply_to: email.reply_to,
+        ...current, reply_to: email.reply_to,
         enabled: email.enabled, subject_template: email.subject_template,
         body_template: email.body_template, download_url: email.download_url,
       }));
@@ -313,15 +329,20 @@ export function EnsinaflixTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Envio de licenças pelo SendGrid</CardTitle>
-          <CardDescription>A chave é enviada automaticamente ao e-mail do comprador depois da confirmação do pagamento.</CardDescription>
+          <CardTitle>Envio transacional — SMTP / Brevo</CardTitle>
+          <CardDescription>Provedor ativo e exclusivo para licenças, acessos, notificações, lembretes e campanhas.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Badge variant={emailConfigured ? "default" : "destructive"}>API: {emailConfigured || "não configurada"}</Badge>
+          <Badge variant={emailRuntime.configured ? "default" : "destructive"}>{emailRuntime.configured ? "SMTP configurado" : "Senha SMTP ausente"}</Badge>
+          <p className="text-sm text-muted-foreground">Credenciais SMTP configuradas pelo ambiente do servidor. A senha nunca é retornada ao painel.</p>
+          <p className="text-xs text-muted-foreground">A recuperação e a confirmação de conta são enviadas pelo Supabase Auth. Configure também o SMTP personalizado da Brevo no painel do Supabase para que esses dois fluxos usem o mesmo remetente.</p>
           <div className="grid gap-3 md:grid-cols-2">
-            <div><Label>API Key do SendGrid</Label><Input type="password" placeholder={emailConfigured ? "Deixe vazio para manter a atual" : "SG..."} value={emailForm.api_key} onChange={(e) => setEmailForm({ ...emailForm, api_key: e.target.value })} /></div>
-            <div><Label>E-mail remetente verificado</Label><Input type="email" value={emailForm.from_email} onChange={(e) => setEmailForm({ ...emailForm, from_email: e.target.value })} /><p className="mt-1 text-xs text-muted-foreground">Para chegar à caixa principal, use um endereço do seu próprio domínio autenticado no SendGrid. Evite Gmail, Outlook ou apenas “Single Sender Verification”.</p></div>
-            <div><Label>Nome do remetente</Label><Input value={emailForm.from_name} onChange={(e) => setEmailForm({ ...emailForm, from_name: e.target.value })} /></div>
+            <div><Label>Host</Label><Input readOnly value={emailRuntime.host} /></div>
+            <div><Label>Porta / criptografia</Label><Input readOnly value={`${emailRuntime.port} · ${emailRuntime.encryption}`} /></div>
+            <div><Label>Usuário SMTP</Label><Input readOnly value={emailRuntime.username} /></div>
+            <div><Label>Senha</Label><Input readOnly type="password" value={emailRuntime.password} /></div>
+            <div><Label>Remetente</Label><Input readOnly value={emailRuntime.fromEmail} /></div>
+            <div><Label>Nome do remetente</Label><Input readOnly value={emailRuntime.fromName} /></div>
             <div><Label>Responder para (opcional)</Label><Input type="email" value={emailForm.reply_to} onChange={(e) => setEmailForm({ ...emailForm, reply_to: e.target.value })} /></div>
             <div className="md:col-span-2"><Label>Link de download e instruções</Label><Input type="url" value={emailForm.download_url} onChange={(e) => setEmailForm({ ...emailForm, download_url: e.target.value })} /></div>
             <div className="md:col-span-2"><Label>Assunto do e-mail</Label><Input value={emailForm.subject_template} onChange={(e) => setEmailForm({ ...emailForm, subject_template: e.target.value })} /></div>
@@ -337,23 +358,23 @@ export function EnsinaflixTab() {
           <div className="flex gap-2">
             <Button onClick={async () => {
               const activeForm = { ...emailForm, enabled: true };
-              await saveEmailSettings({ data: activeForm });
-              toast.success("SendGrid salvo e envio automático ativado.");
-              setEmailForm({ ...activeForm, api_key: "" });
+              await saveEmailConfig({ data: activeForm });
+              toast.success("Templates salvos e SMTP/Brevo ativado.");
+              setEmailForm(activeForm);
               load();
             }}>Salvar e ativar</Button>
             {emailForm.enabled && <Button variant="outline" onClick={async () => {
               const disabledForm = { ...emailForm, enabled: false };
-              await saveEmailSettings({ data: disabledForm });
-              setEmailForm({ ...disabledForm, api_key: "" });
+              await saveEmailConfig({ data: disabledForm });
+              setEmailForm(disabledForm);
               toast.success("Envio automático desativado.");
               load();
             }}>Desativar envio automático</Button>}
           </div>
           <div className="rounded-xl border bg-muted/30 p-4">
             <div className="mb-3">
-              <Label>Testar integração do SendGrid</Label>
-              <p className="text-xs text-muted-foreground">Envia uma demonstração para o endereço informado, sem criar compra, cliente ou licença.</p>
+              <Label>Testar SMTP / Brevo</Label>
+              <p className="text-xs text-muted-foreground">Teste a conexão TLS separadamente ou envie uma demonstração sem criar compra, cliente ou licença.</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
@@ -368,10 +389,10 @@ export function EnsinaflixTab() {
                 onClick={async () => {
                   setTestSending(true);
                   try {
-                    await saveEmailSettings({ data: emailForm });
-                    const result = await sendEmailTest({ data: { email: testEmail.trim() } });
+                    await saveEmailConfig({ data: emailForm });
+                    const result = await sendTest({ data: { email: testEmail.trim() } });
                     if (result.sent) toast.success(`E-mail de teste enviado para ${testEmail.trim()}.`);
-                    else toast.error(`Falha no teste: ${result.detail || result.reason || "erro desconhecido"}`);
+                    else toast.error(smtpErrorMessage(result));
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : "Não foi possível enviar o teste.");
                   } finally {
@@ -381,6 +402,14 @@ export function EnsinaflixTab() {
               >
                 {testSending ? "Enviando…" : "Enviar teste"}
               </Button>
+              <Button variant="outline" disabled={testSending} onClick={async () => {
+                setTestSending(true);
+                try {
+                  const result = await testConnection({});
+                  if (result.connected) toast.success("Conexão SMTP, STARTTLS e autenticação realizadas com sucesso.");
+                  else toast.error(smtpErrorMessage(result));
+                } finally { setTestSending(false); }
+              }}>Testar conexão</Button>
             </div>
           </div>
         </CardContent>
