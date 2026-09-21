@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { CalendarClock, ChevronDown, MailPlus, Settings2, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   createEmailCampaign,
   getEmailCampaignDashboard,
@@ -52,6 +53,8 @@ type AudienceStatus =
   | "canceled"
   | "refunded"
   | "revoked";
+
+type SummaryMetric = [label: string, value: number, icon: LucideIcon];
 type Step = { hours: 3 | 6 | 12 | 24; subject: string; body: string };
 type Campaign = {
   id: string;
@@ -268,12 +271,12 @@ export function EmailCampaignsTab() {
       </section>
 
       <div className="grid gap-3 sm:grid-cols-4">
-        {[
+        {([
           ["Clientes", data.counts.all, Users],
           ["Aguardando", data.counts.awaiting_activation, CalendarClock],
           ["Ativados", data.counts.activated, Users],
           ["Expirados", data.counts.expired, CalendarClock],
-        ].map(([label, value, Icon]) => (
+        ] satisfies SummaryMetric[]).map(([label, value, Icon]) => (
           <Card
             key={String(label)}
             className="border-white/10 bg-white/[0.06] text-white shadow-none"
