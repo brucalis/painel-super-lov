@@ -1,7 +1,11 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getSetting, logEvent } from "@/lib/license.server";
-import { sendTransactionalEmail } from "@/lib/email-provider.server";
+import {
+  EMAIL_PROVIDER,
+  sendTransactionalEmail,
+  type EmailResult,
+} from "@/lib/email-provider.server";
 
 // As tabelas são adicionadas pela migration deste módulo e ainda não fazem parte do arquivo de tipos gerado.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,14 +194,15 @@ async function sendCustomEmail(
   bodyTemplate: string,
   purpose: string,
   bodyFormat: "text" | "html" = "text",
-) {
+): Promise<EmailResult> {
   const [enabled, replyTo] = await Promise.all([
     getSetting("email_enabled"),
     getSetting("email_reply_to"),
   ]);
-  if (enabled === "false") return { sent: false, reason: "disabled" };
+  if (enabled === "false") return { sent: false, provider: EMAIL_PROVIDER, reason: "disabled" };
   const email = String(license.customers?.email || "").trim();
-  if (!email) return { sent: false, reason: "customer_email_missing" };
+  if (!email)
+    return { sent: false, provider: EMAIL_PROVIDER, reason: "customer_email_missing" };
   const subject = render(subjectTemplate, license).slice(0, 180);
   const renderedBody = render(bodyTemplate, license);
   const text =
