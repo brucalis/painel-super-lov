@@ -172,6 +172,53 @@ export type Database = {
         }
         Relationships: []
       }
+      github_license_ai_credentials: {
+        Row: {
+          created_at: string
+          encrypted_key: string
+          encryption_iv: string
+          encryption_tag: string
+          key_hint: string
+          license_id: string
+          model: string
+          provider: string
+          updated_at: string
+          validated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          encrypted_key: string
+          encryption_iv: string
+          encryption_tag: string
+          key_hint: string
+          license_id: string
+          model: string
+          provider: string
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          encrypted_key?: string
+          encryption_iv?: string
+          encryption_tag?: string
+          key_hint?: string
+          license_id?: string
+          model?: string
+          provider?: string
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_license_ai_credentials_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       github_license_connections: {
         Row: {
           branch: string
