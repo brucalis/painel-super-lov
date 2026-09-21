@@ -78,6 +78,7 @@ export const Route = createFileRoute("/api/public/agent/plan")({
             try {
               const result = await customerAgent.planPreparedCustomerProvider(auth, prompt, credential, prepared);
               return json({
+                ...result,
                 ok: true,
                 resilient: true,
                 traceId,
@@ -85,7 +86,6 @@ export const Route = createFileRoute("/api/public/agent/plan")({
                 routingOrder: providers.map((item) => item.provider),
                 providerUsed: credential.provider,
                 providerAttempt: 1,
-                ...result,
               });
             } catch (error) {
               lastError = error;
