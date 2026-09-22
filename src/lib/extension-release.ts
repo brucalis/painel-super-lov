@@ -14,6 +14,15 @@ export const CUSTOMER_EXTENSION_RELEASE = {
         "Mensagens mais claras quando a conta ou o projeto ainda precisam ser conectados.",
       ],
     },
+    {
+      version: "1.0 Stable",
+      date: "14/09/2026",
+      changes: [
+        "Versão estável final desta fase, com pré-checagem silenciosa de licença, GitHub, projeto e IAs antes da execução.",
+        "Proteção contra solicitações duplicadas, recuperação conservadora após recarga e diagnóstico técnico local sem armazenar segredos.",
+        "Stack comercial consolidado em Mistral + Gemini + Cloudflare, mantendo detecção automática de projeto, histórico, parada e reversão de alterações.",
+      ],
+    },
   ],
 } as const;
 
