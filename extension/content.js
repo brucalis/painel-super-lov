@@ -1069,45 +1069,25 @@ function setupWatermarkButton(){
     btn.disabled = true;
     btn.textContent = "\u23f3 Removendo...";
 
-    await requestLatestTokenFromHook();
-
     var storageData = await new Promise(function(resolve){
-      chrome.storage.local.get(["lovable_projectId","lovable_token"], resolve);
+      chrome.storage.local.get(["lovable_projectId","ql_session_id"], resolve);
     });
-    var pid = storageData.lovable_projectId || "";
-    var rawToken = storageData.lovable_token || "";
-    if(!pid || !rawToken){
-      if(log){ log.className = "ql-log-error"; log.innerText = "\u26a0 Projeto n\u00e3o sincronizado."; }
+    var sessionId = storageData.ql_session_id || "";
+    if(!sessionId){
+      if(log){ log.className = "ql-log-error"; log.innerText = "\u26a0 Valide sua licença novamente."; }
       btn.disabled = false;
       btn.textContent = "\ud83d\udeab Remover Marca de \u00c1gua";
       return;
     }
-    var bare = rawToken.indexOf("Bearer ") === 0 ? rawToken.slice(7) : rawToken;
-
     try {
-      // Edita o CSS diretamente via edit-code: sem IA, sem consumo de créditos.
-      var current = await wmGetGlobalCss(pid, bare);
-      var result = wmEnsureBadgeHidden(current.css);
-      if(!result.changed){
-        if(log){ log.className = "ql-log-success"; log.innerText = "\u2713 Marca d'\u00e1gua j\u00e1 estava removida."; }
-      } else {
-        var resp = await lovableApiFetch("https://api.lovable.dev/projects/" + encodeURIComponent(pid) + "/edit-code", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + bare },
-          body: JSON.stringify({
-            changes: [{ path: current.path, content: result.css }],
-            commit_message: "Remove Lovable watermark badge",
-            file_edit_type: "CodeEdit",
-            uploads: []
-          })
-        });
-        if(!resp || !(resp.ok === true || (typeof resp.status === "number" && resp.status >= 200 && resp.status < 300))){
-          var bodyTxt = "";
-          try { bodyTxt = typeof resp.data === "string" ? resp.data : JSON.stringify(resp.data); } catch(e){}
-          throw new Error("edit-code falhou: " + (resp && resp.status) + " " + bodyTxt);
-        }
-        if(log){ log.className = "ql-log-success"; log.innerText = "\u2713 Marca d'\u00e1gua removida! Atualize a preview."; }
-      }
+      var resp = await fetch("https://painel-super-lov.lovable.app/api/public/agent/project/remove-badge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + sessionId, "X-Super-Lovable-Edition": "customer-s1" },
+        body: "{}"
+      });
+      var result = await resp.json().catch(function(){ return {}; });
+      if(!resp.ok || result.ok === false) throw new Error(result.error || "Falha ao alterar o projeto no GitHub.");
+      if(log){ log.className = "ql-log-success"; log.innerText = result.already_removed ? "\u2713 Marca d'\u00e1gua j\u00e1 estava removida." : "\u2713 Marca d'\u00e1gua removida no GitHub. Aguarde o Git Sync."; }
     } catch(err) {
       if(log){ log.className = "ql-log-error"; log.innerText = "\u2717 " + (err.message || err); }
     } finally {
@@ -2406,64 +2386,32 @@ function setupDownloadProject() {
     var statusEl = document.getElementById('ql-download-status');
     btn.disabled = true;
     btn.textContent = 'Preparando...';
-    if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'ql-log-info'; statusEl.textContent = 'Verificando token e projeto...'; }
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'ql-log-info'; statusEl.textContent = 'Preparando o download pelo GitHub...'; }
 
     try {
-      var sd = await new Promise(function(r) { chrome.storage.local.get(['lovable_token', 'lovable_projectId'], r); });
-      var authToken = sd.lovable_token || '';
-      var storedProjectId = sd.lovable_projectId || '';
-      if (authToken.indexOf('Bearer ') === 0) authToken = authToken.slice(7);
-
-      var projectId = storedProjectId;
-      if (!projectId) throw new Error('Abra uma pagina de projeto do Lovable primeiro.');
-      if (!authToken) {
-        var cookieResponse = await new Promise(function(resolve) {
-          chrome.runtime.sendMessage({ action: "readCookies" }, function(resp) { resolve(resp); });
-        });
-        if (cookieResponse && cookieResponse.success && cookieResponse.tokens && cookieResponse.tokens.length > 0) {
-          authToken = cookieResponse.tokens[0].token;
-        }
-      }
-      if (!authToken) throw new Error('Token nao encontrado. Abra um projeto no Lovable e aguarde a sincronizacao.');
-
+      var sd = await new Promise(function(r) { chrome.storage.local.get(['ql_session_id'], r); });
+      if (!sd.ql_session_id) throw new Error('Valide sua licença novamente.');
       btn.textContent = 'Baixando...';
-      if (statusEl) statusEl.textContent = 'Baixando arquivos do projeto...';
-
-      var dlResponse = await new Promise(function(resolve) {
-        chrome.runtime.sendMessage({ action: "downloadProject", projectId: projectId, token: authToken }, function(resp) { resolve(resp); });
+      var response = await fetch('https://painel-super-lov.lovable.app/api/public/agent/project/download', {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + sd.ql_session_id, 'X-Super-Lovable-Edition': 'customer-s1' }
       });
-
-      if (!dlResponse || !dlResponse.success) throw new Error(dlResponse && dlResponse.error ? dlResponse.error : 'Download falhou');
-      var files = dlResponse.files;
-      if (!files || files.length === 0) throw new Error('Nenhum arquivo encontrado no projeto.');
-
-      if (statusEl) statusEl.textContent = 'Criando ZIP com ' + files.length + ' arquivos...';
-      btn.textContent = 'Empacotando...';
-      if (typeof JSZip === 'undefined') throw new Error('JSZip nao carregado. Use o Painel Lateral.');
-
-      var zip = new JSZip();
-      var imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp', '.bmp', '.tiff'];
-      var addedFiles = 0;
-      for (var fi = 0; fi < files.length; fi++) {
-        var f = files[fi];
-        if (!f.name || f.sizeExceeded) continue;
-        if (f.contents && f.binary) { zip.file(f.name, f.contents, { base64: true, binary: true }); addedFiles++; }
-        else if (!f.contents && imageExts.some(function(ext) { return f.name.toLowerCase().endsWith(ext); })) {
-          try {
-            var imgResp = await fetch('https://api.lovable.dev/projects/' + projectId + '/files/raw?path=' + encodeURIComponent(f.name), { method: 'GET', headers: { 'Authorization': 'Bearer ' + authToken }, credentials: 'omit', mode: 'cors' });
-            if (imgResp.ok) { zip.file(f.name, await imgResp.arrayBuffer(), { binary: true }); addedFiles++; }
-            else if (f.contents) { zip.file(f.name, f.contents); addedFiles++; }
-          } catch(imgErr) { if (f.contents) { zip.file(f.name, f.contents); addedFiles++; } }
-        } else if (f.contents) { zip.file(f.name, f.contents); addedFiles++; }
+      if (!response.ok) {
+        var errorData = await response.json().catch(function(){ return {}; });
+        throw new Error(errorData.error || 'O GitHub não conseguiu gerar o download.');
       }
-
-      var zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+      var zipBlob = await response.blob();
+      var disposition = response.headers.get('content-disposition') || '';
+      var filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+      var filename = filenameMatch ? filenameMatch[1] : ('projeto-github-' + new Date().toISOString().split('T')[0] + '.zip');
       var a = document.createElement('a');
-      a.href = URL.createObjectURL(zipBlob);
-      a.download = 'lovable-' + projectId.substring(0, 8) + '-' + new Date().toISOString().split('T')[0] + '.zip';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+      var objectUrl = URL.createObjectURL(zipBlob);
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(objectUrl); }, 1000);
 
-      if (statusEl) { statusEl.className = 'ql-log-success'; statusEl.textContent = addedFiles + ' arquivos baixados!'; }
+      if (statusEl) { statusEl.className = 'ql-log-success'; statusEl.textContent = 'Projeto baixado pelo GitHub!'; }
       btn.textContent = 'Download Completo!';
       setTimeout(function() { btn.textContent = 'Baixar Todos Arquivos'; btn.disabled = false; if (statusEl) statusEl.style.display = 'none'; }, 4000);
     } catch(err) {

@@ -69,9 +69,9 @@ await cp(overlayDir, customerBuildDir, { recursive: true });
 const customerManifestPath = path.join(customerBuildDir, "manifest.json");
 const customerManifest = JSON.parse(await readFile(customerManifestPath, "utf8"));
 customerManifest.name = "Superlovable";
-customerManifest.version = "33.0.29";
-customerManifest.version_name = "1.0 Stable";
-customerManifest.description = "Superlovable 1.0 Stable — Mistral, Gemini e Cloudflare com execução protegida, recuperação segura e contexto otimizado.";
+customerManifest.version = "33.0.30";
+customerManifest.version_name = "1.0.1 Stable";
+customerManifest.description = "Superlovable 1.0.1 Stable — ferramentas do projeto integradas diretamente ao GitHub.";
 customerManifest.permissions = Array.from(new Set([...(customerManifest.permissions || []), "browsingData"]));
 customerManifest.content_scripts = [
   ...(customerManifest.content_scripts || []),

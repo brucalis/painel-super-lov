@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/public/agent/status")({
           return json({
             ok: true,
             flow_mode: "direct-main-v7-smart-ai-routing",
-            edition: customerEdition ? "11.09.S3" : "32.0.44",
+            edition: customerEdition ? "1.0.1 Stable" : "32.0.44",
             configured: Boolean(
               process.env.GITHUB_APP_ID && process.env.GITHUB_CLIENT_ID &&
               process.env.GITHUB_CLIENT_SECRET && process.env.GITHUB_PRIVATE_KEY &&

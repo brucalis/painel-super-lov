@@ -2266,19 +2266,22 @@ licenseKey = resolvedKey;
   }
 
   async function removeLovableWatermark(projectId){
-    if(!projectId) throw new Error("projectId não disponível.");
     setWatermarkStatus("Removendo marca d'água...", "info");
-
-    // Edição direta do CSS via edit-code (não usa IA / não consome créditos).
-    var current = await getCurrentStylesCss(projectId);
-    var result = ensureLovableBadgeHidden(current.css);
-    if(!result.changed){
-      setWatermarkStatus("Marca d'água já estava removida.", "success");
-      return { success: true, already: true };
-    }
-    await saveCssToLovable(projectId, result.css, current.path);
-    setWatermarkStatus("Marca d'água removida com sucesso.", "success");
-    return { success: true };
+    var sd = await new Promise(function(resolve){ chrome.storage.local.get(["ql_session_id"], resolve); });
+    if(!sd.ql_session_id) throw new Error("Valide sua licença novamente.");
+    var response = await fetch("https://painel-super-lov.lovable.app/api/public/agent/project/remove-badge", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + sd.ql_session_id,
+        "Content-Type": "application/json",
+        "X-Super-Lovable-Edition": "customer-s1"
+      },
+      body: "{}"
+    });
+    var result = await response.json().catch(function(){ return {}; });
+    if(!response.ok || result.ok === false) throw new Error(result.error || "Não foi possível alterar o projeto no GitHub.");
+    setWatermarkStatus(result.already_removed ? "Marca d'água já estava removida." : "Marca d'água removida no GitHub. Aguarde o Git Sync.", "success");
+    return { success: true, already: Boolean(result.already_removed), commitSha: result.commit_sha || "" };
   }
 
 
@@ -2290,10 +2293,7 @@ licenseKey = resolvedKey;
       var originalHtml = btn.innerHTML;
       btn.textContent = "";
       try {
-        var sd = await new Promise(function(r){ chrome.storage.local.get(["lovable_projectId"], r); });
-        var pid = sd.lovable_projectId || "";
-        if(!pid) throw new Error("Projeto não sincronizado. Abra um projeto no Lovable.");
-        await removeLovableWatermark(pid);
+        await removeLovableWatermark();
         addToHistory("Remover marca d'água Lovable", "ok");
       } catch(err){
         setWatermarkStatus("Erro ao remover marca d'água: " + (err && err.message ? err.message : err), "error");
@@ -2539,81 +2539,35 @@ licenseKey = resolvedKey;
       var originalLabel = btn.innerHTML;
       btn.disabled = true;
       btn.textContent = 'Baixando...';
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'sp-log'; statusEl.textContent = 'Verificando token e projeto...'; }
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'sp-log'; statusEl.textContent = 'Preparando o download pelo GitHub...'; }
       try {
-        var sd = await new Promise(function(r){ chrome.storage.local.get(['lovable_token','lovable_token_global','lovable_projectId'], r); });
-        var authToken = (sd.lovable_token || sd.lovable_token_global || '').replace(/^Bearer\s+/i,'');
-        var projectId = sd.lovable_projectId || '';
-        if (!projectId) throw new Error('Abra uma página de projeto do Lovable primeiro.');
-
-        if (!authToken) {
-          var cookieResponse = await new Promise(function(resolve) {
-            chrome.runtime.sendMessage({ action: 'readCookies' }, function(resp) { resolve(resp); });
-          });
-          if (cookieResponse && cookieResponse.success && cookieResponse.tokens && cookieResponse.tokens.length > 0) {
-            authToken = cookieResponse.tokens[0].token;
+        var sd = await new Promise(function(r){ chrome.storage.local.get(['ql_session_id'], r); });
+        if (!sd.ql_session_id) throw new Error('Valide sua licença novamente.');
+        var response = await fetch('https://painel-super-lov.lovable.app/api/public/agent/project/download', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Bearer ' + sd.ql_session_id,
+            'X-Super-Lovable-Edition': 'customer-s1'
           }
-        }
-        if (!authToken) throw new Error('Token Lovable não encontrado. Abra o projeto no Lovable e aguarde a sincronização.');
-
-        if (statusEl) statusEl.textContent = 'Baixando arquivos do projeto...';
-        var resp = await new Promise(function(resolve){
-          chrome.runtime.sendMessage({ action: 'downloadProject', projectId: projectId, token: authToken }, function(r){ resolve(r || { success:false, error: 'sem resposta' }); });
         });
-        if (!resp || !resp.success) throw new Error((resp && resp.error) || 'Falha ao baixar arquivos');
-
-        var files = resp.files || [];
-        if (!files.length) throw new Error('Nenhum arquivo encontrado no projeto.');
-        if (typeof JSZip === 'undefined') throw new Error('JSZip não carregado. Reabra o painel lateral.');
-
-        if (statusEl) statusEl.textContent = 'Criando ZIP com ' + files.length + ' arquivos...';
-        var zip = new JSZip();
-        var imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp', '.bmp', '.tiff'];
-        var addedFiles = 0;
-        for (var fi = 0; fi < files.length; fi++) {
-          var f = files[fi];
-          if (!f.name || f.sizeExceeded) continue;
-          if (f.contents && f.binary) {
-            zip.file(f.name, f.contents, { base64: true, binary: true });
-            addedFiles++;
-          } else if (!f.contents && imageExts.some(function(ext) { return f.name.toLowerCase().endsWith(ext); })) {
-            try {
-              var imgResp = await fetch('https://api.lovable.dev/projects/' + projectId + '/files/raw?path=' + encodeURIComponent(f.name), {
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + authToken },
-                credentials: 'omit',
-                mode: 'cors'
-              });
-              if (imgResp.ok) {
-                zip.file(f.name, await imgResp.arrayBuffer(), { binary: true });
-                addedFiles++;
-              } else if (f.contents) {
-                zip.file(f.name, f.contents);
-                addedFiles++;
-              }
-            } catch(imgErr) {
-              if (f.contents) {
-                zip.file(f.name, f.contents);
-                addedFiles++;
-              }
-            }
-          } else if (f.contents) {
-            zip.file(f.name, f.contents);
-            addedFiles++;
-          }
+        if (!response.ok) {
+          var errorData = await response.json().catch(function(){ return {}; });
+          throw new Error(errorData.error || 'O GitHub não conseguiu gerar o download.');
         }
-
-        var zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+        var zipBlob = await response.blob();
+        var disposition = response.headers.get('content-disposition') || '';
+        var filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+        var filename = filenameMatch ? filenameMatch[1] : ('projeto-github-' + new Date().toISOString().split('T')[0] + '.zip');
         var a = document.createElement('a');
         var objectUrl = URL.createObjectURL(zipBlob);
         a.href = objectUrl;
-        a.download = 'lovable-' + projectId.substring(0, 8) + '-' + new Date().toISOString().split('T')[0] + '.zip';
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(objectUrl);
+        setTimeout(function(){ URL.revokeObjectURL(objectUrl); }, 1000);
 
-        if (statusEl) { statusEl.className = 'sp-log sp-log-success'; statusEl.textContent = addedFiles + ' arquivos baixados!'; }
+        if (statusEl) { statusEl.className = 'sp-log sp-log-success'; statusEl.textContent = 'Projeto baixado pelo GitHub!'; }
         btn.textContent = 'Baixado';
         setTimeout(function(){ btn.disabled = false; btn.innerHTML = originalLabel; if (statusEl) statusEl.style.display = 'none'; }, 4000);
       } catch(err) {
