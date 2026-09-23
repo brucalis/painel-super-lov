@@ -2784,11 +2784,13 @@ sessionId = data.session_id || sessionId;
         if (!data || (!data.success && !data.ok) || !data.link) {
           throw new Error((data && (data.error_display || data.error)) || 'Falha ao criar projeto');
         }
-        if (statusEl) statusEl.textContent = 'Projeto criado! Abrindo...';
+        if (statusEl) statusEl.textContent = data.warning || 'Projeto criado! Abrindo...';
         btn.textContent = 'Sucesso!';
         setTimeout(function(){
-          try { chrome.tabs.create({ url: data.link, active: true }); }
-          catch(e) { window.open(data.link, '_blank'); }
+          if (!data.openedInTab) {
+            try { chrome.tabs.create({ url: data.link, active: true }); }
+            catch(e) { window.open(data.link, '_blank'); }
+          }
           btn.disabled = false;
           btn.innerHTML = originalLabel;
         }, 500);

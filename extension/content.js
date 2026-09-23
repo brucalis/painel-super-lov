@@ -2694,11 +2694,13 @@ function setupCreateProject() {
       if (!data || (!data.success && !data.ok) || !data.link) {
         throw new Error((data && (data.error_display || data.error)) || 'Falha ao criar projeto');
       }
-      if (statusEl) { statusEl.className = 'ql-log-success'; statusEl.textContent = 'Projeto criado! Redirecionando...'; }
+      if (statusEl) { statusEl.className = data.warning ? 'ql-log-info' : 'ql-log-success'; statusEl.textContent = data.warning || 'Projeto criado! Redirecionando...'; }
       btn.textContent = 'Sucesso!';
       setTimeout(function(){
-        try { window.location.href = data.link; }
-        catch(e) { window.open(data.link, '_blank'); }
+        if (!data.openedInTab) {
+          try { window.location.href = data.link; }
+          catch(e) { window.open(data.link, '_blank'); }
+        }
       }, 400);
     } catch(err) {
       console.error('[CreateProject]', err);

@@ -328,6 +328,135 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.action !== "createLovableProjectInPage") return;
   (async () => {
     try {
+      // Teste exclusivo da edição administrativa. A edição comercial continua
+      // usando o fluxo anterior até a validação manual desta experiência.
+      const manifest = chrome.runtime.getManifest();
+      const isAdminCreateProjectTest = manifest.version === "32.0.45";
+      if (isAdminCreateProjectTest) {
+        const tab = await chrome.tabs.create({
+          url: "https://lovable.dev/#prompt=.",
+          active: true,
+        });
+        if (!tab || !tab.id) throw new Error("Não foi possível abrir a página inicial da Lovable.");
+
+        const waitForTab = async (predicate, timeoutMs) => {
+          const startedAt = Date.now();
+          while (Date.now() - startedAt < timeoutMs) {
+            const current = await chrome.tabs.get(tab.id);
+            if (predicate(current)) return current;
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
+          return null;
+        };
+
+        const loaded = await waitForTab((current) => current.status === "complete", 30000);
+        if (!loaded) throw new Error("A página inicial da Lovable demorou para carregar.");
+
+        const sendResult = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          world: "MAIN",
+          func: async () => {
+            const visible = (element) => {
+              if (!element) return false;
+              const style = getComputedStyle(element);
+              const rect = element.getBoundingClientRect();
+              return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+            };
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            const deadline = Date.now() + 20000;
+            while (Date.now() < deadline) {
+              const inputs = Array.from(document.querySelectorAll('textarea, [contenteditable="true"], [role="textbox"]'))
+                .filter(visible);
+              const input = inputs.find((el) => {
+                const hint = `${el.getAttribute("placeholder") || ""} ${el.getAttribute("aria-label") || ""}`.toLowerCase();
+                return /ask|lovable|prompt|message|descreva|criar/.test(hint);
+              }) || inputs[0];
+              if (!input) { await sleep(250); continue; }
+
+              if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
+                const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value")?.set;
+                if (setter) setter.call(input, "."); else input.value = ".";
+              } else {
+                input.focus();
+                input.textContent = ".";
+              }
+              input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "." }));
+              input.dispatchEvent(new Event("change", { bubbles: true }));
+              await sleep(180);
+
+              const scope = input.closest("form") || input.parentElement?.parentElement || document;
+              const buttons = Array.from(scope.querySelectorAll("button")).filter((button) => visible(button) && !button.disabled);
+              const score = (button) => {
+                const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("title") || ""} ${button.getAttribute("data-testid") || ""} ${button.textContent || ""}`.toLowerCase();
+                if (/send|submit|enviar|build|criar/.test(label)) return 10;
+                if (button.type === "submit") return 7;
+                return 0;
+              };
+              const sendButton = buttons.sort((a, b) => score(b) - score(a))[0];
+              if (sendButton && score(sendButton) > 0) {
+                sendButton.click();
+                return { ok: true };
+              }
+
+              input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+              input.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", bubbles: true }));
+              return { ok: true, sentWithEnter: true };
+            }
+            return { ok: false, error: "Não encontrei o campo inicial da Lovable." };
+          },
+        });
+        const sent = sendResult && sendResult[0] && sendResult[0].result;
+        if (!sent || !sent.ok) throw new Error((sent && sent.error) || "Não foi possível enviar o comando inicial.");
+
+        const projectTab = await waitForTab((current) => /\/projects\/[0-9a-f-]{20,}/i.test(current.url || ""), 60000);
+        if (!projectTab) {
+          throw new Error("A Lovable não abriu o novo projeto dentro do tempo esperado. Confira a aba que foi aberta.");
+        }
+        const projectMatch = String(projectTab.url || "").match(/\/projects\/([0-9a-f-]{20,})/i);
+        const projectId = projectMatch ? projectMatch[1] : "";
+
+        const stopResult = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          world: "MAIN",
+          func: async () => {
+            const visible = (element) => {
+              if (!element) return false;
+              const style = getComputedStyle(element);
+              const rect = element.getBoundingClientRect();
+              return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+            };
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            const deadline = Date.now() + 20000;
+            while (Date.now() < deadline) {
+              const buttons = Array.from(document.querySelectorAll("button")).filter((button) => visible(button) && !button.disabled);
+              const stopButton = buttons.find((button) => {
+                const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("title") || ""} ${button.getAttribute("data-testid") || ""} ${button.textContent || ""}`.trim().toLowerCase();
+                return /(^|\s)(stop|cancel|parar|interromper)(\s|$)/.test(label) || /stop-generation|stop-button|cancel-generation/.test(label);
+              });
+              if (stopButton) {
+                stopButton.click();
+                await sleep(350);
+                return { stopped: true };
+              }
+              await sleep(120);
+            }
+            return { stopped: false };
+          },
+        });
+        const stopped = Boolean(stopResult && stopResult[0] && stopResult[0].result && stopResult[0].result.stopped);
+        if (projectId) await chrome.storage.local.set({ lovable_projectId: projectId });
+        sendResponse({
+          ok: true,
+          success: true,
+          link: projectTab.url,
+          projectId,
+          openedInTab: true,
+          stopped,
+          warning: stopped ? "" : "Projeto criado, mas não encontrei o botão de parar. Interrompa a execução manualmente na aba da Lovable.",
+        });
+        return;
+      }
+
       let tab = null;
       const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (activeTabs && activeTabs[0] && /^https:\/\/([^/]+\.)?lovable\.dev\//.test(activeTabs[0].url || '')) {

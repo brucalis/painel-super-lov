@@ -27,10 +27,10 @@ export const CUSTOMER_EXTENSION_RELEASE = {
 } as const;
 
 export const ADMIN_EXTENSION_RELEASE = {
-  version: "32.0.44",
-  updatedAt: "03/09/2026 (horário de Brasília)",
-  downloadPath: "https://painel-super-lov.lovable.app/super-lovable-admin-v32.0.44.zip",
-  downloadName: "superlovable-v32.0.44-admin.zip",
+  version: "32.0.45 Teste",
+  updatedAt: "23/09/2026 (horário de Brasília)",
+  downloadPath: "https://painel-super-lov.lovable.app/super-lovable-admin-v32.0.45-teste.zip?v=32.0.45",
+  downloadName: "superlovable-v32.0.45-teste-admin.zip",
 } as const;
 
 export const EXTENSION_RELEASE = CUSTOMER_EXTENSION_RELEASE;
