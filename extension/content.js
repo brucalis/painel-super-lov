@@ -2698,36 +2698,26 @@ function setupCreateProject() {
     var statusEl = document.getElementById('ql-download-status');
     var originalLabel = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Criando projeto...';
-    if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'ql-log-info'; statusEl.textContent = 'Preparando criação...'; }
+    btn.textContent = 'Abrindo Lovable...';
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'ql-log-info'; statusEl.textContent = 'Abrindo a página inicial...'; }
     try {
-      var sd = await new Promise(function(r) { chrome.storage.local.get(['lovable_token', 'lovable_token_global', 'lovableBearerToken', 'ql_license_key'], r); });
-      var authToken = sd.lovableBearerToken || sd.lovable_token_global || sd.lovable_token || '';
-      var licenseKey = sd.ql_license_key || '';
-      if (authToken.indexOf('Bearer ') === 0) authToken = authToken.slice(7);
-      if (!licenseKey && !IS_ADMIN_EDITION) throw new Error('Licença não encontrada.');
-      if (!authToken) {
-        try { window.postMessage({ type: 'lovableRequestToken' }, '*'); } catch(e) {}
-        await new Promise(function(r){ setTimeout(r, 600); });
-        sd = await new Promise(function(r) { chrome.storage.local.get(['lovable_token', 'lovable_token_global', 'lovableBearerToken'], r); });
-        authToken = (sd.lovableBearerToken || sd.lovable_token_global || sd.lovable_token || '').replace(/^Bearer\s+/i, '');
-      }
-      if (statusEl) statusEl.textContent = 'Criando projeto no Lovable...';
       var data = await new Promise(function(resolve) {
-        chrome.runtime.sendMessage({ action: 'createLovableProjectInPage', token: authToken, title: '' }, function(resp) {
+        chrome.runtime.sendMessage({ action: 'openLovableHome' }, function(resp) {
           resolve(resp || { ok: false, error: 'sem resposta' });
         });
       });
       if (!data || (!data.success && !data.ok) || !data.link) {
         throw new Error((data && (data.error_display || data.error)) || 'Falha ao criar projeto');
       }
-      if (statusEl) { statusEl.className = data.warning ? 'ql-log-info' : 'ql-log-success'; statusEl.textContent = data.warning || 'Projeto criado! Redirecionando...'; }
-      btn.textContent = 'Sucesso!';
+      if (statusEl) { statusEl.className = 'ql-log-success'; statusEl.textContent = 'Lovable aberta. Crie seu novo projeto pela página inicial.'; }
+      btn.textContent = 'Aberto!';
       setTimeout(function(){
         if (!data.openedInTab) {
           try { window.location.href = data.link; }
           catch(e) { window.open(data.link, '_blank'); }
         }
+        btn.disabled = false;
+        btn.textContent = originalLabel;
       }, 400);
     } catch(err) {
       console.error('[CreateProject]', err);

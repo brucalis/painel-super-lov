@@ -11,8 +11,8 @@ const buildRoot = path.join(root, ".extension-dist");
 const adminBuildDir = path.join(buildRoot, "admin");
 const customerBuildDir = path.join(buildRoot, "customer");
 const publicDir = path.join(root, "public");
-const adminZip = path.join(publicDir, "super-lovable-admin-v32.0.48-teste.zip");
-const customerZip = path.join(publicDir, "super-lovable-1.0-stable.zip");
+const adminZip = path.join(publicDir, "super-lovable-admin-v32.0.49-teste.zip");
+const customerZip = path.join(publicDir, "super-lovable-1.0.2-stable.zip");
 const stableCustomerZip = path.join(publicDir, "super-lovable.zip");
 
 const requiredScripts = [
@@ -69,9 +69,9 @@ await cp(overlayDir, customerBuildDir, { recursive: true });
 const customerManifestPath = path.join(customerBuildDir, "manifest.json");
 const customerManifest = JSON.parse(await readFile(customerManifestPath, "utf8"));
 customerManifest.name = "Superlovable";
-customerManifest.version = "33.0.30";
-customerManifest.version_name = "1.0.1 Stable";
-customerManifest.description = "Superlovable 1.0.1 Stable — ferramentas do projeto integradas diretamente ao GitHub.";
+customerManifest.version = "33.0.31";
+customerManifest.version_name = "1.0.2 Stable";
+customerManifest.description = "Superlovable 1.0.2 Stable — ferramentas do projeto integradas diretamente ao GitHub.";
 customerManifest.permissions = Array.from(new Set([
   ...(customerManifest.permissions || []).filter((permission) => permission !== "debugger"),
   "browsingData",

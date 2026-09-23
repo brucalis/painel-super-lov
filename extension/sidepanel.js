@@ -2745,73 +2745,19 @@ sessionId = data.session_id || sessionId;
       var statusEl = document.getElementById('sp-download-status');
       var originalLabel = btn.innerHTML;
       btn.disabled = true;
-      btn.textContent = 'Criando projeto...';
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'sp-log'; statusEl.textContent = 'Preparando criação...'; }
+      btn.textContent = 'Abrindo Lovable...';
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.className = 'sp-log'; statusEl.textContent = 'Abrindo a página inicial...'; }
       try {
-        var sd = await new Promise(function(r) { chrome.storage.local.get(['lovable_token', 'lovable_token_global', 'ql_license_key'], r); });
-        var authToken = sd.lovable_token || sd.lovable_token_global || '';
-        var licenseKey = sd.ql_license_key || '';
-        if (authToken.indexOf('Bearer ') === 0) authToken = authToken.slice(7);
-        if (!licenseKey && !IS_ADMIN_EDITION) throw new Error('Licença não encontrada.');
-
-        async function readAnyToken() {
-          var s = await new Promise(function(r) { chrome.storage.local.get(['lovable_token', 'lovable_token_global'], r); });
-          var t = s.lovable_token || s.lovable_token_global || '';
-          return (t || '').replace(/^Bearer\s+/i, '');
-        }
-
-        // Fallback 1: refresh from any active lovable.dev tab
-        if (!authToken) {
-          if (statusEl) statusEl.textContent = 'Buscando token do Lovable...';
-          try { await refreshLovableTokenFromActiveTab(); } catch(e) {}
-          authToken = await readAnyToken();
-        }
-
-        // Fallback 2: query ALL lovable.dev tabs and trigger pageHook
-        if (!authToken) {
-          try {
-            var lovTabs = await chrome.tabs.query({ url: ['https://lovable.dev/*', 'https://*.lovable.dev/*'] });
-            for (var i = 0; i < lovTabs.length; i++) {
-              try {
-                await chrome.scripting.executeScript({
-                  target: { tabId: lovTabs[i].id },
-                  world: 'MAIN',
-                  func: function() {
-                    window.postMessage({ type: 'lovableRequestToken' }, '*');
-                    setTimeout(function(){ window.postMessage({ type: 'lovableRequestToken' }, '*'); }, 150);
-                    // force a real authenticated request to trigger fetch wrapper
-                    try { fetch('/api/auth/session', { credentials: 'include' }).catch(function(){}); } catch(e) {}
-                    try { fetch('https://api.lovable.dev/user/workspaces', { credentials: 'include' }).catch(function(){}); } catch(e) {}
-                  }
-                });
-              } catch(e) {}
-            }
-            await new Promise(function(r){ setTimeout(r, 1500); });
-            authToken = await readAnyToken();
-          } catch(e) {}
-        }
-
-        // Fallback 3: cookies
-        if (!authToken) {
-          var cookieResponse = await new Promise(function(resolve) {
-            chrome.runtime.sendMessage({ action: 'readCookies' }, function(resp) { resolve(resp); });
-          });
-          if (cookieResponse && cookieResponse.success && cookieResponse.tokens && cookieResponse.tokens.length > 0) {
-            authToken = cookieResponse.tokens[0].token;
-          }
-        }
-
-        if (statusEl) statusEl.textContent = 'Criando projeto no Lovable...';
         var data = await new Promise(function(resolve) {
-          chrome.runtime.sendMessage({ action: 'createLovableProjectInPage', token: authToken, title: '' }, function(resp) {
+          chrome.runtime.sendMessage({ action: 'openLovableHome' }, function(resp) {
             resolve(resp || { ok: false, error: 'sem resposta' });
           });
         });
         if (!data || (!data.success && !data.ok) || !data.link) {
           throw new Error((data && (data.error_display || data.error)) || 'Falha ao criar projeto');
         }
-        if (statusEl) statusEl.textContent = data.warning || 'Projeto criado! Abrindo...';
-        btn.textContent = 'Sucesso!';
+        if (statusEl) statusEl.textContent = 'Lovable aberta. Crie seu novo projeto pela página inicial.';
+        btn.textContent = 'Aberto!';
         setTimeout(function(){
           if (!data.openedInTab) {
             try { chrome.tabs.create({ url: data.link, active: true }); }

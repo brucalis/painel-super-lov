@@ -323,9 +323,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 });
 
-// Create Lovable project directly via page (ported from working extension)
+// Opens the Lovable home so the user can start a project manually.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || msg.action !== "createLovableProjectInPage") return;
+  if (!msg || msg.action !== "openLovableHome") return;
+  chrome.tabs.create({ url: "https://lovable.dev/", active: true })
+    .then((tab) => sendResponse({
+      ok: true,
+      success: true,
+      link: (tab && tab.url) || "https://lovable.dev/",
+      openedInTab: true,
+    }))
+    .catch((error) => sendResponse({
+      ok: false,
+      error: (error && error.message) || "Não foi possível abrir a Lovable.",
+    }));
+  return true;
+});
+
+// Legacy experimental flow kept inactive for reference.
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || msg.action !== "createLovableProjectInPageLegacy") return;
   (async () => {
     try {
       // Teste exclusivo da edição administrativa. A edição comercial continua
