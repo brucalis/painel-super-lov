@@ -11,7 +11,7 @@ const buildRoot = path.join(root, ".extension-dist");
 const adminBuildDir = path.join(buildRoot, "admin");
 const customerBuildDir = path.join(buildRoot, "customer");
 const publicDir = path.join(root, "public");
-const adminZip = path.join(publicDir, "super-lovable-admin-v32.0.45-teste.zip");
+const adminZip = path.join(publicDir, "super-lovable-admin-v32.0.46-teste.zip");
 const customerZip = path.join(publicDir, "super-lovable-1.0-stable.zip");
 const stableCustomerZip = path.join(publicDir, "super-lovable.zip");
 

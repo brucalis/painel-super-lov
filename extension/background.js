@@ -331,7 +331,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // Teste exclusivo da edição administrativa. A edição comercial continua
       // usando o fluxo anterior até a validação manual desta experiência.
       const manifest = chrome.runtime.getManifest();
-      const isAdminCreateProjectTest = manifest.version === "32.0.45";
+      const isAdminCreateProjectTest = manifest.version === "32.0.46";
       if (isAdminCreateProjectTest) {
         const tab = await chrome.tabs.create({
           url: "https://lovable.dev/#prompt=.",
@@ -382,25 +382,53 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               }
               input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "." }));
               input.dispatchEvent(new Event("change", { bubbles: true }));
-              await sleep(180);
+              input.focus();
+              await sleep(350);
 
-              const scope = input.closest("form") || input.parentElement?.parentElement || document;
-              const buttons = Array.from(scope.querySelectorAll("button")).filter((button) => visible(button) && !button.disabled);
+              const form = input.closest("form");
               const score = (button) => {
                 const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("title") || ""} ${button.getAttribute("data-testid") || ""} ${button.textContent || ""}`.toLowerCase();
-                if (/send|submit|enviar|build|criar/.test(label)) return 10;
-                if (button.type === "submit") return 7;
-                return 0;
+                let value = 0;
+                if (/send|submit|enviar|build|criar/.test(label)) value += 20;
+                if (/arrow-up|send-horizontal|paper-plane/.test(button.innerHTML.toLowerCase())) value += 12;
+                if (button.type === "submit") value += 10;
+                if (form && button.form === form) value += 10;
+                const inputRect = input.getBoundingClientRect();
+                const buttonRect = button.getBoundingClientRect();
+                const distance = Math.hypot(
+                  buttonRect.left + buttonRect.width / 2 - (inputRect.right - 24),
+                  buttonRect.top + buttonRect.height / 2 - (inputRect.bottom - 24),
+                );
+                if (distance < 220) value += Math.max(1, 10 - Math.floor(distance / 25));
+                return value;
               };
-              const sendButton = buttons.sort((a, b) => score(b) - score(a))[0];
-              if (sendButton && score(sendButton) > 0) {
-                sendButton.click();
-                return { ok: true };
+              const sendDeadline = Date.now() + 6000;
+              while (Date.now() < sendDeadline) {
+                const sendButton = Array.from(document.querySelectorAll("button"))
+                  .filter((button) => visible(button))
+                  .filter((button) => !button.disabled && button.getAttribute("aria-disabled") !== "true")
+                  .sort((a, b) => score(b) - score(a))[0];
+                if (sendButton && score(sendButton) >= 10) {
+                  sendButton.focus();
+                  sendButton.click();
+                  return { ok: true, method: "button" };
+                }
+                if (form && typeof form.requestSubmit === "function") {
+                  const submitButton = Array.from(form.querySelectorAll('button[type="submit"], input[type="submit"]'))
+                    .find((button) => !button.disabled && button.getAttribute("aria-disabled") !== "true");
+                  if (submitButton) {
+                    form.requestSubmit(submitButton);
+                    return { ok: true, method: "requestSubmit" };
+                  }
+                }
+                await sleep(150);
               }
 
-              input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
-              input.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", bubbles: true }));
-              return { ok: true, sentWithEnter: true };
+              if (form && typeof form.requestSubmit === "function") {
+                form.requestSubmit();
+                return { ok: true, method: "requestSubmit-fallback" };
+              }
+              return { ok: false, error: "O ponto foi preenchido, mas o botão de enviar não ficou disponível." };
             }
             return { ok: false, error: "Não encontrei o campo inicial da Lovable." };
           },
