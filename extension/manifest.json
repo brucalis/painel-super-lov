@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Superlovable",
-  "version": "32.0.47",
-  "version_name": "32.0.47 Teste administrativo",
+  "version": "32.0.48",
+  "version_name": "32.0.48 Teste administrativo",
   "description": "Superlovable — edição administrativa de teste.",
   "permissions": ["storage", "activeTab", "scripting", "tabs", "sidePanel", "cookies", "debugger"],
   "host_permissions": ["<all_urls>"],
@@ -32,6 +32,7 @@
     {
       "matches": ["<all_urls>"],
       "js": [
+        "edition.config.js",
         "branding.config.js",
         "remote-branding.js",
         "jszip.min.js",

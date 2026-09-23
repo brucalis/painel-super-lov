@@ -331,7 +331,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // Teste exclusivo da edição administrativa. A edição comercial continua
       // usando o fluxo anterior até a validação manual desta experiência.
       const manifest = chrome.runtime.getManifest();
-      const isAdminCreateProjectTest = manifest.version === "32.0.47";
+      const isAdminCreateProjectTest = manifest.version.startsWith("32.");
       if (isAdminCreateProjectTest) {
         const tab = await chrome.tabs.create({
           url: "https://lovable.dev/#prompt=.",

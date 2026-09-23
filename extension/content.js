@@ -1,6 +1,7 @@
 
 
 // Validação de key: ver fnx-license.js (lvbValidate)
+const IS_ADMIN_EDITION = globalThis.SUPER_LOVABLE_EDITION?.mode === 'admin';
 // A otimização usa exclusivamente o back-end da Superlovable. Ela não lê nem
 // envia tokens, mensagens ou créditos do projeto Lovable aberto pelo cliente.
 const OPTIMIZE_URLS = [
@@ -594,6 +595,26 @@ function _buildFloatingUI(){
 
     document.body.appendChild(box);
 
+    if(IS_ADMIN_EDITION){
+      qlUserName = res.ql_user_name || 'Administrador';
+      qlExpiresAt = null;
+      qlActivatedAt = res.ql_activated_at || null;
+      qLicenseStatus = 'active';
+      qLicenseKey = res.ql_license_key || null;
+      qLicenseType = 'admin';
+      qLicenseLifetime = true;
+      qlSessionId = res.ql_session_id || null;
+      chrome.storage.local.set({
+        ql_license_valid: true,
+        ql_user_name: qlUserName,
+        ql_license_status: 'active',
+        ql_license_type: 'admin',
+        ql_license_lifetime: true
+      });
+      showMainUI(box);
+      return;
+    }
+
     if(res.ql_license_valid){
       qlUserName = res.ql_user_name || null;
       qlExpiresAt = res.ql_expires_at || null;
@@ -645,6 +666,7 @@ function _buildFloatingUI(){
 
   // Sincroniza ativação/desativação entre o chat flutuante e o painel lateral
   chrome.storage.onChanged.addListener((changes, area) => {
+    if(IS_ADMIN_EDITION) return;
     if(area !== 'local' || !changes.ql_license_valid) return;
     const nowValid = changes.ql_license_valid.newValue === true;
     const wasValid = changes.ql_license_valid.oldValue === true;
@@ -671,6 +693,10 @@ function _buildFloatingUI(){
 }
 
 function showLicenseGate(box){
+  if(IS_ADMIN_EDITION){
+    showMainUI(box);
+    return;
+  }
   box.innerHTML = templateLicenseGate(qlMinimized);
 
   setTimeout(() => {
@@ -772,7 +798,7 @@ function showMainUI(box){
     checkResellerRolePopup();
 
     chrome.storage.local.get(["ql_license_key", "ql_session_id"], (res) => {
-      if(res.ql_license_key) {
+      if(!IS_ADMIN_EDITION && res.ql_license_key) {
         qlSessionId = res.ql_session_id || qlSessionId;
         startHeartbeat(res.ql_license_key);
       }
@@ -1307,6 +1333,7 @@ function removeShieldOverlay(){
 
 
 function startHeartbeat(licenseKey){
+  if(IS_ADMIN_EDITION) return;
   if(qlHeartbeatInterval) clearInterval(qlHeartbeatInterval);
 
   qlHeartbeatInterval = setInterval(async () => {
@@ -2678,7 +2705,7 @@ function setupCreateProject() {
       var authToken = sd.lovableBearerToken || sd.lovable_token_global || sd.lovable_token || '';
       var licenseKey = sd.ql_license_key || '';
       if (authToken.indexOf('Bearer ') === 0) authToken = authToken.slice(7);
-      if (!licenseKey) throw new Error('Licença não encontrada.');
+      if (!licenseKey && !IS_ADMIN_EDITION) throw new Error('Licença não encontrada.');
       if (!authToken) {
         try { window.postMessage({ type: 'lovableRequestToken' }, '*'); } catch(e) {}
         await new Promise(function(r){ setTimeout(r, 600); });

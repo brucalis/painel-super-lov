@@ -4,6 +4,7 @@
 
   if (typeof window.TS_DEBUG === "undefined") window.TS_DEBUG = false;
   const tsDebug = (...args) => { if (window.TS_DEBUG) console.log(...args); };
+  const IS_ADMIN_EDITION = globalThis.SUPER_LOVABLE_EDITION?.mode === 'admin';
 
   const SUPABASE_URL = "https://hyjsaialebpskwfvinig.supabase.co";
   // Validação de key: ver fnx-license.js (lvbValidate)
@@ -864,6 +865,10 @@ if (notifClose) {
 
   // --- License Gate ---
   function showLicenseGate() {
+    if (IS_ADMIN_EDITION) {
+      showMainUI();
+      return;
+    }
     const body = document.getElementById('sp-body');
     body.innerHTML = spTemplateLicenseGate();
     document.getElementById('sp-validate-btn').addEventListener('click', validateLicense);
@@ -1453,7 +1458,7 @@ licenseKey = resolvedKey;
     updateCountdown();
 
     chrome.storage.local.get(["ql_license_key","ql_session_id"], r => {
-      if (r.ql_license_key) {
+      if (!IS_ADMIN_EDITION && r.ql_license_key) {
         sessionId = r.ql_session_id || sessionId;
         startHeartbeat(r.ql_license_key);
       }
@@ -2388,6 +2393,7 @@ licenseKey = resolvedKey;
 
   // --- Heartbeat ---
   function startHeartbeat(key) {
+    if (IS_ADMIN_EDITION) return;
     if(heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(async () => {
       try {
@@ -2590,6 +2596,25 @@ licenseKey = resolvedKey;
       syncThemeButton();
     });
     chrome.storage.local.get(["ql_license_valid","ql_license_key","ql_user_name","ql_expires_at","ql_activated_at","ql_license_status","ql_license_type","ql_license_lifetime","ql_license_plan","ql_session_id"], async (res) => {
+      if (IS_ADMIN_EDITION) {
+        licenseKey = res.ql_license_key || null;
+        sessionId = res.ql_session_id || null;
+        userName = res.ql_user_name || 'Administrador';
+        licenseType = 'admin';
+        licenseLifetime = true;
+        licensePlan = 'admin';
+        licenseStatus = 'active';
+        chrome.storage.local.set({
+          ql_license_valid: true,
+          ql_user_name: userName,
+          ql_license_status: 'active',
+          ql_license_type: 'admin',
+          ql_license_lifetime: true,
+          ql_license_plan: 'admin'
+        });
+        showMainUI();
+        return;
+      }
       if(res.ql_license_valid) {
         licenseKey = res.ql_license_key || null;
         licenseType = res.ql_license_type || 'paid';
@@ -2646,6 +2671,7 @@ sessionId = data.session_id || sessionId;
 
     // Sincroniza ativação/desativação entre o painel lateral e o chat flutuante
     chrome.storage.onChanged.addListener((changes, area) => {
+      if (IS_ADMIN_EDITION) return;
       if(area !== 'local' || !changes.ql_license_valid) return;
       const nowValid = changes.ql_license_valid.newValue === true;
       const wasValid = changes.ql_license_valid.oldValue === true;
@@ -2726,7 +2752,7 @@ sessionId = data.session_id || sessionId;
         var authToken = sd.lovable_token || sd.lovable_token_global || '';
         var licenseKey = sd.ql_license_key || '';
         if (authToken.indexOf('Bearer ') === 0) authToken = authToken.slice(7);
-        if (!licenseKey) throw new Error('Licença não encontrada.');
+        if (!licenseKey && !IS_ADMIN_EDITION) throw new Error('Licença não encontrada.');
 
         async function readAnyToken() {
           var s = await new Promise(function(r) { chrome.storage.local.get(['lovable_token', 'lovable_token_global'], r); });
