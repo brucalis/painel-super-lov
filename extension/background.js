@@ -331,7 +331,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // Teste exclusivo da edição administrativa. A edição comercial continua
       // usando o fluxo anterior até a validação manual desta experiência.
       const manifest = chrome.runtime.getManifest();
-      const isAdminCreateProjectTest = manifest.version === "32.0.46";
+      const isAdminCreateProjectTest = manifest.version === "32.0.47";
       if (isAdminCreateProjectTest) {
         const tab = await chrome.tabs.create({
           url: "https://lovable.dev/#prompt=.",
@@ -435,6 +435,57 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         });
         const sent = sendResult && sendResult[0] && sendResult[0].result;
         if (!sent || !sent.ok) throw new Error((sent && sent.error) || "Não foi possível enviar o comando inicial.");
+
+        // A Lovable pode ignorar eventos sintéticos (`element.click()` e
+        // KeyboardEvent). Se a navegação ainda não começou, envia Enter pelo
+        // protocolo nativo do Chrome e desanexa imediatamente em seguida.
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        const afterSyntheticSubmit = await chrome.tabs.get(tab.id);
+        if (!/\/projects\/[0-9a-f-]{20,}/i.test(afterSyntheticSubmit.url || "")) {
+          const debuggee = { tabId: tab.id };
+          let attached = false;
+          try {
+            await chrome.debugger.attach(debuggee, "1.3");
+            attached = true;
+            await chrome.debugger.sendCommand(debuggee, "Runtime.evaluate", {
+              expression: `(function(){
+                const visible = (el) => {
+                  if (!el) return false;
+                  const style = getComputedStyle(el);
+                  const rect = el.getBoundingClientRect();
+                  return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+                };
+                const inputs = Array.from(document.querySelectorAll('textarea, [contenteditable="true"], [role="textbox"]')).filter(visible);
+                const input = inputs.find((el) => /ask|lovable|prompt|message|descreva|criar/i.test((el.getAttribute('placeholder') || '') + ' ' + (el.getAttribute('aria-label') || ''))) || inputs[0];
+                if (!input) return false;
+                input.focus();
+                return true;
+              })()`,
+              returnByValue: true,
+            });
+            await new Promise((resolve) => setTimeout(resolve, 180));
+            await chrome.debugger.sendCommand(debuggee, "Input.dispatchKeyEvent", {
+              type: "keyDown",
+              key: "Enter",
+              code: "Enter",
+              windowsVirtualKeyCode: 13,
+              nativeVirtualKeyCode: 13,
+            });
+            await chrome.debugger.sendCommand(debuggee, "Input.dispatchKeyEvent", {
+              type: "keyUp",
+              key: "Enter",
+              code: "Enter",
+              windowsVirtualKeyCode: 13,
+              nativeVirtualKeyCode: 13,
+            });
+          } catch (nativeSubmitError) {
+            throw new Error("O ponto foi preenchido, mas o Chrome não conseguiu confirmar o envio: " + (nativeSubmitError.message || nativeSubmitError));
+          } finally {
+            if (attached) {
+              try { await chrome.debugger.detach(debuggee); } catch (_) {}
+            }
+          }
+        }
 
         const projectTab = await waitForTab((current) => /\/projects\/[0-9a-f-]{20,}/i.test(current.url || ""), 60000);
         if (!projectTab) {

@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Superlovable",
-  "version": "32.0.46",
-  "version_name": "32.0.46 Teste administrativo",
+  "version": "32.0.47",
+  "version_name": "32.0.47 Teste administrativo",
   "description": "Superlovable — edição administrativa de teste.",
-  "permissions": ["storage", "activeTab", "scripting", "tabs", "sidePanel", "cookies"],
+  "permissions": ["storage", "activeTab", "scripting", "tabs", "sidePanel", "cookies", "debugger"],
   "host_permissions": ["<all_urls>"],
   "icons": {
     "16": "icons/icon16.png",
